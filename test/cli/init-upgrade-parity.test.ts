@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { runInit } from '@squad/cli/core/init';
@@ -21,7 +22,7 @@ import {
 } from '@squad/cli/core/upgrade';
 
 const TEST_ROOT = join(
-  process.cwd(),
+  tmpdir(),
   `.test-init-upgrade-parity-${randomBytes(4).toString('hex')}`,
 );
 

@@ -9,9 +9,9 @@
  * Auth: ANTHROPIC_API_KEY environment variable or options.anthropic.apiKey
  *
  * Model tiers:
- *   lightweight → claude-haiku-4-5
- *   standard    → claude-sonnet-4-5  (default)
- *   full        → claude-opus-4-5
+ *   lightweight → claude-haiku-4-5-20251001
+ *   standard    → claude-sonnet-4-6  (default)
+ *   full        → claude-opus-4-7
  *
  * @module adapter/providers/anthropic
  */
@@ -251,17 +251,17 @@ export class AnthropicSession implements SquadSession {
 
 const ANTHROPIC_MODELS: SquadModelInfo[] = [
   {
-    id: 'claude-opus-4-5',
-    name: 'Claude Opus 4.5',
+    id: 'claude-opus-4-7',
+    name: 'Claude Opus 4.7',
     capabilities: { supports: { vision: true, reasoningEffort: true }, limits: { max_context_window_tokens: 200000 } },
   },
   {
-    id: 'claude-sonnet-4-5',
-    name: 'Claude Sonnet 4.5',
+    id: 'claude-sonnet-4-6',
+    name: 'Claude Sonnet 4.6',
     capabilities: { supports: { vision: true, reasoningEffort: true }, limits: { max_context_window_tokens: 200000 } },
   },
   {
-    id: 'claude-haiku-4-5',
+    id: 'claude-haiku-4-5-20251001',
     name: 'Claude Haiku 4.5',
     capabilities: { supports: { vision: true, reasoningEffort: false }, limits: { max_context_window_tokens: 200000 } },
   },
@@ -281,12 +281,11 @@ export class AnthropicBackend implements ISquadClientBackend {
 
   constructor(options: SquadClientOptions = {}) {
     this.apiKey = options.anthropic?.apiKey ?? process.env['ANTHROPIC_API_KEY'] ?? '';
-    this.defaultModel = options.anthropic?.model ?? 'claude-sonnet-4-5';
+    this.defaultModel = options.anthropic?.model ?? 'claude-sonnet-4-6';
   }
 
   isConnected(): boolean {
-    // REST providers are always "connected" — no persistent process
-    return true;
+    return this.anthropic !== null;
   }
 
   async connect(): Promise<void> {

@@ -17,10 +17,10 @@ import { extractJson, runScript } from './helpers';
 // Cross-package import patterns (replicated from the script for unit testing)
 // ---------------------------------------------------------------------------
 
-const CLI_TO_SDK_SRC = /from\s+['"].*squad-sdk\/src\//;
-const SDK_TO_CLI_SRC = /from\s+['"].*squad-cli\/src\//;
-const CLI_TO_SDK_REQUIRE = /require\(['"].*squad-sdk\/src\//;
-const SDK_TO_CLI_REQUIRE = /require\(['"].*squad-cli\/src\//;
+const CLI_TO_SDK_SRC = /from\s+['"][^'"]*(?:squad-sdk|squad\/sdk)\/src\//;
+const SDK_TO_CLI_SRC = /from\s+['"][^'"]*(?:squad-cli|squad\/cli)\/src\//;
+const CLI_TO_SDK_REQUIRE = /require\(['"][^'"]*(?:squad-sdk|squad\/sdk)\/src\//;
+const SDK_TO_CLI_REQUIRE = /require\(['"][^'"]*(?:squad-cli|squad\/cli)\/src\//;
 
 function detectCrossPackageImport(
   line: string,

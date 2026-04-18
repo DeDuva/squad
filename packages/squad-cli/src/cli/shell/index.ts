@@ -26,7 +26,7 @@ import type { UsageEvent } from '@squad/sdk';
 import { enableShellMetrics, recordShellSessionDuration, recordAgentResponseLatency, recordShellError } from './shell-metrics.js';
 import { parseAgentFromDescription } from './agent-name-parser.js';
 import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, hasRosterEntries } from './coordinator.js';
-import { loadAgentCharter, buildAgentPrompt } from './spawn.js';
+import { loadAgentCharter, buildAgentPrompt, loadProviderConfig } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
 import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance } from './error-messages.js';
@@ -38,7 +38,7 @@ export type { StreamBridgeOptions } from './stream-bridge.js';
 export { ShellRenderer } from './render.js';
 export { ShellLifecycle } from './lifecycle.js';
 export type { LifecycleOptions, DiscoveredAgent } from './lifecycle.js';
-export { spawnAgent, loadAgentCharter, buildAgentPrompt } from './spawn.js';
+export { spawnAgent, loadAgentCharter, buildAgentPrompt, loadProviderConfig } from './spawn.js';
 export type { SpawnOptions, SpawnResult, ToolDefinition } from './spawn.js';
 export { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, formatConversationContext, hasRosterEntries } from './coordinator.js';
 export type { CoordinatorConfig, RoutingDecision } from './coordinator.js';
@@ -242,8 +242,15 @@ export async function runShell(): Promise<void> {
     // Non-fatal: shell works without discovered agents
   }
 
-  // Create SDK client (auto-connects on first session creation)
-  const client = new SquadClient({ cwd: teamRoot });
+  // Create SDK client using configured provider (reads .squad/provider.json)
+  const providerCfg = loadProviderConfig(teamRoot);
+  const client = new SquadClient({
+    cwd: teamRoot,
+    provider: providerCfg.provider,
+    anthropic: providerCfg.anthropic,
+    gemini: providerCfg.gemini,
+    cliPath: providerCfg.cliPath,
+  });
 
   let shellApi: ShellApi | undefined;
   let origAddMessage: ((msg: ShellMessage) => void) | undefined;
@@ -322,12 +329,18 @@ export async function runShell(): Promise<void> {
       const result = await session.sendAndWait({ prompt }, replTimeoutMs);
       debugLog('awaitStreamedResponse: sendAndWait returned', {
         type: typeof result,
-        keys: result ? Object.keys(result as Record<string, unknown>) : [],
+        keys: result && typeof result === 'object' ? Object.keys(result as Record<string, unknown>) : [],
         hasData: !!(result as Record<string, unknown> | undefined)?.['data'],
       });
-      // Return full response content as fallback for when deltas weren't captured
-      const data = (result as Record<string, unknown> | undefined)?.['data'] as Record<string, unknown> | undefined;
-      const content = typeof data?.['content'] === 'string' ? data['content'] as string : '';
+      // Return full response content as fallback for when deltas weren't captured.
+      // Anthropic/Gemini return a plain string; Copilot returns { data: { content } }.
+      let content = '';
+      if (typeof result === 'string') {
+        content = result;
+      } else {
+        const data = (result as Record<string, unknown> | undefined)?.['data'] as Record<string, unknown> | undefined;
+        content = typeof data?.['content'] === 'string' ? data['content'] as string : '';
+      }
       debugLog('awaitStreamedResponse: fallback content length', content.length);
       return content;
     } else {

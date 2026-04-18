@@ -270,7 +270,7 @@ export class GeminiBackend implements ISquadClientBackend {
   }
 
   isConnected(): boolean {
-    return true; // REST providers are always "connected"
+    return this.ai !== null;
   }
 
   async connect(): Promise<void> {

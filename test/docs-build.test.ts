@@ -188,7 +188,9 @@ describe('Docs Structure Validation', () => {
 
 // --- Astro Build Tests ---
 
-describe('Docs Build Script (Astro)', () => {
+const ASTRO_BIN = join(DOCS_DIR, 'node_modules', '.bin', 'astro');
+
+describe.skipIf(!existsSync(ASTRO_BIN))('Docs Build Script (Astro)', () => {
   beforeAll(() => {
     if (!existsSync(join(DOCS_DIR, 'package.json'))) return;
     if (existsSync(DIST_DIR)) {
