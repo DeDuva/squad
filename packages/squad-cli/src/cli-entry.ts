@@ -265,7 +265,8 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}--economy${RESET}      Activate economy mode for this session (cheaper models)`);
     console.log(`  ${BOLD}--team-root${RESET}    Override team root path for resolution`);
     console.log(`\nSetup (from source):`);
-    console.log(`  git clone https://github.com/DeDuva/squad && cd squad && npm install && npm run build`);
+    console.log(`  git clone https://github.com/DeDuva/squad`);
+    console.log(`  cd squad && npm install && npm run build`);
     console.log(`\nUpdating:`);
     console.log(`  git pull && npm run build\n`);
     return;
