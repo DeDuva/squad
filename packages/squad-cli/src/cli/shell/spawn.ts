@@ -61,7 +61,7 @@ interface ProviderJson {
  * Read .squad/provider.json and return provider options for SquadClient.
  * Falls back to 'copilot' if the file doesn't exist or is malformed.
  */
-function loadProviderConfig(teamRoot: string): {
+export function loadProviderConfig(teamRoot: string): {
   provider: SquadProviderType;
   anthropic?: { apiKey?: string; model?: string };
   gemini?: { apiKey?: string; model?: string };
