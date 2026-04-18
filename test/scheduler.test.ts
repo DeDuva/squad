@@ -38,7 +38,7 @@ function validManifest(overrides?: Partial<ScheduleManifest>): ScheduleManifest 
         name: 'Test Task',
         enabled: true,
         trigger: { type: 'interval', intervalSeconds: 60 },
-        task: { type: 'script', ref: `${process.execPath} -e console.log('hello')` },
+        task: { type: 'script', ref: `"${process.execPath}" -e console.log('hello')` },
         providers: ['local-polling'],
       },
     ],
@@ -414,7 +414,7 @@ describe('Scheduler: LocalPollingProvider', () => {
   it('should execute script tasks', async () => {
     const provider = new LocalPollingProvider();
     const entry = validEntry({
-      task: { type: 'script', ref: `${process.execPath} -e console.log('hello-from-scheduler')` },
+      task: { type: 'script', ref: `"${process.execPath}" -e console.log('hello-from-scheduler')` },
     });
     const result = await provider.execute(entry);
     expect(result.success).toBe(true);
