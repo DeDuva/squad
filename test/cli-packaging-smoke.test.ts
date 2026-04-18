@@ -231,7 +231,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-sdk resolves as a real package (not a workspace link)', () => {
     expect(installedCli).toBeDefined();
-    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@squad', 'squad-sdk', 'package.json');
+    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@squad', 'sdk', 'package.json');
     expect(existsSync(sdkPkg), 'squad-sdk not installed as dependency of squad-cli').toBe(true);
     const pkg = JSON.parse(readFileSync(sdkPkg, 'utf8'));
     expect(pkg.name).toBe('@squad/sdk');
