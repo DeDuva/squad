@@ -184,7 +184,7 @@ describe('upgradeSDK', () => {
     setVersionFetcher(async () => '2.0.0');
     setPackageJsonReader(async () => ({
       version: '1.0.0',
-      dependencies: { '@squad/monorepo': '^1.0.0' },
+      dependencies: { '@squad/sdk': '^1.0.0' },
     }));
     setPackageJsonWriter(async () => {});
   });
