@@ -6,7 +6,7 @@ import { execFile, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
-import type { MachineCapabilities } from '@bradygaster/squad-sdk/ralph/capabilities';
+import type { MachineCapabilities } from '@squad/sdk/ralph/capabilities';
 import { createVerboseLogger } from '../verbose.js';
 
 /** Normalized work item for execution. */

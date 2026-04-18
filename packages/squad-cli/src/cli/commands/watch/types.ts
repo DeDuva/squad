@@ -5,7 +5,7 @@
  * main loop stays thin and each feature is testable in isolation.
  */
 
-import type { PlatformAdapter } from '@bradygaster/squad-sdk/platform';
+import type { PlatformAdapter } from '@squad/sdk/platform';
 
 /** Phase within a single watch round. */
 export type WatchPhase = 'pre-scan' | 'post-triage' | 'post-execute' | 'housekeeping';

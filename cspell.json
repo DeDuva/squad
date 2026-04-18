@@ -4,7 +4,7 @@
   "files": ["docs/src/content/**/*.md", "README.md"],
   "ignorePaths": ["node_modules", "docs/dist", "*.json", "*.ts", "*.js", ".squad"],
   "words": [
-    "squad", "bradygaster", "astro", "pagefind", "starlight",
+    "squad", "bradygaster", "astro", "mktree", "pagefind", "starlight",
     "copilot", "subagent", "subagents", "MCP", "REPL", "CLI", "DevRel",
     "monorepo", "codespace", "codespaces", "worktree", "worktrees", "frontmatter",
     "ralph", "scribe", "pao", "fido", "eecom", "capcom",

@@ -12,7 +12,7 @@
 
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 
 const storage = new FSStorageProvider();
 import { success, warn, info } from '../core/output.js';
@@ -28,7 +28,7 @@ function isValidGitRef(ref: string): boolean {
 function isValidUpstreamName(name: string): boolean {
   return /^[a-zA-Z0-9._-]+$/.test(name);
 }
-import type { UpstreamConfig, UpstreamSource } from '@bradygaster/squad-sdk';
+import type { UpstreamConfig, UpstreamSource } from '@squad/sdk';
 
 function readUpstreams(upstreamFile: string): UpstreamConfig {
   if (!storage.existsSync(upstreamFile)) return { upstreams: [] };
