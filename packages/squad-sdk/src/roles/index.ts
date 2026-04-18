@@ -69,7 +69,7 @@ export function getCategories(): readonly RoleCategory[] {
  * This is the primary way to use base roles in `squad.config.ts`:
  *
  * ```typescript
- * import { useRole, defineSquad } from '@bradygaster/squad-sdk';
+ * import { useRole, defineSquad } from '@squad/sdk';
  *
  * export default defineSquad({
  *   agents: [

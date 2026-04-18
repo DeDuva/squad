@@ -22,7 +22,7 @@ Architects and leads who need governance proof-of-concept. DevOps teams implemen
 
 **Initialize HookPipeline with policy:**
 ```typescript
-import { HookPipeline, ReviewerLockoutHook } from '@bradygaster/squad-sdk';
+import { HookPipeline, ReviewerLockoutHook } from '@squad/sdk';
 
 const pipeline = new HookPipeline({
   allowedWritePaths: ['src/**/*.ts', 'docs/**', '.squad/**'],

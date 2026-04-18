@@ -37,15 +37,17 @@ describe('squad upgrade --self', () => {
     expect(entrySource).toContain('--insider');
   });
 
-  it('upgrade module references correct npm package name', async () => {
+  it('upgrade module uses source-based upgrade mechanism', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const upgradeSource = fs.readFileSync(
       path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'core', 'upgrade.ts'),
       'utf-8',
     );
-    expect(upgradeSource).toContain("@bradygaster/squad-cli");
-    expect(upgradeSource).toContain("'insider'");
-    expect(upgradeSource).toContain("'latest'");
+    // Squad runs from source — upgrade is git pull + rebuild, not npm install
+    expect(upgradeSource).toContain('git pull');
+    expect(upgradeSource).toContain('npm run build');
+    // SelfUpgradeOptions still accepts insider flag for API compat
+    expect(upgradeSource).toContain('insider');
   });
 });

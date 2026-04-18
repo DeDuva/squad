@@ -15,7 +15,7 @@ import {
   AgentSessionManager,
   type AgentCharter,
   type AgentSessionInfo,
-} from '@bradygaster/squad-sdk/agents';
+} from '@squad/sdk/agents';
 
 // --- Mock EventBus (matches client/event-bus.ts interface) ---
 

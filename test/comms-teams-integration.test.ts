@@ -359,8 +359,10 @@ describe('token refresh failure fallback', () => {
 
     // Refresh was attempted and failed
     expect(refreshAttempted).toBe(true);
-    // Warning logged about refresh failure
-    expect(warnSpy).toHaveBeenCalledWith('⚠️  Token refresh failed — re-authenticating...');
+    // Warning logged about refresh failure — invalid_grant is a permanent auth error
+    expect(warnSpy).toHaveBeenCalledWith(
+      '⚠️  Token refresh permanently failed (invalid_grant) — re-authenticating...',
+    );
     // Fell through to device code and succeeded
     expect(deviceCodeCompleted).toBe(true);
     expect(result.id).toBeDefined();

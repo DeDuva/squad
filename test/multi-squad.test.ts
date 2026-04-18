@@ -31,12 +31,12 @@ import { tmpdir, platform, homedir } from 'node:os';
 
 // ⚠️ Import path will be adjusted once Fenster's implementation lands.
 // Expected module: packages/squad-sdk/src/multi-squad.ts
-// Likely export path: @bradygaster/squad-sdk/multi-squad
+// Likely export path: @squad/sdk/multi-squad
 //
 // For now, we define the expected interfaces and mock the module.
 // When the real module exists, replace this block with:
 //   import { getSquadRoot, resolveSquadPath, listSquads, createSquad,
-//            deleteSquad, switchSquad, migrateIfNeeded } from '@bradygaster/squad-sdk/multi-squad';
+//            deleteSquad, switchSquad, migrateIfNeeded } from '@squad/sdk/multi-squad';
 
 // ============================================================================
 // Expected Types (from PRD spec)

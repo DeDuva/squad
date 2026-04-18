@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SquadClientWithPool } from '@bradygaster/squad-sdk/client';
-import { SessionPool, DEFAULT_POOL_CONFIG } from '@bradygaster/squad-sdk/client';
-import { EventBus } from '@bradygaster/squad-sdk/client';
+import { SquadClientWithPool } from '@squad/sdk/client';
+import { SessionPool, DEFAULT_POOL_CONFIG } from '@squad/sdk/client';
+import { EventBus } from '@squad/sdk/client';
 
 // Mock the SDK CopilotClient to avoid import.meta.resolve issues in tests
 vi.mock('@github/copilot-sdk', () => ({

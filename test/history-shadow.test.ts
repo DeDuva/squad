@@ -17,7 +17,7 @@ import {
   readHistory,
   deleteHistoryShadow,
   shadowExists,
-} from '@bradygaster/squad-sdk/agents';
+} from '@squad/sdk/agents';
 
 let tmpDir: string;
 

@@ -4,7 +4,7 @@ import {
   defineAgent,
   defineRouting,
   defineCasting,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
 /**
  * Squad Configuration — squad-sdk
@@ -22,7 +22,7 @@ export default defineSquad({
       '- **Owner:** Brady\n' +
       '- **Stack:** TypeScript (strict mode, ESM-only), Node.js ≥20, @github/copilot-sdk, Vitest, esbuild\n' +
       '- **Description:** The programmable multi-agent runtime for GitHub Copilot — v1 replatform of Squad beta\n' +
-      '- **Distribution:** npm (`npm install -g @bradygaster/squad-cli` for CLI, `npm install @bradygaster/squad-sdk` for SDK)\n' +
+      '- **Distribution:** source-only (git clone + npm run build)\n' +
       '- **Created:** 2026-02-21',
     members: [
       'keaton', 'verbal', 'fenster', 'hockney', 'mcmanus', 'kujan',

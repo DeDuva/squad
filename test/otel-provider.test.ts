@@ -20,7 +20,7 @@ import {
   getTracer,
   getMeter,
   shutdownOTel,
-} from '@bradygaster/squad-sdk/runtime/otel';
+} from '@squad/sdk/runtime/otel';
 
 // ---------------------------------------------------------------------------
 // Helpers: save/restore env

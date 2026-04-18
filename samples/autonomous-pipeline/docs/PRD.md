@@ -38,7 +38,7 @@ import {
   EventBus,
   ToolRegistry,
   Router,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
 const squadPath = resolveSquad();
 const config = loadConfig(squadPath);

@@ -22,12 +22,12 @@ import {
   resolvePersonalSquadDir,
   resolveSquadPaths,
   ensureSquadPathTriple,
-} from '@bradygaster/squad-sdk/resolution';
+} from '@squad/sdk/resolution';
 import {
   resolvePersonalAgents,
   mergeSessionCast,
   type PersonalAgentManifest,
-} from '@bradygaster/squad-sdk/agents/personal';
+} from '@squad/sdk/agents/personal';
 
 const TEST_ROOT = join(
   process.cwd(),

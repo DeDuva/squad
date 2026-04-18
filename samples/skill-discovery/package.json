@@ -9,6 +9,6 @@
     "test": "npx vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"
+    "@squad/sdk": "file:../../packages/squad-sdk"
   }
 }

@@ -133,7 +133,7 @@ describe('architectural-review script', () => {
     it('detects CLI importing from SDK src path', () => {
       expect(
         detectCrossPackageImport(
-          "import { Foo } from '@bradygaster/squad-sdk/src/foo'",
+          "import { Foo } from '@squad/sdk/src/foo'",
           'cli-to-sdk',
         ),
       ).toBe(true);
@@ -151,7 +151,7 @@ describe('architectural-review script', () => {
     it('detects require-style cross-package imports', () => {
       expect(
         detectCrossPackageImport(
-          "const x = require('@bradygaster/squad-sdk/src/foo')",
+          "const x = require('@squad/sdk/src/foo')",
           'cli-to-sdk',
         ),
       ).toBe(true);
@@ -160,7 +160,7 @@ describe('architectural-review script', () => {
     it('does not flag imports via published package name', () => {
       expect(
         detectCrossPackageImport(
-          "import { Foo } from '@bradygaster/squad-sdk'",
+          "import { Foo } from '@squad/sdk'",
           'cli-to-sdk',
         ),
       ).toBe(false);

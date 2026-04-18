@@ -20,14 +20,14 @@ import {
   resolvePersonalSquadDir, 
   resolveGlobalSquadPath,
   ensureSquadPathTriple 
-} from '@bradygaster/squad-sdk/resolution';
+} from '@squad/sdk/resolution';
 import { 
   resolvePersonalAgents, 
   mergeSessionCast,
   type PersonalAgentManifest 
-} from '@bradygaster/squad-sdk/agents/personal';
-import type { AgentManifest } from '@bradygaster/squad-sdk/config';
-import { runPersonal } from '@bradygaster/squad-cli/commands/personal';
+} from '@squad/sdk/agents/personal';
+import type { AgentManifest } from '@squad/sdk/config';
+import { runPersonal } from '@squad/cli/commands/personal';
 
 const TEST_ROOT = join(process.cwd(), `.test-personal-${randomBytes(4).toString('hex')}`);
 

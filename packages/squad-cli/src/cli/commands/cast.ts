@@ -8,9 +8,9 @@
  */
 
 import * as path from 'node:path';
-import { LocalAgentSource } from '@bradygaster/squad-sdk/config/agent-source';
-import { resolvePersonalAgents, mergeSessionCast } from '@bradygaster/squad-sdk/agents/personal';
-import { resolveSquadPaths } from '@bradygaster/squad-sdk/resolution';
+import { LocalAgentSource } from '@squad/sdk/config/agent-source';
+import { resolvePersonalAgents, mergeSessionCast } from '@squad/sdk/agents/personal';
+import { resolveSquadPaths } from '@squad/sdk/resolution';
 import { BOLD, RESET, DIM, GREEN, YELLOW } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 

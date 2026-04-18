@@ -21,7 +21,7 @@ const mockRecordSessionClosed = vi.fn();
 const mockRecordSessionError = vi.fn();
 const mockResetMetrics = vi.fn();
 
-vi.mock('@bradygaster/squad-sdk/runtime/otel-metrics', () => ({
+vi.mock('@squad/sdk/runtime/otel-metrics', () => ({
   recordTokenUsage: mockRecordTokenUsage,
   recordAgentSpawn: mockRecordAgentSpawn,
   recordAgentDuration: mockRecordAgentDuration,
@@ -49,13 +49,13 @@ describe('OTel Metric Wiring — Streaming Pipeline', () => {
 
   it('streaming module imports recordTokenUsage from otel-metrics', async () => {
     // Verify the import chain resolves — this is a compile-time/module-resolution test
-    const streamingModule = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const streamingModule = await import('@squad/sdk/runtime/streaming');
     expect(streamingModule).toBeDefined();
     expect(streamingModule.StreamingPipeline).toBeDefined();
   });
 
   it('StreamingPipeline.processEvent calls recordTokenUsage for usage events', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@squad/sdk/runtime/streaming');
 
     const pipeline = new StreamingPipeline();
 
@@ -79,7 +79,7 @@ describe('OTel Metric Wiring — Streaming Pipeline', () => {
   });
 
   it('StreamingPipeline.processEvent does NOT call recordTokenUsage for non-usage events', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@squad/sdk/runtime/streaming');
 
     const pipeline = new StreamingPipeline();
     pipeline.attachToSession('sess-1');
@@ -102,7 +102,7 @@ describe('OTel Metric Wiring — Streaming Pipeline', () => {
 
 describe('OTel Metric Wiring — Module Resolution', () => {
   it('otel-metrics exports are accessible from the main barrel', async () => {
-    const sdk = await import('@bradygaster/squad-sdk');
+    const sdk = await import('@squad/sdk');
     expect(typeof sdk.recordTokenUsage).toBe('function');
     expect(typeof sdk.recordAgentSpawn).toBe('function');
     expect(typeof sdk.recordAgentDuration).toBe('function');
@@ -120,7 +120,7 @@ describe('OTel Metric Wiring — Module Resolution', () => {
   });
 
   it('otel-metrics subpath export resolves', async () => {
-    const metricsModule = await import('@bradygaster/squad-sdk/runtime/otel-metrics');
+    const metricsModule = await import('@squad/sdk/runtime/otel-metrics');
     expect(metricsModule).toBeDefined();
   });
 });

@@ -11,11 +11,11 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 
 const storage = new FSStorageProvider();
-import { resolveGlobalSquadPath, resolvePersonalSquadDir, ensurePersonalSquadDir } from '@bradygaster/squad-sdk/resolution';
-import { resolvePersonalAgents } from '@bradygaster/squad-sdk/agents/personal';
+import { resolveGlobalSquadPath, resolvePersonalSquadDir, ensurePersonalSquadDir } from '@squad/sdk/resolution';
+import { resolvePersonalAgents } from '@squad/sdk/agents/personal';
 import { success, warn, info, BOLD, RESET, DIM } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 

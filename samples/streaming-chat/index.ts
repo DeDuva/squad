@@ -12,11 +12,11 @@
 import * as readline from 'node:readline';
 
 // SDK barrel exports: CastingEngine, StreamingPipeline
-import { CastingEngine, StreamingPipeline } from '@bradygaster/squad-sdk';
-import type { StreamDelta } from '@bradygaster/squad-sdk';
+import { CastingEngine, StreamingPipeline } from '@squad/sdk';
+import type { StreamDelta } from '@squad/sdk';
 
 // Client sub-path exports: SquadClientWithPool, EventBus
-import { SquadClientWithPool, EventBus } from '@bradygaster/squad-sdk/client';
+import { SquadClientWithPool, EventBus } from '@squad/sdk/client';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Agent definitions

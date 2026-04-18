@@ -13,15 +13,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-import { SessionRegistry } from '@bradygaster/squad-cli/shell/sessions';
-import { ShellLifecycle, type LifecycleOptions, type DiscoveredAgent } from '@bradygaster/squad-cli/shell/lifecycle';
-import { ShellRenderer } from '@bradygaster/squad-cli/shell/render';
-import { parseInput, type ParsedInput, type MessageType } from '@bradygaster/squad-cli/shell/router';
+import { SessionRegistry } from '@squad/cli/shell/sessions';
+import { ShellLifecycle, type LifecycleOptions, type DiscoveredAgent } from '@squad/cli/shell/lifecycle';
+import { ShellRenderer } from '@squad/cli/shell/render';
+import { parseInput, type ParsedInput, type MessageType } from '@squad/cli/shell/router';
 import {
   parseCoordinatorResponse,
   formatConversationContext,
   type RoutingDecision,
-} from '@bradygaster/squad-cli/shell/coordinator';
+} from '@squad/cli/shell/coordinator';
 
 // ============================================================================
 // Helpers

@@ -1,8 +1,8 @@
 {
-  "name": "@bradygaster/squad",
+  "name": "@squad/monorepo",
   "version": "0.9.1",
   "private": true,
-  "description": "Squad — Programmable multi-agent runtime for GitHub Copilot, built on @github/copilot-sdk",
+  "description": "Squad — Programmable multi-agent runtime supporting GitHub Copilot, Anthropic, and Gemini",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -51,12 +51,12 @@
     "sdk"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/bradygaster/squad#readme",
+  "homepage": "https://github.com/DeDuva/squad#readme",
   "bugs": {
-    "url": "https://github.com/bradygaster/squad/issues"
+    "url": "https://github.com/DeDuva/squad/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bradygaster/squad.git"
+    "url": "https://github.com/DeDuva/squad.git"
   }
 }

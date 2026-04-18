@@ -101,8 +101,8 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
       const cliEntryPath = join(
         tempDir,
         'node_modules',
-        '@bradygaster',
-        'squad-cli',
+        '@squad',
+        'cli',
         'dist',
         'cli-entry.js',
       );
@@ -209,7 +209,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
     return [
       join(cli.tempDir, 'node_modules', dependency),
-      join(cli.tempDir, 'node_modules', '@bradygaster', 'squad-cli', 'node_modules', dependency),
+      join(cli.tempDir, 'node_modules', '@squad', 'cli', 'node_modules', dependency),
     ].find(path => existsSync(path));
   }
 
@@ -220,7 +220,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-cli has no file: dependencies (breaks global installs)', () => {
     expect(installedCli).toBeDefined();
-    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@bradygaster', 'squad-cli', 'package.json');
+    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@squad', 'cli', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     const deps = pkg.dependencies || {};
     for (const [name, version] of Object.entries(deps)) {
@@ -231,10 +231,10 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-sdk resolves as a real package (not a workspace link)', () => {
     expect(installedCli).toBeDefined();
-    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@bradygaster', 'squad-sdk', 'package.json');
+    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@squad', 'sdk', 'package.json');
     expect(existsSync(sdkPkg), 'squad-sdk not installed as dependency of squad-cli').toBe(true);
     const pkg = JSON.parse(readFileSync(sdkPkg, 'utf8'));
-    expect(pkg.name).toBe('@bradygaster/squad-sdk');
+    expect(pkg.name).toBe('@squad/sdk');
   });
 
   // ============================================================================

@@ -18,7 +18,7 @@ import {
   writeModelPreference,
   writeAgentModelOverrides,
   resolveModel,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 
 // Temp directory for each test
 let squadDir: string;

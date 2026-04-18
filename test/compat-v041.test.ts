@@ -14,10 +14,10 @@ import {
   parseRoutingMarkdown,
   matchIssueLabels,
   type CompiledRouter,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 
 // --- Casting ---
-import { CastingEngine, type CastMember } from '@bradygaster/squad-sdk/casting';
+import { CastingEngine, type CastMember } from '@squad/sdk/casting';
 
 // --- Config ---
 import {
@@ -26,10 +26,10 @@ import {
   validateConfigDetailed,
   loadConfigSync,
   type SquadConfig,
-} from '@bradygaster/squad-sdk/runtime';
+} from '@squad/sdk/runtime';
 
 // --- Tools ---
-import { ToolRegistry } from '@bradygaster/squad-sdk/tools';
+import { ToolRegistry } from '@squad/sdk/tools';
 
 // --- Hooks ---
 import {
@@ -37,10 +37,10 @@ import {
   ReviewerLockoutHook,
   DEFAULT_BLOCKED_COMMANDS,
   type PreToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
+} from '@squad/sdk/hooks';
 
 // --- Event Bus ---
-import { EventBus, type SquadEvent, type SquadEventType } from '@bradygaster/squad-sdk/runtime/event-bus';
+import { EventBus, type SquadEvent, type SquadEventType } from '@squad/sdk/runtime/event-bus';
 
 // --- Models ---
 import {
@@ -50,19 +50,19 @@ import {
   getModelInfo,
   getFallbackChain,
   isModelAvailable,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 
 // --- Skills ---
-import { SkillRegistry, parseFrontmatter, parseSkillFile } from '@bradygaster/squad-sdk/skills';
+import { SkillRegistry, parseFrontmatter, parseSkillFile } from '@squad/sdk/skills';
 
 // --- Streaming ---
-import { StreamingPipeline, type UsageEvent } from '@bradygaster/squad-sdk/runtime/streaming';
+import { StreamingPipeline, type UsageEvent } from '@squad/sdk/runtime/streaming';
 
 // --- Agent doc ---
-import { parseAgentDoc } from '@bradygaster/squad-sdk/config';
+import { parseAgentDoc } from '@squad/sdk/config';
 
 // --- Migration ---
-import { MigrationRegistry, compareSemVer, parseSemVer } from '@bradygaster/squad-sdk/config';
+import { MigrationRegistry, compareSemVer, parseSemVer } from '@squad/sdk/config';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';

@@ -29,7 +29,7 @@ import {
   recordSessionCreated,
   recordSessionClosed,
   VERSION,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 import type {
   CastMember,
   AgentRole,
@@ -37,7 +37,7 @@ import type {
   SquadConfig,
   TierContext,
   SquadTelemetryHandle,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 import chalk from 'chalk';
 
 // ============================================================================
@@ -786,7 +786,7 @@ export async function runPipeline(): Promise<void> {
       }
 
       // Find a task matching this agent's role
-      const task = findNextTask(tasks, agent.member.role);
+      const task = findNextTask(tasks, agent.member.role as AgentRole);
       if (!task) continue;
 
       // Assign task

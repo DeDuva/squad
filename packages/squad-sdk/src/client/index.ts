@@ -14,6 +14,7 @@ export {
   SquadClient,
   type SquadClientOptions,
   type SquadConnectionState,
+  type SquadProviderType,
 } from '../adapter/client.js';
 
 export type {

@@ -18,7 +18,7 @@ import {
   compileCharter,
   compileCharterFull,
   type CharterCompileOptions,
-} from '@bradygaster/squad-sdk/agents';
+} from '@squad/sdk/agents';
 
 // --- Fixtures ---
 

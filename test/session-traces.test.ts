@@ -8,13 +8,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
+import { SquadClient } from '@squad/sdk/client';
 import { CopilotClient } from '@github/copilot-sdk';
 import {
   StreamingPipeline,
   type StreamDelta,
   type UsageEvent,
-} from '@bradygaster/squad-sdk/runtime/streaming';
+} from '@squad/sdk/runtime/streaming';
 
 // Mock CopilotClient
 vi.mock('@github/copilot-sdk', () => {
@@ -50,8 +50,8 @@ vi.mock('@github/copilot-sdk', () => {
 });
 
 // Mock otel-metrics to verify they're called
-vi.mock('@bradygaster/squad-sdk/runtime/otel-metrics', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('@bradygaster/squad-sdk/runtime/otel-metrics')>();
+vi.mock('@squad/sdk/runtime/otel-metrics', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@squad/sdk/runtime/otel-metrics')>();
   return {
     ...orig,
     recordTimeToFirstToken: vi.fn(),
@@ -65,7 +65,7 @@ import {
   recordTimeToFirstToken,
   recordResponseDuration,
   recordTokensPerSecond,
-} from '@bradygaster/squad-sdk/runtime/otel-metrics';
+} from '@squad/sdk/runtime/otel-metrics';
 
 // ============================================================================
 // #259 — SquadClient.sendMessage()

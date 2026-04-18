@@ -6,7 +6,7 @@
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { TIMEOUTS, FSStorageProvider } from '@bradygaster/squad-sdk';
+import { TIMEOUTS, FSStorageProvider } from '@squad/sdk';
 import { success, warn, info, dim, bold, DIM, BOLD, RESET } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 import { detectSquadDir } from '../core/detect-squad-dir.js';

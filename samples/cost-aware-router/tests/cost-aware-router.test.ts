@@ -11,9 +11,9 @@ import {
   selectResponseTier,
   getTier,
   MODELS,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
-import type { SquadConfig, TierName } from '@bradygaster/squad-sdk';
+import type { SquadConfig, TierName } from '@squad/sdk';
 
 // ── Shared config (mirrors index.ts) ──
 

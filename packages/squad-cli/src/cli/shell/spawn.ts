@@ -2,14 +2,16 @@
  * Agent spawning — loads charters, builds prompts, and manages spawn lifecycle.
  *
  * Creates SDK sessions via SquadClient, sends the task, and streams the response.
+ * Provider selection (copilot/anthropic/gemini) is read from .squad/provider.json.
  */
 
-import { resolveSquad } from '@bradygaster/squad-sdk/resolution';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
-import type { SquadSession } from '@bradygaster/squad-sdk/client';
-import { SquadState, FSStorageProvider } from '@bradygaster/squad-sdk';
+import { resolveSquad } from '@squad/sdk/resolution';
+import { SquadClient } from '@squad/sdk/client';
+import type { SquadSession } from '@squad/sdk/client';
+import { SquadState, FSStorageProvider } from '@squad/sdk';
 import { SessionRegistry } from './sessions.js';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import type { SquadProviderType } from '@squad/sdk/client';
 
 /** Debug logger — writes to stderr only when SQUAD_DEBUG=1. */
 function debugLog(...args: unknown[]): void {
@@ -42,6 +44,48 @@ export interface SpawnResult {
   status: 'completed' | 'streaming' | 'error';
   response?: string;
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Provider config loader
+// ---------------------------------------------------------------------------
+
+interface ProviderJson {
+  type?: SquadProviderType;
+  anthropic?: { apiKey?: string; defaultModel?: string };
+  gemini?: { apiKey?: string; defaultModel?: string };
+  copilot?: { cliPath?: string };
+}
+
+/**
+ * Read .squad/provider.json and return provider options for SquadClient.
+ * Falls back to 'copilot' if the file doesn't exist or is malformed.
+ */
+function loadProviderConfig(teamRoot: string): {
+  provider: SquadProviderType;
+  anthropic?: { apiKey?: string; model?: string };
+  gemini?: { apiKey?: string; model?: string };
+  cliPath?: string;
+} {
+  try {
+    const storage = new FSStorageProvider();
+    const raw = storage.readSync(join(teamRoot, '.squad', 'provider.json'));
+    if (!raw) return { provider: 'copilot' };
+    const cfg: ProviderJson = JSON.parse(raw);
+    const provider: SquadProviderType = cfg.type ?? 'copilot';
+    return {
+      provider,
+      anthropic: cfg.anthropic
+        ? { apiKey: cfg.anthropic.apiKey, model: cfg.anthropic.defaultModel }
+        : undefined,
+      gemini: cfg.gemini
+        ? { apiKey: cfg.gemini.apiKey, model: cfg.gemini.defaultModel }
+        : undefined,
+      cliPath: cfg.copilot?.cliPath,
+    };
+  } catch {
+    return { provider: 'copilot' };
+  }
 }
 
 /**
@@ -116,17 +160,22 @@ export async function spawnAgent(
   try {
     const systemPrompt = buildAgentPrompt(charter, { systemContext: options.systemContext });
 
-    if (!options.client) {
-      // No client provided — return stub for backward compatibility
-      registry.updateStatus(name, 'idle');
-      return {
-        agentName: name,
-        status: 'completed',
-        response: `[Agent ${name} spawn ready — no client provided]`,
-      };
+    // Use provided client, or auto-create one from .squad/provider.json
+    let client = options.client;
+    let ownedClient = false;
+    if (!client) {
+      const providerCfg = loadProviderConfig(teamRoot);
+      client = new SquadClient({
+        provider: providerCfg.provider,
+        anthropic: providerCfg.anthropic,
+        gemini: providerCfg.gemini,
+        cliPath: providerCfg.cliPath,
+      });
+      await client.connect();
+      ownedClient = true;
     }
 
-    const session: SquadSession = await options.client.createSession({
+    const session: SquadSession = await client.createSession({
       streaming: true,
       systemMessage: { mode: 'append', content: systemPrompt },
       workingDirectory: teamRoot,
@@ -147,6 +196,9 @@ export async function spawnAgent(
     }
 
     try { await session.close(); } catch (err) { debugLog('spawnAgent: failed to close session for', name, err); }
+    if (ownedClient) {
+      try { await client.disconnect(); } catch (err) { debugLog('spawnAgent: failed to disconnect owned client:', err); }
+    }
 
     registry.updateStatus(name, 'idle');
     return {

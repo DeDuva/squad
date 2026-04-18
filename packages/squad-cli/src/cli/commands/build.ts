@@ -19,7 +19,7 @@
 
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 import { success, warn, info, dim, BOLD, RESET, YELLOW, GREEN, RED } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 
@@ -29,8 +29,8 @@ import type {
   CeremonyDefinition,
   ModelPreference,
   BuilderModelId,
-} from '@bradygaster/squad-sdk';
-import type { SkillDefinition as BuilderSkillDefinition } from '@bradygaster/squad-sdk/builders';
+} from '@squad/sdk';
+import type { SkillDefinition as BuilderSkillDefinition } from '@squad/sdk/builders';
 
 // ---------------------------------------------------------------------------
 // Constants

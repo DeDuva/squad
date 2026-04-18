@@ -17,7 +17,7 @@ import {
   getPidPath,
   isProcessAlive,
   type WatchPidInfo,
-} from '@bradygaster/squad-cli/commands/watch';
+} from '@squad/cli/commands/watch';
 
 /** Create a temp directory with a .squad subdirectory for testing. */
 function makeTempTeamRoot(): string {

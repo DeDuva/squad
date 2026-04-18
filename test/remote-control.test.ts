@@ -19,7 +19,7 @@ import {
   RC_PROTOCOL_VERSION,
   serializeEvent,
   parseCommand,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
 describe('Protocol', () => {
   it('serializes events to JSON', () => {

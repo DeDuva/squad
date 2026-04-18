@@ -16,7 +16,7 @@ import {
   compareSemVer,
   type Migration,
   type MigrationResult,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 import {
   migrateMarkdownToConfig,
   parseTeamMarkdown,
@@ -24,18 +24,18 @@ import {
   generateConfigFromParsed,
   type MarkdownParseResult,
   type MarkdownMigrationOptions,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 import {
   exportSquadConfig,
   serializeBundle,
   type ExportBundle,
-} from '@bradygaster/squad-sdk/sharing';
+} from '@squad/sdk/sharing';
 import {
   importSquadConfig,
   deserializeBundle,
   validateBundle,
-} from '@bradygaster/squad-sdk/sharing';
-import { DEFAULT_CONFIG, type SquadConfig } from '@bradygaster/squad-sdk/runtime';
+} from '@squad/sdk/sharing';
+import { DEFAULT_CONFIG, type SquadConfig } from '@squad/sdk/runtime';
 
 // ============================================================================
 // Helpers

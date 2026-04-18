@@ -1,6 +1,6 @@
 /**
  * M4-3: Distribution configuration
- * Supports npm distribution (npm install -g @bradygaster/squad-cli).
+ * Supports source-based distribution (git clone + npm run build).
  */
 
 export interface GitHubDistConfig {
@@ -11,10 +11,10 @@ export interface GitHubDistConfig {
 }
 
 const DEFAULT_CONFIG: GitHubDistConfig = {
-  owner: 'bradygaster',
+  owner: 'DeDuva',
   repo: 'squad',
   binaryName: 'squad',
-  installCommandTemplate: 'npx @bradygaster/squad-cli',
+  installCommandTemplate: 'git clone https://github.com/DeDuva/squad && cd squad && npm install && npm run build',
 };
 
 /**

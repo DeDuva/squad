@@ -10,7 +10,7 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 import { fatal } from '../core/errors.js';
 
 const storage = new FSStorageProvider();

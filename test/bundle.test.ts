@@ -15,7 +15,7 @@ import {
   getBundleTargets,
   validateBundleOutput,
   type BundleConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 import {
   generatePackageJson,
@@ -23,7 +23,7 @@ import {
   getPublishFiles,
   getDefaultExports,
   type NpmPackageConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 import {
   generateInstallScript,
@@ -32,7 +32,7 @@ import {
   generateNpxEntryPoint,
   getDefaultDistConfig,
   type GitHubDistConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 // ─── M4-1: Bundle strategy ──────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ describe('bundle', () => {
 
 describe('npm-package', () => {
   const baseConfig: NpmPackageConfig = {
-    name: '@bradygaster/squad',
+    name: '@squad/monorepo',
     version: '0.6.0',
     description: 'Squad SDK',
     exports: {
@@ -198,7 +198,7 @@ describe('npm-package', () => {
   describe('generatePackageJson', () => {
     it('generates valid package.json with required fields', () => {
       const pkg = generatePackageJson(baseConfig);
-      expect(pkg.name).toBe('@bradygaster/squad');
+      expect(pkg.name).toBe('@squad/monorepo');
       expect(pkg.version).toBe('0.6.0');
       expect(pkg.type).toBe('module');
     });
@@ -312,7 +312,7 @@ describe('npm-package', () => {
 
     it('validates scoped package names', () => {
       const result = validatePackageJson({
-        name: '@bradygaster/squad', version: '1.0.0',
+        name: '@squad/monorepo', version: '1.0.0',
         type: 'module', exports: { '.': './dist/index.js' },
         files: ['dist/'],
       });
@@ -378,9 +378,9 @@ describe('github-dist', () => {
       expect(script).toContain('REPO="myrepo"');
     });
 
-    it('uses bradygaster/squad as default', () => {
+    it('uses DeDuva/squad as default', () => {
       const script = generateInstallScript();
-      expect(script).toContain('OWNER="bradygaster"');
+      expect(script).toContain('OWNER="DeDuva"');
       expect(script).toContain('REPO="squad"');
     });
 
@@ -398,10 +398,10 @@ describe('github-dist', () => {
 
   describe('validateGitHubRelease', () => {
     const config: GitHubDistConfig = {
-      owner: 'bradygaster',
+      owner: 'DeDuva',
       repo: 'squad',
       binaryName: 'squad',
-      installCommandTemplate: 'npx @bradygaster/squad-cli',
+      installCommandTemplate: 'git clone https://github.com/{{owner}}/{{repo}} && cd {{repo}} && npm install && npm run build',
     };
 
     it('validates a proper version', () => {
@@ -442,14 +442,19 @@ describe('github-dist', () => {
   });
 
   describe('getInstallCommand', () => {
-    it('returns npx command with defaults', () => {
+    it('returns git clone command with defaults', () => {
       const cmd = getInstallCommand();
-      expect(cmd).toBe('npx @bradygaster/squad-cli');
+      expect(cmd).toContain('git clone');
+      expect(cmd).toContain('DeDuva/squad');
     });
 
-    it('substitutes custom owner/repo', () => {
-      const cmd = getInstallCommand({ owner: 'acme', repo: 'tool' });
-      expect(cmd).toBe('npx @bradygaster/squad-cli');
+    it('substitutes custom owner/repo when template has placeholders', () => {
+      const cmd = getInstallCommand({
+        installCommandTemplate: 'git clone https://github.com/{{owner}}/{{repo}}',
+        owner: 'acme',
+        repo: 'tool',
+      });
+      expect(cmd).toBe('git clone https://github.com/acme/tool');
     });
 
     it('uses custom template', () => {
@@ -481,9 +486,9 @@ describe('github-dist', () => {
   });
 
   describe('getDefaultDistConfig', () => {
-    it('returns config with bradygaster owner', () => {
+    it('returns config with DeDuva owner', () => {
       const config = getDefaultDistConfig();
-      expect(config.owner).toBe('bradygaster');
+      expect(config.owner).toBe('DeDuva');
     });
 
     it('returns config with squad repo', () => {
@@ -495,7 +500,7 @@ describe('github-dist', () => {
       const a = getDefaultDistConfig();
       a.owner = 'changed';
       const b = getDefaultDistConfig();
-      expect(b.owner).toBe('bradygaster');
+      expect(b.owner).toBe('DeDuva');
     });
   });
 });

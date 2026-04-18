@@ -6,7 +6,7 @@
 
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 import { success, warn, info, dim, bold } from './output.js';
 import { fatal } from './errors.js';
 import { detectSquadDir } from './detect-squad-dir.js';
@@ -723,44 +723,20 @@ function detectPackageManager(): 'npm' | 'pnpm' | 'yarn' {
 }
 
 /**
- * Self-upgrade the Squad CLI package via the detected package manager.
+ * Self-upgrade Squad by pulling the latest commits and rebuilding from source.
  *
- * Detects whether the CLI was installed via npm, pnpm, or yarn and runs the
- * appropriate global install command. On EACCES errors, suggests `sudo` with
- * the detected installer name.
+ * Squad runs from source — upgrading means pulling from the git remote and
+ * running a rebuild. The `options` parameter is kept for API compatibility.
  */
-export async function selfUpgradeCli(options: SelfUpgradeOptions = {}): Promise<void> {
+export async function selfUpgradeCli(_options: SelfUpgradeOptions = {}): Promise<void> {
   const { execSync } = await import('node:child_process');
-  const tag = options.insider ? 'insider' : 'latest';
-  const pkg = `@bradygaster/squad-cli@${tag}`;
-  const pm = detectPackageManager();
+  const cmd = 'git pull && npm run build';
 
-  let cmd: string;
-  switch (pm) {
-    case 'pnpm':
-      cmd = `pnpm add -g ${pkg}`;
-      break;
-    case 'yarn':
-      cmd = `yarn global add ${pkg}`;
-      break;
-    default:
-      cmd = `npm install -g ${pkg}`;
-      break;
-  }
-
-  info(`Self-upgrading via ${pm}: ${cmd}`);
+  info(`Upgrading from source: ${cmd}`);
 
   try {
     execSync(cmd, { stdio: 'inherit' });
   } catch (err: unknown) {
-    const isPermission =
-      err instanceof Error &&
-      'code' in err &&
-      (err as NodeJS.ErrnoException).code === 'EACCES';
-    if (isPermission) {
-      warn(`Permission denied. Try: sudo ${cmd}`);
-    } else {
-      warn(`Upgrade failed. Try running manually: ${cmd}`);
-    }
+    warn(`Upgrade failed. Try running manually: ${cmd}`);
   }
 }

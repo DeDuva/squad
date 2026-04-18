@@ -38,7 +38,7 @@ const {
 
 // ── Module mocks ────────────────────────────────────────────────────
 
-vi.mock('@bradygaster/squad-sdk', () => ({
+vi.mock('@squad/sdk', () => ({
   FSStorageProvider: vi.fn(() => mockStorage),
 }));
 

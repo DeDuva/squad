@@ -18,25 +18,25 @@ describe('CLI: copilot command', () => {
   });
 
   it('module exports runCopilot function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/copilot');
+    const mod = await import('@squad/cli/commands/copilot');
     expect(typeof mod.runCopilot).toBe('function');
   });
 
   it('module exports CopilotFlags interface (verifiable via function)', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/copilot');
+    const mod = await import('@squad/cli/commands/copilot');
     // runCopilot(dest, flags) — 2 parameters
     expect(mod.runCopilot.length).toBe(2);
   });
 
   it('throws when no squad directory exists', async () => {
-    const { runCopilot } = await import('@bradygaster/squad-cli/commands/copilot');
+    const { runCopilot } = await import('@squad/cli/commands/copilot');
     mkdirSync(TEST_ROOT, { recursive: true });
 
     await expect(runCopilot(TEST_ROOT, {})).rejects.toThrow(/squad/i);
   });
 
   it('handles --off flag when copilot is not on team', async () => {
-    const { runCopilot } = await import('@bradygaster/squad-cli/commands/copilot');
+    const { runCopilot } = await import('@squad/cli/commands/copilot');
     mkdirSync(join(TEST_ROOT, '.squad'), { recursive: true });
     writeFileSync(join(TEST_ROOT, '.squad', 'team.md'), '# Team\n\n## Members\n');
 
@@ -45,7 +45,7 @@ describe('CLI: copilot command', () => {
   });
 
   it('adds copilot section to team.md', async () => {
-    const { runCopilot } = await import('@bradygaster/squad-cli/commands/copilot');
+    const { runCopilot } = await import('@squad/cli/commands/copilot');
     mkdirSync(join(TEST_ROOT, '.squad'), { recursive: true });
     writeFileSync(join(TEST_ROOT, '.squad', 'team.md'), '# Team\n\n## Members\n');
 
@@ -56,7 +56,7 @@ describe('CLI: copilot command', () => {
   });
 
   it('reports already-on-team when copilot exists without --auto-assign', async () => {
-    const { runCopilot } = await import('@bradygaster/squad-cli/commands/copilot');
+    const { runCopilot } = await import('@squad/cli/commands/copilot');
     mkdirSync(join(TEST_ROOT, '.squad'), { recursive: true });
     writeFileSync(join(TEST_ROOT, '.squad', 'team.md'), '# Team\n\n## 🤖 Coding Agent\n@copilot\n');
 

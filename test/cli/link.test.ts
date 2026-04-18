@@ -27,12 +27,12 @@ describe('CLI: link command', () => {
   });
 
   it('module exports runLink function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/link');
+    const mod = await import('@squad/cli/commands/link');
     expect(typeof mod.runLink).toBe('function');
   });
 
   it('creates .squad/config.json with relative teamRoot', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     runLink(PROJECT_DIR, TEAM_DIR);
 
     const configPath = join(PROJECT_DIR, '.squad', 'config.json');
@@ -45,7 +45,7 @@ describe('CLI: link command', () => {
   });
 
   it('creates .squad directory if it does not exist', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     expect(existsSync(join(PROJECT_DIR, '.squad'))).toBe(false);
 
     runLink(PROJECT_DIR, TEAM_DIR);
@@ -54,7 +54,7 @@ describe('CLI: link command', () => {
   });
 
   it('adds .squad/config.json to .gitignore', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     runLink(PROJECT_DIR, TEAM_DIR);
 
     const gitignorePath = join(PROJECT_DIR, '.gitignore');
@@ -64,7 +64,7 @@ describe('CLI: link command', () => {
   });
 
   it('does not duplicate .gitignore entry on re-link', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     runLink(PROJECT_DIR, TEAM_DIR);
     runLink(PROJECT_DIR, TEAM_DIR);
 
@@ -74,7 +74,7 @@ describe('CLI: link command', () => {
   });
 
   it('preserves existing .gitignore content', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     writeFileSync(join(PROJECT_DIR, '.gitignore'), 'node_modules/\n');
 
     runLink(PROJECT_DIR, TEAM_DIR);
@@ -85,27 +85,27 @@ describe('CLI: link command', () => {
   });
 
   it('throws on non-existent target path', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     const bogus = join(TEST_ROOT, 'does-not-exist');
     expect(() => runLink(PROJECT_DIR, bogus)).toThrow(/does not exist/i);
   });
 
   it('throws when target is a file, not a directory', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     const filePath = join(TEST_ROOT, 'a-file.txt');
     writeFileSync(filePath, 'not a dir');
     expect(() => runLink(PROJECT_DIR, filePath)).toThrow(/not a directory/i);
   });
 
   it('throws when target has no .squad/ or .ai-team/ directory', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     const emptyDir = join(TEST_ROOT, 'empty-team');
     mkdirSync(emptyDir, { recursive: true });
     expect(() => runLink(PROJECT_DIR, emptyDir)).toThrow(/does not contain/i);
   });
 
   it('accepts target with .ai-team/ directory', async () => {
-    const { runLink } = await import('@bradygaster/squad-cli/commands/link');
+    const { runLink } = await import('@squad/cli/commands/link');
     const aiTeamDir = join(TEST_ROOT, 'ai-team-repo');
     mkdirSync(join(aiTeamDir, '.ai-team'), { recursive: true });
 

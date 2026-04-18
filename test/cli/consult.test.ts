@@ -20,7 +20,7 @@ import {
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { isConsultMode, type SquadDirConfig } from '@bradygaster/squad-sdk';
+import { isConsultMode, type SquadDirConfig } from '@squad/sdk';
 
 const TEST_ROOT = join(
   process.cwd(),
