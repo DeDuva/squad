@@ -786,7 +786,7 @@ export async function runPipeline(): Promise<void> {
       }
 
       // Find a task matching this agent's role
-      const task = findNextTask(tasks, agent.member.role);
+      const task = findNextTask(tasks, agent.member.role as AgentRole);
       if (!task) continue;
 
       // Assign task

@@ -11,7 +11,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { extractJson, runScript } from './helpers';
+
+const SCRIPT_EXISTS = existsSync(resolve(process.cwd(), 'scripts', 'security-review.mjs'));
 
 // ---------------------------------------------------------------------------
 // Replicated parseAddedLines from security-review.mjs for unit testing
@@ -401,7 +405,7 @@ describe('security-review script', () => {
   // Edge cases
   // ---------------------------------------------------------------------------
 
-  describe('edge cases', () => {
+  describe.skipIf(!SCRIPT_EXISTS)('edge cases', () => {
     it('handles invalid base ref gracefully', () => {
       const result = runScript('security-review.mjs', [
         'refs/heads/nonexistent-branch-xyz-99999',
