@@ -207,9 +207,11 @@ export class SquadClient {
   private backend: ISquadClientBackend;
   private state: SquadConnectionState = 'disconnected';
   private readonly eventBus?: EventBus;
+  private readonly autoStart: boolean;
 
   constructor(options: SquadClientOptions = {}) {
     this.eventBus = options.eventBus;
+    this.autoStart = options.autoStart ?? true;
     this.backend = createBackend(options.provider, options);
   }
 
@@ -262,7 +264,10 @@ export class SquadClient {
   async createSession(config: SquadSessionConfig = {}): Promise<SquadSession> {
     const span = tracer.startSpan('squad.session.create');
     try {
-      if (!this.isConnected()) await this.connect();
+      if (!this.isConnected()) {
+        if (!this.autoStart) throw new Error('Client not connected');
+        await this.connect();
+      }
       const session = await this.backend.createSession(config);
       if (session.sessionId) span.setAttribute('session.id', session.sessionId);
       recordSessionCreated();
@@ -300,7 +305,10 @@ export class SquadClient {
     const span = tracer.startSpan('squad.session.resume');
     span.setAttribute('session.id', sessionId);
     try {
-      if (!this.isConnected()) await this.connect();
+      if (!this.isConnected()) {
+        if (!this.autoStart) throw new Error('Client not connected');
+        await this.connect();
+      }
       return await this.backend.resumeSession(sessionId, config);
     } catch (err) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });

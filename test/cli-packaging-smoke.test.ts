@@ -102,7 +102,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
         tempDir,
         'node_modules',
         '@squad',
-        'squad-cli',
+        'cli',
         'dist',
         'cli-entry.js',
       );
@@ -209,7 +209,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
     return [
       join(cli.tempDir, 'node_modules', dependency),
-      join(cli.tempDir, 'node_modules', '@squad', 'squad-cli', 'node_modules', dependency),
+      join(cli.tempDir, 'node_modules', '@squad', 'cli', 'node_modules', dependency),
     ].find(path => existsSync(path));
   }
 
@@ -220,7 +220,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-cli has no file: dependencies (breaks global installs)', () => {
     expect(installedCli).toBeDefined();
-    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@squad', 'squad-cli', 'package.json');
+    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@squad', 'cli', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     const deps = pkg.dependencies || {};
     for (const [name, version] of Object.entries(deps)) {

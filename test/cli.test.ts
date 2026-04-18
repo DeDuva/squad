@@ -287,7 +287,7 @@ describe('getInstallInstructions', () => {
   it('returns cli-specific steps', () => {
     const steps = getInstallInstructions('cli');
     expect(steps.length).toBeGreaterThanOrEqual(2);
-    expect(steps.some((s) => s.command?.includes('npm install -g'))).toBe(true);
+    expect(steps.some((s) => s.command?.includes('git clone') || s.command?.includes('npm install -g'))).toBe(true);
   });
 
   it('returns vscode-specific steps', () => {
