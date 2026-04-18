@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@squad/sdk": "^0.8.0",
+    "@squad/sdk": "file:../../packages/squad-sdk",
     "chalk": "^5.4.0"
   },
   "devDependencies": {
