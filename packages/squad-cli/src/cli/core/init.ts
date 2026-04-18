@@ -5,13 +5,13 @@
 
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@squad/sdk';
 import { detectSquadDir, resolveWorktreeMainCheckout } from './detect-squad-dir.js';
 import { success, BOLD, RESET, YELLOW, GREEN, DIM } from './output.js';
 import { fatal } from './errors.js';
 import { detectProjectType } from './project-type.js';
 import { getPackageVersion, stampVersion } from './version.js';
-import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, ensurePersonalSquadDir, resolvePersonalSquadDir, type InitOptions } from '@bradygaster/squad-sdk';
+import { initSquad as sdkInitSquad, cleanupOrphanInitPrompt, ensurePersonalSquadDir, resolvePersonalSquadDir, type InitOptions } from '@squad/sdk';
 
 const storage = new FSStorageProvider();
 
@@ -87,8 +87,8 @@ const INIT_LANDMARKS = [
 function showDeprecationWarning(): void {
   console.log();
   console.log(`${YELLOW}⚠️  DEPRECATION: .ai-team/ is deprecated and will be removed in v1.0.0${RESET}`);
-  console.log(`${YELLOW}    Run 'npx @bradygaster/squad-cli upgrade --migrate-directory' to migrate to .squad/${RESET}`);
-  console.log(`${YELLOW}    Details: https://github.com/bradygaster/squad/issues/101${RESET}`);
+  console.log(`${YELLOW}    Run 'squad upgrade --migrate-directory' to migrate to .squad/${RESET}`);
+  console.log(`${YELLOW}    Details: https://github.com/DeDuva/squad/issues/101${RESET}`);
   console.log();
 }
 
@@ -280,6 +280,9 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
     console.log(`${DIM}${file} already exists — skipping${RESET}`);
   }
 
+  // ── Provider selection ────────────────────────────────────────────
+  await promptAndWriteProvider(squadDir);
+
   // ── Celebration ceremony ──────────────────────────────────────────
   console.log();
   await typewrite(`${CYAN}${BOLD}◆ SQUAD${RESET}`, 10);
@@ -314,5 +317,74 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
 
   if (squadInfo.isLegacy) {
     showDeprecationWarning();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider selection
+// ---------------------------------------------------------------------------
+
+const PROVIDERS = [
+  { key: 'copilot',   label: 'GitHub Copilot',    hint: 'Requires Copilot subscription + CLI (default)' },
+  { key: 'anthropic', label: 'Anthropic Claude',  hint: 'Requires ANTHROPIC_API_KEY env var' },
+  { key: 'gemini',    label: 'Google Gemini',     hint: 'Requires GEMINI_API_KEY env var' },
+] as const;
+
+type ProviderKey = typeof PROVIDERS[number]['key'];
+
+/**
+ * Interactively prompt the user to select an LLM provider and write
+ * the choice to .squad/provider.json (gitignored by default).
+ *
+ * In non-interactive mode (CI, piped stdin) defaults to 'copilot'.
+ */
+async function promptAndWriteProvider(squadDir: string): Promise<void> {
+  let chosen: ProviderKey = 'copilot';
+
+  if (process.stdin.isTTY) {
+    console.log();
+    console.log(`${BOLD}Which LLM provider will power your squad?${RESET}`);
+    for (let i = 0; i < PROVIDERS.length; i++) {
+      const p = PROVIDERS[i]!;
+      const marker = i === 0 ? `${GREEN}❯${RESET}` : ' ';
+      console.log(`  ${marker} ${i + 1}) ${BOLD}${p.label}${RESET}  ${DIM}${p.hint}${RESET}`);
+    }
+    console.log();
+
+    const { createInterface } = await import('node:readline/promises');
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const answer = (await rl.question(`  Provider [1-3, default: 1]: `)).trim();
+      const idx = parseInt(answer, 10);
+      if (idx >= 1 && idx <= PROVIDERS.length) {
+        chosen = PROVIDERS[idx - 1]!.key;
+      }
+    } finally {
+      rl.close();
+    }
+  }
+
+  const providerJson = buildProviderJson(chosen);
+  const providerPath = path.join(squadDir, 'provider.json');
+  storage.writeSync(providerPath, JSON.stringify(providerJson, null, 2) + '\n');
+
+  const label = PROVIDERS.find(p => p.key === chosen)?.label ?? chosen;
+  success(`provider configured: ${BOLD}${label}${RESET}`);
+
+  if (chosen === 'anthropic') {
+    console.log(`${DIM}  Set ANTHROPIC_API_KEY in your environment before running squad.${RESET}`);
+  } else if (chosen === 'gemini') {
+    console.log(`${DIM}  Set GEMINI_API_KEY in your environment before running squad.${RESET}`);
+  }
+}
+
+function buildProviderJson(provider: ProviderKey): Record<string, unknown> {
+  switch (provider) {
+    case 'anthropic':
+      return { type: 'anthropic', anthropic: { defaultModel: 'claude-sonnet-4-5' } };
+    case 'gemini':
+      return { type: 'gemini', gemini: { defaultModel: 'gemini-2.5-flash' } };
+    default:
+      return { type: 'copilot' };
   }
 }

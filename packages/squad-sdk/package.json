@@ -1,7 +1,7 @@
 {
-  "name": "@bradygaster/squad-sdk",
-  "version": "0.9.1",
-  "description": "Squad SDK — Programmable multi-agent runtime for GitHub Copilot",
+  "name": "@squad/sdk",
+  "version": "0.9.1-build.5",
+  "description": "Squad SDK — Programmable multi-agent runtime supporting Copilot, Anthropic, and Gemini",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -228,10 +228,12 @@
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "@github/copilot-sdk": "^0.1.32",
     "vscode-jsonrpc": "^8.2.1"
   },
   "optionalDependencies": {
+    "@github/copilot-sdk": "^0.1.32",
+    "@anthropic-ai/sdk": "^0.90.0",
+    "@google/genai": "^1.48.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.57.2",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.57.2",
@@ -259,13 +261,13 @@
     "sdk"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/bradygaster/squad#readme",
+  "homepage": "https://github.com/DeDuva/squad#readme",
   "bugs": {
-    "url": "https://github.com/bradygaster/squad/issues"
+    "url": "https://github.com/DeDuva/squad/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bradygaster/squad.git",
+    "url": "git+https://github.com/DeDuva/squad.git",
     "directory": "packages/squad-sdk"
   }
 }

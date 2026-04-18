@@ -3,6 +3,40 @@
  * Typed configuration interface for Squad teams
  */
 
+/**
+ * LLM provider configuration.
+ * Written to .squad/provider.json during `squad init` and read at runtime.
+ */
+export interface ProviderConfig {
+  /**
+   * Which LLM provider to use.
+   * @default 'copilot'
+   */
+  type: 'copilot' | 'anthropic' | 'gemini';
+
+  /** Anthropic-specific options. Only used when type === 'anthropic'. */
+  anthropic?: {
+    /** Defaults to ANTHROPIC_API_KEY env var. */
+    apiKey?: string;
+    /** Default model. Defaults to 'claude-sonnet-4-5'. */
+    defaultModel?: string;
+  };
+
+  /** Gemini-specific options. Only used when type === 'gemini'. */
+  gemini?: {
+    /** Defaults to GEMINI_API_KEY env var. */
+    apiKey?: string;
+    /** Default model. Defaults to 'gemini-2.5-flash'. */
+    defaultModel?: string;
+  };
+
+  /** Copilot-specific options. Only used when type === 'copilot'. */
+  copilot?: {
+    /** Path to the Copilot CLI executable. */
+    cliPath?: string;
+  };
+}
+
 export interface SquadConfig {
   version: string;
   team: TeamConfig;
@@ -12,6 +46,8 @@ export interface SquadConfig {
   hooks?: HooksConfig;
   ceremonies?: CeremonyConfig[];
   plugins?: PluginConfig;
+  /** LLM provider selection. Defaults to 'copilot' if omitted. */
+  provider?: ProviderConfig;
 }
 
 export interface TeamConfig {

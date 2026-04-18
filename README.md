@@ -5,21 +5,80 @@
 **Human-led AI agent teams for any project.** One command. A team that helps you move faster with your code.
 
 [![Status](https://img.shields.io/badge/status-alpha-blueviolet)](#status)
-[![Platform](https://img.shields.io/badge/platform-GitHub%20Copilot-blue)](#what-is-squad)
+[![Providers](https://img.shields.io/badge/providers-Copilot%20%7C%20Anthropic%20%7C%20Gemini-blue)](#provider-support)
 
 > ⚠️ **Alpha Software** — Squad is experimental. APIs and CLI commands may change between releases. We'll document breaking changes in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
+> **Fork attribution** — This is a fork of [bradygaster/squad](https://github.com/bradygaster/squad), original work by [Brady Gaster](https://github.com/bradygaster) and contributors. This fork adds multi-provider LLM support (Anthropic, Gemini, and Copilot) and switches to a source-only distribution model.
+
+---
+
+## What's Different in This Fork
+
+| Feature | Original | This Fork |
+|---------|----------|-----------|
+| LLM backend | GitHub Copilot only | **Copilot, Anthropic Claude, or Google Gemini** |
+| Distribution | `npm install -g @bradygaster/squad-cli` | **Run from source** (git clone + build) |
+| Provider config | Hardcoded | **`.squad/provider.json`** — set during `squad init` |
+
+The user-facing interface is unchanged: agent names, charters, `.squad/` files, GitHub issue labels, CLI commands, and `.github/agents/squad.agent.md` all behave identically regardless of provider.
+
+---
+
+## Provider Support
+
+| Provider | Models | Requirement |
+|----------|--------|-------------|
+| **GitHub Copilot** (default) | Your Copilot subscription model | Copilot subscription + `gh copilot` CLI |
+| **Anthropic Claude** | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` | `ANTHROPIC_API_KEY` env var |
+| **Google Gemini** | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` | `GEMINI_API_KEY` env var |
+
+Provider is selected interactively during `squad init` and stored in `.squad/provider.json` (gitignored by default).
+
+---
+
 ## What is Squad?
 
-Squad gives you a human-directed AI development team through GitHub Copilot. Describe what you're building. Get a team of specialists — frontend, backend, tester, lead — that live in your repo as files. They persist across sessions, learn your codebase, share decisions, and help you move faster without giving up oversight.
+Squad gives you a human-directed AI development team. Describe what you're building. Get a team of specialists — frontend, backend, tester, lead — that live in your repo as files. They persist across sessions, learn your codebase, share decisions, and help you move faster without giving up oversight.
 
 Squad is a productivity tool for humans, not a replacement for engineers, reviewers, or decision-makers. People stay accountable for priorities, approvals, and final changes; Squad helps with coordination, repetition, and parallel execution.
 
 It's not a chatbot wearing hats. Each team member runs in its own context, reads only its own knowledge, and writes back what it learned so the work stays inspectable.
 
-> **Responsible AI stance** — Squad is built to amplify a human operator with GitHub Copilot, not to remove humans from the loop. Use it to delegate faster, review better, and keep governance close to the code.
+> **Responsible AI stance** — Squad is built to amplify a human operator, not to remove humans from the loop. Use it to delegate faster, review better, and keep governance close to the code.
+
+---
+
+## Setup (from source)
+
+Squad is always run from a local build. There is no published npm package to install.
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/DeDuva/squad
+cd squad
+
+# 2. Install dependencies and build both packages
+npm install
+npm run build
+
+# 3. Make the `squad` command available in your shell
+#    Add to your ~/.bashrc or ~/.zshrc for persistence:
+alias squad="node $(pwd)/packages/squad-cli/dist/cli-entry.js"
+
+# 4. Verify
+squad --version
+```
+
+### Staying up to date
+
+```bash
+cd squad
+git pull
+npm run build
+```
 
 ---
 
@@ -34,32 +93,56 @@ git init
 
 **✓ Validate:** Run `git status` — you should see "No commits yet".
 
-### 2. Install Squad
+### 2. Initialize Squad
 
 ```bash
-npm install -g @bradygaster/squad-cli
 squad init
 ```
 
+`squad init` will:
+1. Scaffold the `.squad/` directory and agent charters
+2. Ask which LLM provider you want to use (Copilot, Anthropic, or Gemini)
+3. Write `.squad/provider.json` with your choice
+
 **✓ Validate:** Check that `.squad/team.md` was created in your project.
 
-### 3. Authenticate with GitHub (for Issues, PRs, and Ralph)
+### 3. Configure your provider
+
+**Copilot (default):** Requires the [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli/about-github-copilot-in-the-cli).
 
 ```bash
 gh auth login
 ```
 
-**✓ Validate:** Run `gh auth status` — you should see "Logged in to github.com".
+**Anthropic Claude:**
 
-### 4. Open Copilot and go
-
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+**Google Gemini:**
+
+```bash
+export GEMINI_API_KEY=AI...
+```
+
+### 4. Start your team
+
+**With Copilot:**
+
+```bash
 copilot --agent squad --yolo
 ```
 
 > **Why `--yolo`?** Squad makes many tool calls in a typical session. Without it, Copilot will prompt you to approve each one.
 
 **In VS Code**, open Copilot Chat and select the **Squad** agent.
+
+**With Anthropic or Gemini:**
+
+```bash
+squad
+```
 
 Then:
 
@@ -70,29 +153,67 @@ Here's what I'm building: a recipe sharing app with React and Node.
 
 **✓ Validate:** Squad responds with team member proposals. Type `yes` to confirm — they're ready to work.
 
-Squad proposes a team — each member named from a persistent thematic cast. You say **yes**. They're ready.
+---
+
+## Provider Configuration
+
+Provider selection is stored in `.squad/provider.json` (gitignored by default). You can set it during `squad init` or edit it manually:
+
+**Anthropic Claude:**
+```json
+{
+  "type": "anthropic",
+  "anthropic": {
+    "defaultModel": "claude-sonnet-4-5"
+  }
+}
+```
+
+**Google Gemini:**
+```json
+{
+  "type": "gemini",
+  "gemini": {
+    "defaultModel": "gemini-2.5-flash"
+  }
+}
+```
+
+**GitHub Copilot (default):**
+```json
+{
+  "type": "copilot"
+}
+```
+
+API keys are read from environment variables (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`). You can also set them directly in `provider.json`:
+```json
+{
+  "type": "anthropic",
+  "anthropic": {
+    "apiKey": "sk-ant-...",
+    "defaultModel": "claude-sonnet-4-5"
+  }
+}
+```
 
 ---
 
 ## Upgrading
 
-Upgrading Squad is a two-step process.
-
-**Step 1: Update the CLI binary**
-
 ```bash
-npm install -g @bradygaster/squad-cli@latest
+cd path/to/squad
+git pull
+npm run build
 ```
 
-**Step 2: Update Squad-owned files in your project**
+**Update Squad-owned files in your project** (agent prompts, workflows, templates):
 
 ```bash
 squad upgrade
 ```
 
 `squad upgrade` updates `squad.agent.md`, templates, and GitHub workflows to the latest versions. It never touches your `.squad/` team state — your agents, decisions, and history are always preserved.
-
-Use `--force` to re-apply updates even when your installed version already matches the latest.
 
 ---
 
@@ -102,15 +223,15 @@ Use `--force` to re-apply updates even when your installed version already match
 |---------|-------------|
 | `squad init` | **Init** — scaffold Squad in the current directory (idempotent — safe to run multiple times); alias: `hire`; use `--global` to init in personal squad directory, `--mode remote <path>` for dual-root mode |
 | `squad upgrade` | Update Squad-owned files to latest; never touches your team state; use `--global` to upgrade personal squad, `--migrate-directory` to rename `.ai-team/` → `.squad/` |
-| `squad upgrade --self` | Update the Squad CLI package itself; add `--insider` for prerelease builds |
+| `squad upgrade --self` | Pull the latest Squad source and rebuild |
 | `squad status` | Show which squad is active and why |
-| `squad triage` | **Watch mode** — poll for issues and auto-triage to team (aliases: `watch`, `loop`); use `--interval <minutes>` to set polling frequency (default: 10); with `--execute` dispatch Copilot agents; use `--agent-cmd`, `--copilot-flags`, `--auth-user` to customize agent execution; `--health` shows watch status; `--log-file` for diagnostics |
+| `squad triage` | **Watch mode** — poll for issues and auto-triage to team (aliases: `watch`, `loop`); use `--interval <minutes>` to set polling frequency (default: 10); with `--execute` dispatch agents; use `--agent-cmd`, `--copilot-flags`, `--auth-user` to customize agent execution; `--health` shows watch status; `--log-file` for diagnostics |
 | `squad copilot` | Add/remove the Copilot coding agent (@copilot); use `--off` to remove, `--auto-assign` to enable auto-assignment |
 | `squad doctor` | Check your setup and diagnose issues (alias: `heartbeat`) |
 | `squad link <team-repo-path>` | Connect to a remote team |
 | `squad externalize` | Move `.squad/` state outside the working tree; survives branch switches; use `--key <name>` for custom project key |
 | `squad internalize` | Move externalized state back into `.squad/` |
-| `squad shell` | **Deprecated** — Launch interactive shell explicitly. Use `copilot --agent squad` instead. |
+| `squad shell` | **Deprecated** — Launch interactive shell explicitly. Use `copilot --agent squad` or the `squad` REPL instead. |
 | `squad export` | Export squad to a portable JSON snapshot |
 | `squad import <file>` | Import squad from an export file |
 | `squad plugin marketplace add\|remove\|list\|browse` | Manage plugin marketplaces |
@@ -129,29 +250,29 @@ Ralph continuously polls for work and dispatches agents to handle it. Watch mode
 
 ```bash
 # Monitor for issues (triage mode — no execution)
-npx @bradygaster/squad-cli watch
+squad watch
 
 # Monitor and auto-execute against actionable issues
-npx @bradygaster/squad-cli watch --execute --interval 5
+squad watch --execute --interval 5
 
 # With custom agent runner and copilot flags
-npx @bradygaster/squad-cli watch --execute \
-  --agent-cmd "agency copilot" \
+squad watch --execute \
+  --agent-cmd "gh copilot" \
   --copilot-flags "--yolo --autopilot --mcp mail --agent squad" \
   --auth-user myaccount
 
 # Run watch with diagnostics
-npx @bradygaster/squad-cli watch --execute --log-file ./watch.log --verbose
+squad watch --execute --log-file ./watch.log --verbose
 
 # Check health of running watch process
-npx @bradygaster/squad-cli watch --health
+squad watch --health
 ```
 
 ### Key Flags
 
 | Flag | Description |
 |------|-------------|
-| `--execute` | Enable agent execution (spawn Copilot sessions for actionable issues) |
+| `--execute` | Enable agent execution (spawn agent sessions for actionable issues) |
 | `--interval N` | Poll every N minutes (default: 10) |
 | `--agent-cmd` | Custom agent command (default: `gh copilot`) |
 | `--copilot-flags` | Flags passed to the agent runner (e.g., `--yolo --autopilot`) |
@@ -275,14 +396,6 @@ Round: 42 / 1200
 
 ## Interactive Shell
 
-> ⚠️ **Deprecated:** The interactive shell (`squad` with no arguments) has been deprecated. For the best Squad experience, use the [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) instead.
->
-> ```bash
-> copilot --agent squad
-> ```
->
-> See [Choose your interface](docs/src/content/docs/get-started/choose-your-interface.md) for current options.
-
 Tired of typing `squad` followed by a command every time? Enter the interactive shell.
 
 ### Entering the Shell
@@ -377,6 +490,7 @@ When agents finish, the coordinator records follow-up work and leaves a breadcru
 ├── routing.md           # Routing — who handles what
 ├── decisions.md         # Shared brain — team decisions
 ├── ceremonies.md        # Sprint ceremonies config
+├── provider.json        # LLM provider config (gitignored)
 ├── casting/
 │   ├── policy.json      # Casting configuration
 │   ├── registry.json    # Persistent name registry
@@ -394,9 +508,9 @@ When agents finish, the coordinator records follow-up work and leaves a breadcru
 └── log/                 # Session history (searchable archive)
 ```
 
-**Commit this folder.** Your team persists. Names persist. Anyone who clones gets the team — with the same cast.
+**Commit this folder** (except `provider.json`, which is gitignored). Your team persists. Names persist. Anyone who clones gets the team — with the same cast.
 
-### SDK-First Mode (New in Phase 1)
+### SDK-First Mode (Experimental)
 
 > ⚠️ **Experimental.** SDK-first mode is under active development and has known bugs. Use markdown-first (the default) for production teams.
 
@@ -404,7 +518,7 @@ Prefer TypeScript? You can define your team in code instead of markdown. Create 
 
 ```typescript
 // squad.config.ts
-import { defineSquad, defineTeam, defineAgent } from '@bradygaster/squad-sdk';
+import { defineSquad, defineTeam, defineAgent } from '@squad/sdk';
 
 export default defineSquad({
   team: defineTeam({ name: 'Platform Squad', members: ['@edie', '@mcmanus'] }),
@@ -419,11 +533,11 @@ Run `squad build` to generate all the markdown. See the [SDK-First Mode Guide](d
 
 ---
 
-## Monorepo Development
+## Development
 
 Squad is a monorepo with two packages:
-- **`@bradygaster/squad-sdk`** — Core runtime and library for programmable agent orchestration
-- **`@bradygaster/squad-cli`** — Command-line interface that depends on the SDK
+- **`@squad/sdk`** — Core runtime and library for programmable agent orchestration
+- **`@squad/cli`** — Command-line interface that depends on the SDK
 
 ### Building
 
@@ -458,20 +572,6 @@ npm run test:watch
 npm run lint
 ```
 
-### Publishing
-
-Squad uses [changesets](https://github.com/changesets/changesets) for independent versioning across packages:
-
-```bash
-# Add a changeset
-npx changeset add
-
-# Validate changesets
-npm run changeset:check
-```
-
-Changesets are resolved on the `main` branch; releases happen independently per package.
-
 ---
 
 ## SDK documentation
@@ -483,4 +583,14 @@ The SDK provides programmatic control over agent orchestration — custom tools,
 - [Extensibility guide](docs/src/content/docs/guide/extensibility.md)
 - [Samples](samples/README.md) — eight working examples from beginner to advanced
 
-For SDK installation: `npm install @bradygaster/squad-sdk`
+To use the SDK from source in another project:
+
+```typescript
+import { SquadClient } from '@squad/sdk/client';
+
+const client = new SquadClient({
+  provider: 'anthropic',
+  anthropic: { model: 'claude-sonnet-4-5' },
+});
+await client.connect();
+```
