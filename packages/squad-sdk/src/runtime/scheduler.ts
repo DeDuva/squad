@@ -440,6 +440,27 @@ export async function saveState(statePath: string, state: ScheduleState): Promis
 // ============================================================================
 
 /**
+/**
+ * Split a task ref string into [command, args], handling a double-quoted
+ * first token so that paths with spaces (e.g. Windows "C:\Program Files\...")
+ * are passed to execFileSync correctly.
+ */
+function parseRefArgv(ref: string): [string, string[]] {
+  const trimmed = ref.trim();
+  if (trimmed.startsWith('"')) {
+    const end = trimmed.indexOf('"', 1);
+    if (end !== -1) {
+      const command = trimmed.slice(1, end);
+      const rest = trimmed.slice(end + 1).trim();
+      const args = rest.length > 0 ? rest.split(/\s+/) : [];
+      return [command, args];
+    }
+  }
+  const argv = trimmed.split(/\s+/);
+  return [argv[0]!, argv.slice(1)];
+}
+
+/**
  * LocalPollingProvider — evaluates schedule in the ralph-watch loop.
  * Executes tasks as local processes or stubs.
  */
@@ -452,9 +473,7 @@ export class LocalPollingProvider implements ScheduleProvider {
         try {
           const { execFileSync } = await import('node:child_process');
           validateTaskRef(entry.task.ref);
-          const argv = entry.task.ref.trim().split(/\s+/);
-          const command = argv[0]!;
-          const args = argv.slice(1);
+          const [command, args] = parseRefArgv(entry.task.ref);
           const output = execFileSync(command, args, {
             encoding: 'utf8',
             timeout: 60_000,
