@@ -9,6 +9,7 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { TerminalHarness } from './acceptance/harness.js';
 import { parseInput } from '@squad/cli/shell/router';
@@ -73,7 +74,7 @@ describe('Speed: squad init ceremony', () => {
   });
 
   it('init ceremony in non-TTY completes under 5 seconds', async () => {
-    const tmpDir = resolve(process.cwd(), 'test-fixtures', '_speed-test-init-' + Date.now());
+    const tmpDir = resolve(tmpdir(), '_speed-test-init-' + Date.now());
     mkdirSync(tmpDir, { recursive: true });
 
     let harness: TerminalHarness | null = null;
