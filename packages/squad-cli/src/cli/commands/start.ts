@@ -42,6 +42,8 @@ export interface StartOptions {
 
 async function checkNodePty(): Promise<any> {
   try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — node-pty is optional and may not be installed
     return await import('node-pty');
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
