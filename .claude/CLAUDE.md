@@ -9,6 +9,9 @@ The user-facing interface is unchanged: agent names, charters, `.squad/` files, 
 
 ## Current state
 **Branch:** `feat/multi-provider` — pushed to `https://github.com/DeDuva/squad`
+**PR:** https://github.com/DeDuva/squad/pull/1
+
+**Original implementation plan:** @.claude/plan-multi-provider.md
 
 **What's done:**
 - Multi-provider architecture: `ISquadClientBackend` + `CopilotBackend` / `AnthropicBackend` / `GeminiBackend`
