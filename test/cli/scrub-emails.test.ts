@@ -6,12 +6,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { runInit } from '@squad/cli/core/init';
 import { scrubEmails } from '@squad/cli/core/email-scrub';
 
-const TEST_ROOT = join(process.cwd(), `.test-cli-scrub-${randomBytes(4).toString('hex')}`);
+const TEST_ROOT = join(tmpdir(), `.test-cli-scrub-${randomBytes(4).toString('hex')}`);
 
 describe('CLI: scrub-emails command', () => {
   beforeEach(async () => {

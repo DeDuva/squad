@@ -78,7 +78,7 @@ const INIT_LANDMARKS = [
   { emoji: '📋', label: 'Skills & ceremonies' },
   { emoji: '🔧', label: 'Workflows & CI' },
   { emoji: '🧠', label: 'Identity & wisdom' },
-  { emoji: '🤖', label: 'Copilot agent prompt' },
+  { emoji: '🤖', label: 'Agent prompt' },
 ];
 
 /**
@@ -364,26 +364,45 @@ async function promptAndWriteProvider(squadDir: string): Promise<void> {
     }
   }
 
-  const providerJson = buildProviderJson(chosen);
+  let apiKey: string | undefined;
+  if (process.stdin.isTTY && (chosen === 'anthropic' || chosen === 'gemini')) {
+    const envVar = chosen === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'GEMINI_API_KEY';
+    const existing = process.env[envVar];
+    console.log();
+    if (existing) {
+      console.log(`${DIM}  ${envVar} is already set in your environment — press Enter to use it.${RESET}`);
+    }
+    const { createInterface } = await import('node:readline/promises');
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const answer = (await rl.question(`  API key (leave blank to use ${envVar} env var): `)).trim();
+      if (answer) apiKey = answer;
+    } finally {
+      rl.close();
+    }
+  }
+
+  const providerJson = buildProviderJson(chosen, apiKey);
   const providerPath = path.join(squadDir, 'provider.json');
   storage.writeSync(providerPath, JSON.stringify(providerJson, null, 2) + '\n');
 
   const label = PROVIDERS.find(p => p.key === chosen)?.label ?? chosen;
   success(`provider configured: ${BOLD}${label}${RESET}`);
 
-  if (chosen === 'anthropic') {
-    console.log(`${DIM}  Set ANTHROPIC_API_KEY in your environment before running squad.${RESET}`);
-  } else if (chosen === 'gemini') {
-    console.log(`${DIM}  Set GEMINI_API_KEY in your environment before running squad.${RESET}`);
+  if (!apiKey) {
+    const envVar = chosen === 'anthropic' ? 'ANTHROPIC_API_KEY' : chosen === 'gemini' ? 'GEMINI_API_KEY' : null;
+    if (envVar) {
+      console.log(`${DIM}  Set ${envVar} in your environment before running squad.${RESET}`);
+    }
   }
 }
 
-function buildProviderJson(provider: ProviderKey): Record<string, unknown> {
+function buildProviderJson(provider: ProviderKey, apiKey?: string): Record<string, unknown> {
   switch (provider) {
     case 'anthropic':
-      return { type: 'anthropic', anthropic: { defaultModel: 'claude-sonnet-4-5' } };
+      return { type: 'anthropic', anthropic: { defaultModel: 'claude-sonnet-4-6', ...(apiKey ? { apiKey } : {}) } };
     case 'gemini':
-      return { type: 'gemini', gemini: { defaultModel: 'gemini-2.5-flash' } };
+      return { type: 'gemini', gemini: { defaultModel: 'gemini-2.5-flash', ...(apiKey ? { apiKey } : {}) } };
     default:
       return { type: 'copilot' };
   }

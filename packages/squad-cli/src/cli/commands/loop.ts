@@ -318,7 +318,7 @@ export async function runLoop(dest: string, options: LoopConfig): Promise<void> 
     try {
       await checkCopilotCli();
     } catch {
-      fatal('Copilot CLI required. Install from https://cli.github.com/ and run `gh extension install github/gh-copilot`');
+      fatal('gh CLI (Copilot extension) required. Install from https://cli.github.com/ and run `gh extension install github/gh-copilot`');
     }
   }
 

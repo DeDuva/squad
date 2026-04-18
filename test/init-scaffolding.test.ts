@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, rm, readFile } from 'fs/promises';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { execFileSync } from 'child_process';
@@ -18,7 +19,7 @@ import { runInit } from '@squad/cli/core/init';
 import { runDoctor } from '@squad/cli/commands/doctor';
 import type { DoctorCheck } from '@squad/cli/commands/doctor';
 
-const TEST_ROOT = join(process.cwd(), `.test-init-scaffold-${randomBytes(4).toString('hex')}`);
+const TEST_ROOT = join(tmpdir(), `.test-init-scaffold-${randomBytes(4).toString('hex')}`);
 
 /** Create a bare git repo at the given path (no remote). */
 function gitInit(dir: string): void {
