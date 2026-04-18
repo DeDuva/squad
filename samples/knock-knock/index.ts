@@ -8,9 +8,9 @@
  * GITHUB_TOKEN required.
  */
 
-import { CastingEngine, StreamingPipeline } from '@bradygaster/squad-sdk';
-import type { StreamDelta } from '@bradygaster/squad-sdk';
-import { SquadClientWithPool } from '@bradygaster/squad-sdk/client';
+import { CastingEngine, StreamingPipeline } from '@squad/sdk';
+import type { StreamDelta } from '@squad/sdk';
+import { SquadClientWithPool } from '@squad/sdk/client';
 
 // ── Agent Setup ──────────────────────────────────────────────────────
 

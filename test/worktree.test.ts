@@ -31,8 +31,8 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { resolveSquad } from '@bradygaster/squad-sdk/resolution';
-import { detectSquadDir } from '@bradygaster/squad-cli/core/detect-squad-dir';
+import { resolveSquad } from '@squad/sdk/resolution';
+import { detectSquadDir } from '@squad/cli/core/detect-squad-dir';
 
 // ---------------------------------------------------------------------------
 // Test suite

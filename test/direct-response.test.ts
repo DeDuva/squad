@@ -6,9 +6,9 @@ import {
   DirectResponseHandler,
   type CoordinatorContext,
   type DirectResponsePattern,
-} from '@bradygaster/squad-sdk/coordinator';
-import { DEFAULT_CONFIG, type SquadConfig } from '@bradygaster/squad-sdk/runtime';
-import { EventBus } from '@bradygaster/squad-sdk/runtime/event-bus';
+} from '@squad/sdk/coordinator';
+import { DEFAULT_CONFIG, type SquadConfig } from '@squad/sdk/runtime';
+import { EventBus } from '@squad/sdk/runtime/event-bus';
 
 // --- Helpers ---
 

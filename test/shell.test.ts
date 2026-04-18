@@ -8,21 +8,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { join } from 'node:path';
 
-import { SessionRegistry } from '@bradygaster/squad-cli/shell/sessions';
+import { SessionRegistry } from '@squad/cli/shell/sessions';
 import {
   loadAgentCharter,
   buildAgentPrompt,
-} from '@bradygaster/squad-cli/shell/spawn';
+} from '@squad/cli/shell/spawn';
 import {
   buildCoordinatorPrompt,
   parseCoordinatorResponse,
   formatConversationContext,
-} from '@bradygaster/squad-cli/shell/coordinator';
-import { ShellLifecycle } from '@bradygaster/squad-cli/shell/lifecycle';
-import { StreamBridge } from '@bradygaster/squad-cli/shell/stream-bridge';
-import { ShellRenderer } from '@bradygaster/squad-cli/shell/render';
-import type { ShellMessage } from '@bradygaster/squad-cli/shell/types';
-import type { StreamDelta, UsageEvent, ReasoningDelta } from '@bradygaster/squad-sdk/runtime/streaming';
+} from '@squad/cli/shell/coordinator';
+import { ShellLifecycle } from '@squad/cli/shell/lifecycle';
+import { StreamBridge } from '@squad/cli/shell/stream-bridge';
+import { ShellRenderer } from '@squad/cli/shell/render';
+import type { ShellMessage } from '@squad/cli/shell/types';
+import type { StreamDelta, UsageEvent, ReasoningDelta } from '@squad/sdk/runtime/streaming';
 
 const FIXTURES = join(process.cwd(), 'test-fixtures');
 

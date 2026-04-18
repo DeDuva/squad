@@ -15,8 +15,8 @@ import {
   BasicTracerProvider,
 } from '@opentelemetry/sdk-trace-base';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
-import { createOTelTransport } from '@bradygaster/squad-sdk/runtime/otel-bridge';
-import type { TelemetryEvent } from '@bradygaster/squad-sdk/runtime/telemetry';
+import { createOTelTransport } from '@squad/sdk/runtime/otel-bridge';
+import type { TelemetryEvent } from '@squad/sdk/runtime/telemetry';
 
 // ---------------------------------------------------------------------------
 // Test OTel infrastructure

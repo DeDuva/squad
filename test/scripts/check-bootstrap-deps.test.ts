@@ -172,7 +172,7 @@ describe('check-bootstrap-deps script', () => {
     });
 
     it('rejects scoped packages', () => {
-      expect(isNodeBuiltin('@bradygaster/squad-sdk')).toBe(false);
+      expect(isNodeBuiltin('@squad/sdk')).toBe(false);
       expect(isNodeBuiltin('@types/node')).toBe(false);
     });
   });
@@ -202,7 +202,7 @@ describe('check-bootstrap-deps script', () => {
   describe('violation classification', () => {
     it('flags npm packages as violations', () => {
       expect(isViolation('express')).toBe(true);
-      expect(isViolation('@bradygaster/squad-sdk')).toBe(true);
+      expect(isViolation('@squad/sdk')).toBe(true);
       expect(isViolation('lodash/merge')).toBe(true);
     });
 

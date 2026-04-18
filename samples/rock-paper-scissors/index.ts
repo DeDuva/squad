@@ -7,8 +7,8 @@
  * GITHUB_TOKEN required.
  */
 
-import { StreamingPipeline } from '@bradygaster/squad-sdk';
-import { SquadClientWithPool } from '@bradygaster/squad-sdk/client';
+import { StreamingPipeline } from '@squad/sdk';
+import { SquadClientWithPool } from '@squad/sdk/client';
 import { PLAYERS, SCOREKEEPER_PROMPT, type PlayerStrategy } from './prompts.js';
 
 // ── Game State ───────────────────────────────────────────────────────

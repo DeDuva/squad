@@ -21,7 +21,7 @@ Developers building interactive squad applications (Discord bots, chat CLIs, web
 
 **Initialize client and event pipeline:**
 ```typescript
-import { SquadClient, StreamingPipeline, EventBus } from '@bradygaster/squad-sdk';
+import { SquadClient, StreamingPipeline, EventBus } from '@squad/sdk';
 
 const client = new SquadClient({ squadPath: '.squad' });
 const eventBus = new EventBus();

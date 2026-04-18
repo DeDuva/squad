@@ -14,17 +14,17 @@
 
 import { describe, it, expect } from 'vitest';
 import { createCompleter } from '../packages/squad-cli/src/cli/shell/autocomplete.js';
-import { executeCommand, type CommandContext } from '@bradygaster/squad-cli/shell/commands';
-import { parseInput } from '@bradygaster/squad-cli/shell/router';
-import { SessionRegistry } from '@bradygaster/squad-cli/shell/sessions';
-import { ShellRenderer } from '@bradygaster/squad-cli/shell/render';
+import { executeCommand, type CommandContext } from '@squad/cli/shell/commands';
+import { parseInput } from '@squad/cli/shell/router';
+import { SessionRegistry } from '@squad/cli/shell/sessions';
+import { ShellRenderer } from '@squad/cli/shell/render';
 import {
   timeoutGuidance,
   unknownCommandGuidance,
   genericGuidance,
   formatGuidance,
-} from '@bradygaster/squad-cli/shell/error-messages';
-import { StreamBridge } from '@bradygaster/squad-cli/shell/stream-bridge';
+} from '@squad/cli/shell/error-messages';
+import { StreamBridge } from '@squad/cli/shell/stream-bridge';
 
 // ============================================================================
 // 1. Autocomplete — all slash commands present

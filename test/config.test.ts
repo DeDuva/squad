@@ -11,7 +11,7 @@ import {
   ConfigValidationError,
   DEFAULT_CONFIG,
   type SquadConfig 
-} from '@bradygaster/squad-sdk/runtime';
+} from '@squad/sdk/runtime';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 

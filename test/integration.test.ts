@@ -10,18 +10,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@bradygaster/squad-sdk/tools';
+import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@squad/sdk/tools';
 import {
   HookPipeline,
   ReviewerLockoutHook,
   PolicyConfig,
   PreToolUseContext,
   PostToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
-import { compileCharter, type CharterCompileOptions } from '@bradygaster/squad-sdk/agents';
-import { resolveModel, type ModelResolutionOptions, type TaskType } from '@bradygaster/squad-sdk/agents';
-import { EventBus, type SquadEvent } from '@bradygaster/squad-sdk/runtime/event-bus';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
+} from '@squad/sdk/hooks';
+import { compileCharter, type CharterCompileOptions } from '@squad/sdk/agents';
+import { resolveModel, type ModelResolutionOptions, type TaskType } from '@squad/sdk/agents';
+import { EventBus, type SquadEvent } from '@squad/sdk/runtime/event-bus';
+import { SquadClient } from '@squad/sdk/client';
 import {
   SquadError,
   ErrorFactory,
@@ -29,7 +29,7 @@ import {
   ErrorSeverity,
   TelemetryCollector,
   RateLimitError,
-} from '@bradygaster/squad-sdk/adapter/errors';
+} from '@squad/sdk/adapter/errors';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';

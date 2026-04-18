@@ -4,7 +4,7 @@ import {
   migration_0_5_to_0_6,
   getRegisteredMigrations,
   createDefaultRegistry,
-} from '@bradygaster/squad-sdk/config/migrations';
+} from '@squad/sdk/config/migrations';
 
 // ============================================================================
 // getRegisteredMigrations

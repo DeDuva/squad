@@ -1,5 +1,5 @@
 /**
- * hello-squad — Beginner sample for @bradygaster/squad-sdk
+ * hello-squad — Beginner sample for @squad/sdk
  *
  * Demonstrates:
  *  1. resolveSquad() — locate or create a .squad/ directory
@@ -16,8 +16,8 @@ import {
   CastingEngine,
   CastingHistory,
   onboardAgent,
-} from '@bradygaster/squad-sdk';
-import type { CastMember, AgentRole } from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
+import type { CastMember, AgentRole } from '@squad/sdk';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -18,16 +18,16 @@ import { Text } from 'ink';
 import {
   buildCoordinatorPrompt,
   formatConversationContext,
-} from '@bradygaster/squad-cli/shell/coordinator';
-import type { CoordinatorConfig } from '@bradygaster/squad-cli/shell/coordinator';
+} from '@squad/cli/shell/coordinator';
+import type { CoordinatorConfig } from '@squad/cli/shell/coordinator';
 import {
   createSession,
   loadLatestSession,
   saveSession,
-} from '@bradygaster/squad-cli/shell/session-store';
-import type { SessionData } from '@bradygaster/squad-cli/shell/session-store';
+} from '@squad/cli/shell/session-store';
+import type { SessionData } from '@squad/cli/shell/session-store';
 import { MessageStream } from '../packages/squad-cli/src/cli/shell/components/MessageStream.js';
-import type { ShellMessage, AgentSession } from '@bradygaster/squad-cli/shell/types';
+import type { ShellMessage, AgentSession } from '@squad/cli/shell/types';
 
 const h = React.createElement;
 

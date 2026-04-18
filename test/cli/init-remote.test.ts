@@ -27,12 +27,12 @@ describe('CLI: init-remote command', () => {
   });
 
   it('module exports writeRemoteConfig function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/init-remote');
+    const mod = await import('@squad/cli/commands/init-remote');
     expect(typeof mod.writeRemoteConfig).toBe('function');
   });
 
   it('creates .squad/config.json with correct structure', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 
     const configPath = join(PROJECT_DIR, '.squad', 'config.json');
@@ -45,7 +45,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('creates .squad directory if missing', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     expect(existsSync(join(PROJECT_DIR, '.squad'))).toBe(false);
 
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
@@ -54,7 +54,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('stores a relative path from project to team repo', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 
     const config = JSON.parse(
@@ -66,7 +66,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('adds .squad/config.json to .gitignore', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 
     const gitignorePath = join(PROJECT_DIR, '.gitignore');
@@ -76,7 +76,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('does not duplicate gitignore entry', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 
@@ -86,7 +86,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('overwrites existing config.json on re-run', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 
     const secondTeam = join(TEST_ROOT, 'second-team');
@@ -100,7 +100,7 @@ describe('CLI: init-remote command', () => {
   });
 
   it('preserves existing .gitignore content', async () => {
-    const { writeRemoteConfig } = await import('@bradygaster/squad-cli/commands/init-remote');
+    const { writeRemoteConfig } = await import('@squad/cli/commands/init-remote');
     writeFileSync(join(PROJECT_DIR, '.gitignore'), 'dist/\n');
     writeRemoteConfig(PROJECT_DIR, TEAM_DIR);
 

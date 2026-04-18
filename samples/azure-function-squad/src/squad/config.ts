@@ -13,8 +13,8 @@ import {
   defineTeam,
   defineAgent,
   defineRouting,
-} from '@bradygaster/squad-sdk/builders';
-import type { SquadSDKConfig } from '@bradygaster/squad-sdk/builders';
+} from '@squad/sdk/builders';
+import type { SquadSDKConfig } from '@squad/sdk/builders';
 
 // ── Agent Definitions ────────────────────────────────────────────────
 

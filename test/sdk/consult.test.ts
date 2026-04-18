@@ -17,7 +17,7 @@ import {
   type LicenseInfo,
   type ExtractionResult,
   type StagedLearning,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
 const TEST_ROOT = join(
   process.cwd(),
@@ -392,7 +392,7 @@ import {
   loadSessionHistory,
   getPersonalSquadRoot,
   resolveGlobalSquadPath,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 
 // ============================================================================
 // getPersonalSquadRoot tests (#590)

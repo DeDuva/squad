@@ -13,12 +13,12 @@ import { mkdir, rm, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
-import { runInit } from '@bradygaster/squad-cli/core/init';
+import { runInit } from '@squad/cli/core/init';
 import {
   runUpgrade,
   ensureGitattributes,
   ensureDirectories,
-} from '@bradygaster/squad-cli/core/upgrade';
+} from '@squad/cli/core/upgrade';
 
 const TEST_ROOT = join(
   process.cwd(),

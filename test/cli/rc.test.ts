@@ -13,18 +13,18 @@ import os from 'node:os';
 describe('CLI: rc command', () => {
   describe('Module exports', () => {
     it('module exports runRC function', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       expect(typeof mod.runRC).toBe('function');
     });
 
     it('module exports RCOptions interface (verifiable via function arity)', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       // runRC(cwd, options) — should accept 2 parameters
       expect(mod.runRC.length).toBe(2);
     });
 
     it('module has no unexpected default export', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       // ESM module should have named exports, no default
       expect(mod.default).toBeUndefined();
     });
@@ -32,20 +32,20 @@ describe('CLI: rc command', () => {
 
   describe('RCOptions interface validation', () => {
     it('accepts tunnel option', async () => {
-      const { RCOptions } = await import('@bradygaster/squad-cli/commands/rc') as any;
+      const { RCOptions } = await import('@squad/cli/commands/rc') as any;
       // TypeScript interface — verify shape through runRC signature
       // This is a compile-time check, but we can verify runtime behavior
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       expect(mod.runRC).toBeDefined();
     });
 
     it('accepts port option', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       expect(mod.runRC).toBeDefined();
     });
 
     it('accepts optional path option', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/rc');
+      const mod = await import('@squad/cli/commands/rc');
       expect(mod.runRC).toBeDefined();
     });
   });
@@ -441,7 +441,7 @@ describe('CLI: rc command', () => {
       );
       
       expect(rcSource).toContain('import { FSStorageProvider, RemoteBridge }');
-      expect(rcSource).toContain('@bradygaster/squad-sdk');
+      expect(rcSource).toContain('@squad/sdk');
     });
 
     it('imports tunnel utilities', () => {

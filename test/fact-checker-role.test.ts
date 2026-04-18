@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getRoleById, listRoles } from '@bradygaster/squad-sdk/roles';
+import { getRoleById, listRoles } from '@squad/sdk/roles';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 

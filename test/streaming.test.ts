@@ -4,9 +4,9 @@ import {
   type StreamDelta,
   type UsageEvent,
   type ReasoningDelta,
-} from '@bradygaster/squad-sdk/runtime/streaming';
-import { CostTracker } from '@bradygaster/squad-sdk/runtime/cost-tracker';
-import { EventBus } from '@bradygaster/squad-sdk/runtime/event-bus';
+} from '@squad/sdk/runtime/streaming';
+import { CostTracker } from '@squad/sdk/runtime/cost-tracker';
+import { EventBus } from '@squad/sdk/runtime/event-bus';
 
 // ============================================================================
 // StreamingPipeline

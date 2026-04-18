@@ -14,10 +14,10 @@ import { randomUUID } from 'node:crypto';
 import {
   parseTeamMarkdown,
   parseDecisionsMarkdown,
-} from '@bradygaster/squad-sdk/config';
-import { parseRoutingMarkdown } from '@bradygaster/squad-sdk/config';
-import { parseCharterMarkdown } from '@bradygaster/squad-sdk/agents';
-import { loadSkillsFromDirectory } from '@bradygaster/squad-sdk/skills';
+} from '@squad/sdk/config';
+import { parseRoutingMarkdown } from '@squad/sdk/config';
+import { parseCharterMarkdown } from '@squad/sdk/agents';
+import { loadSkillsFromDirectory } from '@squad/sdk/skills';
 
 // ===========================================================================
 // Return shape tests (5)

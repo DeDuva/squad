@@ -12,11 +12,11 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { execFileSync } from 'child_process';
-import { initSquad } from '@bradygaster/squad-sdk';
-import type { InitOptions } from '@bradygaster/squad-sdk';
-import { runInit } from '@bradygaster/squad-cli/core/init';
-import { runDoctor } from '@bradygaster/squad-cli/commands/doctor';
-import type { DoctorCheck } from '@bradygaster/squad-cli/commands/doctor';
+import { initSquad } from '@squad/sdk';
+import type { InitOptions } from '@squad/sdk';
+import { runInit } from '@squad/cli/core/init';
+import { runDoctor } from '@squad/cli/commands/doctor';
+import type { DoctorCheck } from '@squad/cli/commands/doctor';
 
 const TEST_ROOT = join(process.cwd(), `.test-init-scaffold-${randomBytes(4).toString('hex')}`);
 
@@ -388,7 +388,7 @@ describe('squad.agent.md template handling (#730)', () => {
   });
 
   it('initSquad returns warning when squad.agent.md template is missing', async () => {
-    const { FSStorageProvider } = await import('@bradygaster/squad-sdk');
+    const { FSStorageProvider } = await import('@squad/sdk');
     const realStorage = new FSStorageProvider();
 
     // Create a proxy storage that hides squad.agent.md.template

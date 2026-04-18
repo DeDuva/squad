@@ -15,7 +15,7 @@ import {
   getBundleTargets,
   validateBundleOutput,
   type BundleConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 import {
   generatePackageJson,
@@ -23,7 +23,7 @@ import {
   getPublishFiles,
   getDefaultExports,
   type NpmPackageConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 import {
   generateInstallScript,
@@ -32,7 +32,7 @@ import {
   generateNpxEntryPoint,
   getDefaultDistConfig,
   type GitHubDistConfig,
-} from '@bradygaster/squad-sdk/build';
+} from '@squad/sdk/build';
 
 // ─── M4-1: Bundle strategy ──────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ describe('bundle', () => {
 
 describe('npm-package', () => {
   const baseConfig: NpmPackageConfig = {
-    name: '@bradygaster/squad',
+    name: '@squad/monorepo',
     version: '0.6.0',
     description: 'Squad SDK',
     exports: {
@@ -198,7 +198,7 @@ describe('npm-package', () => {
   describe('generatePackageJson', () => {
     it('generates valid package.json with required fields', () => {
       const pkg = generatePackageJson(baseConfig);
-      expect(pkg.name).toBe('@bradygaster/squad');
+      expect(pkg.name).toBe('@squad/monorepo');
       expect(pkg.version).toBe('0.6.0');
       expect(pkg.type).toBe('module');
     });
@@ -312,7 +312,7 @@ describe('npm-package', () => {
 
     it('validates scoped package names', () => {
       const result = validatePackageJson({
-        name: '@bradygaster/squad', version: '1.0.0',
+        name: '@squad/monorepo', version: '1.0.0',
         type: 'module', exports: { '.': './dist/index.js' },
         files: ['dist/'],
       });
@@ -401,7 +401,7 @@ describe('github-dist', () => {
       owner: 'bradygaster',
       repo: 'squad',
       binaryName: 'squad',
-      installCommandTemplate: 'npx @bradygaster/squad-cli',
+      installCommandTemplate: 'npx @squad/cli',
     };
 
     it('validates a proper version', () => {
@@ -444,12 +444,12 @@ describe('github-dist', () => {
   describe('getInstallCommand', () => {
     it('returns npx command with defaults', () => {
       const cmd = getInstallCommand();
-      expect(cmd).toBe('npx @bradygaster/squad-cli');
+      expect(cmd).toBe('npx @squad/cli');
     });
 
     it('substitutes custom owner/repo', () => {
       const cmd = getInstallCommand({ owner: 'acme', repo: 'tool' });
-      expect(cmd).toBe('npx @bradygaster/squad-cli');
+      expect(cmd).toBe('npx @squad/cli');
     });
 
     it('uses custom template', () => {

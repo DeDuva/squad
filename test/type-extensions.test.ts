@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseTeamMarkdown,
   parseDecisionsMarkdown,
-} from '@bradygaster/squad-sdk/config';
+} from '@squad/sdk/config';
 
 // ===========================================================================
 // ParsedDecision extensions (#222) — 8 tests

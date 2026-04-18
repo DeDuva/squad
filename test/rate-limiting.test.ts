@@ -8,7 +8,7 @@ import {
   consumeQuota,
   type RatePool,
   type AgentPriority,
-} from '@bradygaster/squad-sdk/ralph/rate-limiting';
+} from '@squad/sdk/ralph/rate-limiting';
 
 describe('getTrafficLight', () => {
   it('returns green when >20% remaining', () => {

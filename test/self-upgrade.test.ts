@@ -44,7 +44,7 @@ describe('squad upgrade --self', () => {
       path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'core', 'upgrade.ts'),
       'utf-8',
     );
-    expect(upgradeSource).toContain("@bradygaster/squad-cli");
+    expect(upgradeSource).toContain("@squad/cli");
     expect(upgradeSource).toContain("'insider'");
     expect(upgradeSource).toContain("'latest'");
   });

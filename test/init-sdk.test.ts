@@ -80,8 +80,8 @@ describe('squad init --sdk flag', () => {
     // Assert: file contains 'defineAgent'
     expect(configContent).toContain('defineAgent');
 
-    // Assert: file imports from '@bradygaster/squad-sdk'
-    expect(configContent).toContain('@bradygaster/squad-sdk');
+    // Assert: file imports from '@squad/sdk'
+    expect(configContent).toContain('@squad/sdk');
 
     // Assert: .squad/ directory also created
     expect(existsSync(join(tempDir, '.squad'))).toBe(true);
@@ -276,7 +276,7 @@ describe('squad init --sdk flag', () => {
 
     // Should import useRole
     expect(configContent).toContain('useRole');
-    expect(configContent).toContain('@bradygaster/squad-sdk');
+    expect(configContent).toContain('@squad/sdk');
 
     // Should have useRole() calls for starter team
     expect(configContent).toMatch(/useRole\s*\(\s*'lead'/);

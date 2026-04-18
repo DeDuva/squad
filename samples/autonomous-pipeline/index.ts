@@ -29,7 +29,7 @@ import {
   recordSessionCreated,
   recordSessionClosed,
   VERSION,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 import type {
   CastMember,
   AgentRole,
@@ -37,7 +37,7 @@ import type {
   SquadConfig,
   TierContext,
   SquadTelemetryHandle,
-} from '@bradygaster/squad-sdk';
+} from '@squad/sdk';
 import chalk from 'chalk';
 
 // ============================================================================
