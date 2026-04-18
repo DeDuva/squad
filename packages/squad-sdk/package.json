@@ -1,6 +1,6 @@
 {
   "name": "@squad/sdk",
-  "version": "0.9.1",
+  "version": "0.9.1-build.4",
   "description": "Squad SDK — Programmable multi-agent runtime supporting Copilot, Anthropic, and Gemini",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@squad/monorepo",
-  "version": "0.9.1",
+  "version": "0.9.1-build.4",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime supporting GitHub Copilot, Anthropic, and Gemini",
   "type": "module",
