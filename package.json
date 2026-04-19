@@ -28,9 +28,8 @@
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-metrics": "^2.5.1",
-    "@opentelemetry/sdk-trace-base": "^2.5.1",
-    "@playwright/test": "^1.58.2",
+    "@opentelemetry/sdk-metrics": "^2.7.0",
+    "@opentelemetry/sdk-trace-base": "^2.7.0",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "@vitest/coverage-v8": "^3.2.4",
@@ -40,7 +39,6 @@
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.1",
     "markdownlint-cli2": "^0.21.0",
-    "playwright": "^1.58.2",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
