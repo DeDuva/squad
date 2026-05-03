@@ -178,18 +178,33 @@ function sanitizeErrorForLlm(error: unknown, squadRoot: string): string {
 
 // --- Tool Registry ---
 
+export type AgentSessionFactory = (
+  targetAgent: string,
+  task: string,
+  priority: RouteRequest['priority'],
+  context?: string,
+) => Promise<{ sessionId: string }>;
+
 export class ToolRegistry {
   private tools: Map<string, SquadTool<any>> = new Map();
   private squadRoot: string;
   private sessionPoolGetter?: () => any;
   private storage: StorageProvider;
   private state?: SquadState;
+  private sessionFactory?: AgentSessionFactory;
 
-  constructor(squadRoot = '.squad', sessionPoolGetter?: () => any, storage: StorageProvider = new FSStorageProvider(), state?: SquadState) {
+  constructor(
+    squadRoot = '.squad',
+    sessionPoolGetter?: () => any,
+    storage: StorageProvider = new FSStorageProvider(),
+    state?: SquadState,
+    sessionFactory?: AgentSessionFactory,
+  ) {
     this.squadRoot = squadRoot;
     this.sessionPoolGetter = sessionPoolGetter;
     this.storage = storage;
     this.state = state;
+    this.sessionFactory = sessionFactory;
     this.registerSquadTools();
   }
 
@@ -223,7 +238,6 @@ export class ToolRegistry {
         required: ['targetAgent', 'task'],
       },
       handler: async (args) => {
-        // Validate target agent exists (stub for now, will check roster later)
         if (!args.targetAgent || args.targetAgent.trim() === '') {
           return {
             textResultForLlm: 'Error: Target agent name is required',
@@ -232,19 +246,33 @@ export class ToolRegistry {
           };
         }
 
-        // Create route request (session creation wired later)
-        const routeRequest: RouteRequest = {
-          targetAgent: args.targetAgent,
-          task: args.task,
-          priority: args.priority || 'normal',
-          context: args.context,
-        };
+        if (!this.sessionFactory) {
+          return {
+            textResultForLlm: `squad_route: sessionFactory not configured. Task for ${args.targetAgent} was not dispatched.`,
+            resultType: 'failure',
+            error: 'sessionFactory not configured',
+          };
+        }
 
-        return {
-          textResultForLlm: `Task routed to ${args.targetAgent}. Priority: ${routeRequest.priority}. Session creation will be implemented when session lifecycle is in place.`,
-          resultType: 'success',
-          toolTelemetry: { routeRequest },
-        };
+        try {
+          const { sessionId } = await this.sessionFactory(
+            args.targetAgent,
+            args.task,
+            args.priority ?? 'normal',
+            args.context,
+          );
+          return {
+            textResultForLlm: `Task routed to ${args.targetAgent} (session ${sessionId}). Priority: ${args.priority ?? 'normal'}.`,
+            resultType: 'success',
+            toolTelemetry: { targetAgent: args.targetAgent, sessionId, priority: args.priority ?? 'normal' },
+          };
+        } catch (error) {
+          return {
+            textResultForLlm: `Failed to route task to ${args.targetAgent}: ${sanitizeErrorForLlm(error, this.squadRoot)}`,
+            resultType: 'failure',
+            error: String(error),
+          };
+        }
       },
     });
 
@@ -304,7 +332,7 @@ export class ToolRegistry {
             '',
           ].filter(Boolean).join('\n');
 
-          this.storage.writeSync(filename, content);
+          await this.storage.write(filename, content);
 
           return {
             textResultForLlm: `Decision written: ${args.author}-${slug}.md (ID: ${decisionId})`,
@@ -377,8 +405,8 @@ export class ToolRegistry {
 
           // Fallback: raw StorageProvider
           const historyFile = path.join(this.squadRoot, 'agents', args.agent, 'history.md');
-          
-          if (!this.storage.existsSync(historyFile)) {
+
+          if (!await this.storage.exists(historyFile)) {
             return {
               textResultForLlm: `Agent history file not found: agents/${args.agent}/history.md`,
               resultType: 'failure',
@@ -390,7 +418,7 @@ export class ToolRegistry {
           const timestamp = new Date().toISOString().slice(0, 10);
           const entry = `\n### ${timestamp}\n${args.content}\n`;
 
-          let content = this.storage.readSync(historyFile);
+          let content = await this.storage.read(historyFile);
           if (content === undefined) {
             return {
               textResultForLlm: `Agent history file not readable: agents/${args.agent}/history.md`,
@@ -398,7 +426,7 @@ export class ToolRegistry {
               error: 'History file could not be read',
             };
           }
-          
+
           // Find section and append
           const sectionIndex = content.indexOf(sectionHeader);
           if (sectionIndex !== -1) {
@@ -411,7 +439,7 @@ export class ToolRegistry {
             content += `\n${sectionHeader}\n${entry}`;
           }
 
-          this.storage.writeSync(historyFile, content);
+          await this.storage.write(historyFile, content);
 
           return {
             textResultForLlm: `Appended to ${args.agent} history (${args.section})`,
@@ -571,13 +599,13 @@ export class ToolRegistry {
           const copilotSkillDir = path.join(projectRoot, '.squad', 'skills', args.skillName);
           const skillDir = args.operation === 'write'
             ? copilotSkillDir
-            : this.storage.existsSync(path.join(copilotSkillDir, 'SKILL.md'))
+            : await this.storage.exists(path.join(copilotSkillDir, 'SKILL.md'))
               ? copilotSkillDir
               : legacySkillDir;
           const skillFile = path.join(skillDir, 'SKILL.md');
 
           if (args.operation === 'read') {
-            const content = this.storage.readSync(skillFile);
+            const content = await this.storage.read(skillFile);
             if (content === undefined) {
               return {
                 textResultForLlm: `Skill not found: ${args.skillName}`,
@@ -610,7 +638,7 @@ export class ToolRegistry {
               args.content,
             ].join('\n');
 
-            this.storage.writeSync(skillFile, skillContent);
+            await this.storage.write(skillFile, skillContent);
 
             return {
               textResultForLlm: `Skill written: ${args.skillName} (.squad/skills/${args.skillName}/SKILL.md)`,

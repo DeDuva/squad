@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@bradygaster/squad-sdk/tools';
 import { SessionPool } from '@bradygaster/squad-sdk/client';
+import { InMemoryStorageProvider } from '@bradygaster/squad-sdk/storage';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -177,7 +178,7 @@ describe('squad_route handler', () => {
     });
   });
 
-  it('should create route request with valid inputs', async () => {
+  it('returns failure when no sessionFactory is configured', async () => {
     const tool = registry.getTool('squad_route')!;
     const result = await tool.handler(
       {
@@ -195,13 +196,13 @@ describe('squad_route handler', () => {
     );
 
     expect(result).toMatchObject({
-      resultType: 'success',
+      resultType: 'failure',
+      error: 'sessionFactory not configured',
     });
     expect((result as any).textResultForLlm).toContain('fenster');
-    expect((result as any).textResultForLlm).toContain('high');
   });
 
-  it('should default priority to normal', async () => {
+  it('returns failure with correct error when factory is absent, regardless of priority', async () => {
     const tool = registry.getTool('squad_route')!;
     const result = await tool.handler(
       {
@@ -217,9 +218,9 @@ describe('squad_route handler', () => {
     );
 
     expect(result).toMatchObject({
-      resultType: 'success',
+      resultType: 'failure',
+      error: 'sessionFactory not configured',
     });
-    expect((result as any).toolTelemetry.routeRequest.priority).toBe('normal');
   });
 });
 
@@ -302,6 +303,36 @@ describe('squad_decide handler', () => {
     expect(content).toContain('Short decision');
     expect(content).toContain('**By:** brady');
     expect(content).not.toContain('**References:**');
+  });
+
+  it('works correctly with InMemoryStorageProvider (async path)', async () => {
+    const storage = new InMemoryStorageProvider();
+    const memRegistry = new ToolRegistry('.squad', undefined, storage);
+    const tool = memRegistry.getTool('squad_decide')!;
+
+    const result = await tool.handler(
+      {
+        author: 'tester',
+        summary: 'Use in-memory storage',
+        body: 'Verifies the async storage.write() path is exercised.',
+      } as DecisionRecord,
+      {
+        sessionId: 'test-session',
+        toolCallId: 'test-call',
+        toolName: 'squad_decide',
+        arguments: {},
+      },
+    );
+
+    expect(result).toMatchObject({ resultType: 'success' });
+
+    const files = await storage.list('.squad/decisions/inbox');
+    expect(files.length).toBe(1);
+    expect(files[0]).toMatch(/^tester-use-in-memory-storage\.md$/);
+
+    const written = await storage.read(`.squad/decisions/inbox/${files[0]}`);
+    expect(written).toContain('**By:** tester');
+    expect(written).toContain('Use in-memory storage');
   });
 });
 
