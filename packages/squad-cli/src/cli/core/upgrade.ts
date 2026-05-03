@@ -729,38 +729,13 @@ function detectPackageManager(): 'npm' | 'pnpm' | 'yarn' {
  * appropriate global install command. On EACCES errors, suggests `sudo` with
  * the detected installer name.
  */
-export async function selfUpgradeCli(options: SelfUpgradeOptions = {}): Promise<void> {
-  const { execSync } = await import('node:child_process');
-  const tag = options.insider ? 'insider' : 'latest';
-  const pkg = `@bradygaster/squad-cli@${tag}`;
-  const pm = detectPackageManager();
-
-  let cmd: string;
-  switch (pm) {
-    case 'pnpm':
-      cmd = `pnpm add -g ${pkg}`;
-      break;
-    case 'yarn':
-      cmd = `yarn global add ${pkg}`;
-      break;
-    default:
-      cmd = `npm install -g ${pkg}`;
-      break;
-  }
-
-  info(`Self-upgrading via ${pm}: ${cmd}`);
-
-  try {
-    execSync(cmd, { stdio: 'inherit' });
-  } catch (err: unknown) {
-    const isPermission =
-      err instanceof Error &&
-      'code' in err &&
-      (err as NodeJS.ErrnoException).code === 'EACCES';
-    if (isPermission) {
-      warn(`Permission denied. Try: sudo ${cmd}`);
-    } else {
-      warn(`Upgrade failed. Try running manually: ${cmd}`);
-    }
-  }
+export async function selfUpgradeCli(_options: SelfUpgradeOptions = {}): Promise<void> {
+  // This fork is not published to npm — squad upgrade --self is not supported.
+  // To update, pull the latest source and rebuild:
+  //   git pull origin dev && npm run build
+  warn(
+    '`squad upgrade --self` is not supported in this build.\n' +
+    '  To update, pull the latest source and rebuild:\n' +
+    '    git pull origin dev && npm run build',
+  );
 }

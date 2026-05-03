@@ -337,7 +337,6 @@ async function main(): Promise<void> {
     // Handle --self: upgrade the CLI package itself
     if (selfUpgrade) {
       await selfUpgradeCli({ insider, force: forceUpgrade });
-      console.log('✅ Upgraded. Please restart your terminal for changes to take effect.');
       return;
     }
 
