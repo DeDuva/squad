@@ -47,9 +47,11 @@ describe('bundle', () => {
       expect(config.entryPoints.length).toBeGreaterThan(0);
     });
 
-    it('marks @github/copilot-sdk as external by default', () => {
+    it('marks native modules as external by default', () => {
       const config = createBundleConfig();
-      expect(config.external).toContain('@github/copilot-sdk');
+      expect(config.external).toContain('node-pty');
+      expect(config.external).toContain('sql.js');
+      expect(config.external).toContain('@opentelemetry/sdk-node');
     });
 
     it('allows overriding format to cjs', () => {
