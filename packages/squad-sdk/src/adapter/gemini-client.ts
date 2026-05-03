@@ -18,6 +18,10 @@ import type {
   SquadTool,
   SquadReasoningEffort,
   SquadGetAuthStatusResponse,
+  SquadSessionHooks,
+  SquadPreToolUseHookInput,
+  SquadPostToolUseHookInput,
+  SquadToolResultObject,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -160,11 +164,14 @@ export class GeminiSession implements SquadSession {
   private readonly tools: SquadTool[];
   private readonly systemPrompt: string | undefined;
   private readonly thinkingBudget: number | undefined;
+  private readonly hooks: SquadSessionHooks | undefined;
+  private readonly maxToolCallRounds: number;
 
   private history: GeminiContent[] = [];
   private listeners = new Map<string, Set<SquadSessionEventHandler>>();
   private abortController: AbortController | null = null;
   private closed = false;
+  private toolCallRound = 0;
 
   constructor(
     apiKey: string,
@@ -185,6 +192,16 @@ export class GeminiSession implements SquadSession {
     // Reasoning effort
     if (config.reasoningEffort) {
       this.thinkingBudget = THINKING_BUDGETS[config.reasoningEffort];
+    }
+
+    this.hooks = config.hooks;
+    this.maxToolCallRounds = config.maxToolCallRounds ?? 10;
+
+    if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
+      console.warn(
+        '[squad-sdk] mcpServers config is not yet implemented in the Gemini backend. ' +
+        'MCP tool capabilities will not be available in this session.',
+      );
     }
   }
 
@@ -213,6 +230,12 @@ export class GeminiSession implements SquadSession {
 
   async sendMessage(options: SquadMessageOptions): Promise<void> {
     if (this.closed) throw new Error('Session is closed');
+
+    // Reset round counter at the start of each user-initiated turn (not recursive continuations).
+    // Recursive calls use { prompt: '' }; user turns always have a non-empty prompt.
+    if (options.prompt !== '') {
+      this.toolCallRound = 0;
+    }
 
     this.abortController = new AbortController();
 
@@ -331,6 +354,14 @@ export class GeminiSession implements SquadSession {
   private async handleToolCalls(
     calls: Array<{ name: string; args: Record<string, unknown>; callId: string }>,
   ): Promise<void> {
+    this.toolCallRound++;
+    if (this.toolCallRound > this.maxToolCallRounds) {
+      throw new Error(
+        `Tool call depth exceeded maxToolCallRounds (${this.maxToolCallRounds}). ` +
+        `This usually means a tool is returning function calls in a loop.`,
+      );
+    }
+
     const toolMap = new Map(this.tools.map(t => [t.name, t]));
     const responseParts: GeminiPart[] = [];
 
@@ -345,19 +376,48 @@ export class GeminiSession implements SquadSession {
       });
 
       let result: unknown;
-      if (tool) {
+
+      // Pre-tool hook
+      const preInput: SquadPreToolUseHookInput = {
+        timestamp: Date.now(),
+        cwd: process.cwd(),
+        toolName: call.name,
+        toolArgs: call.args,
+      };
+      const preOutput = await this.hooks?.onPreToolUse?.(preInput, { sessionId: this.sessionId });
+
+      if (preOutput?.permissionDecision === 'deny') {
+        result = {
+          textResultForLlm: `Tool use denied: ${preOutput.permissionDecisionReason ?? 'no reason given'}`,
+          resultType: 'rejected',
+        };
+      } else if (tool) {
+        const effectiveArgs = (preOutput?.modifiedArgs ?? call.args) as Record<string, unknown>;
         try {
-          result = await tool.handler(call.args, {
+          result = await tool.handler(effectiveArgs, {
             sessionId: this.sessionId,
             toolCallId: call.callId,
             toolName: call.name,
-            arguments: call.args,
+            arguments: effectiveArgs,
           });
         } catch (err) {
           result = { error: err instanceof Error ? err.message : String(err) };
         }
       } else {
         result = { error: `Unknown tool: ${call.name}` };
+      }
+
+      // Post-tool hook
+      const postInput: SquadPostToolUseHookInput = {
+        timestamp: Date.now(),
+        cwd: process.cwd(),
+        toolName: call.name,
+        toolArgs: call.args,
+        toolResult: result as SquadToolResultObject,
+      };
+      const postOutput = await this.hooks?.onPostToolUse?.(postInput, { sessionId: this.sessionId });
+      if (postOutput?.modifiedResult !== undefined) {
+        result = postOutput.modifiedResult;
       }
 
       this.emit({
