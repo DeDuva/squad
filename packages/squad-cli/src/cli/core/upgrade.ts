@@ -289,7 +289,7 @@ const ENSURE_DIRECTORIES = [
   '.squad/decisions/inbox',
   '.squad/casting',
   '.squad/agents',
-  '.copilot/skills',
+  '.squad/skills',
 ];
 
 /**
@@ -446,7 +446,7 @@ function warnIfSkillCustomized(srcPath: string, destPath: string, sourceName: st
 }
 
 /**
- * Sync manifest-declared skills to .copilot/skills/, respecting overwriteOnUpgrade.
+ * Sync manifest-declared skills to .squad/skills/, respecting overwriteOnUpgrade.
  * Only skills listed in TEMPLATE_MANIFEST are installed — not the entire templates/skills/ dir.
  */
 function syncAllSkills(dest: string, templatesDir: string): number {
@@ -520,7 +520,7 @@ function runEnsureChecks(dest: string, templatesDir: string, filesUpdated: strin
 
   const skillCount = syncAllSkills(dest, templatesDir);
   if (skillCount > 0) {
-    success(`synced ${skillCount} skills to .copilot/skills/`);
+    success(`synced ${skillCount} skills to .squad/skills/`);
     filesUpdated.push(`skills (${skillCount})`);
   }
 

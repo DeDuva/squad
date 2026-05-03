@@ -618,7 +618,7 @@ function stampVersionInContent(content: string, version: string): string {
  * - .github/agents/squad.agent.md
  * - .github/workflows/ (optional)
  * - .squad/templates/ (optional)
- * - .copilot/mcp-config.json (optional)
+ * - .squad/mcp-config.json (optional)
  * - Identity files (now.md, wisdom.md)
  * - ceremonies.md
  * 
@@ -713,7 +713,7 @@ export async function initSquad(options: InitOptions, storage: StorageProvider =
     join(squadDir, 'casting'),
     join(squadDir, 'decisions'),
     join(squadDir, 'decisions', 'inbox'),
-    join(teamRoot, '.copilot', 'skills'),
+    join(teamRoot, '.squad', 'skills'),
     join(squadDir, 'plugins'),
     join(squadDir, 'identity'),
     join(squadDir, 'orchestration-log'),
@@ -987,7 +987,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   // Copy starter skills
   // -------------------------------------------------------------------------
   
-  const skillsDir = join(teamRoot, '.copilot', 'skills');
+  const skillsDir = join(teamRoot, '.squad', 'skills');
   if (templatesDir && storage.existsSync(join(templatesDir, 'skills'))) {
     const skillsSrc = join(templatesDir, 'skills');
     const existingSkills = storage.existsSync(skillsDir) ? storage.listSync(skillsDir) : [];
@@ -999,7 +999,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
           copyRecursiveSync(srcSkill, join(skillsDir, skillName), storage);
         }
       }
-      createdFiles.push('.copilot/skills');
+      createdFiles.push('.squad/skills');
     }
   }
   
@@ -1145,7 +1145,7 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
   // -------------------------------------------------------------------------
   
   if (includeMcpConfig) {
-    const mcpConfigPath = join(teamRoot, '.copilot', 'mcp-config.json');
+    const mcpConfigPath = join(teamRoot, '.squad', 'mcp-config.json');
     if (!storage.existsSync(mcpConfigPath)) {
       const mcpSample = isGitHub
         ? {

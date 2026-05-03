@@ -130,7 +130,7 @@ export function exportSquadConfig(projectDir: string, options?: ExportOptions): 
 
   if (opts.includeSkills) {
     const skillSources = [
-      { dir: join(projectDir, '.copilot', 'skills'), layout: 'nested' as const },
+      { dir: join(projectDir, '.squad', 'skills'), layout: 'nested' as const },
       { dir: join(projectDir, '.squad', 'skills'), layout: 'nested' as const },
       { dir: join(projectDir, '.ai-team', 'skills'), layout: 'flat' as const },
     ];

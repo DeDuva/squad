@@ -6,7 +6,7 @@
  * Doctor command inspired by @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -33,17 +33,29 @@ async function scaffold(root: string): Promise<void> {
 }
 
 describe('squad doctor', () => {
+  const originalEnv = process.env['GEMINI_API_KEY'];
+
   beforeEach(async () => {
     if (existsSync(TEST_ROOT)) {
       await rm(TEST_ROOT, { recursive: true, force: true });
     }
     await mkdir(TEST_ROOT, { recursive: true });
+
+    // Provide a dummy key and mock fetch so Gemini auth check passes in tests
+    process.env['GEMINI_API_KEY'] = 'test-key-for-doctor-tests';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   afterEach(async () => {
     if (existsSync(TEST_ROOT)) {
       await rm(TEST_ROOT, { recursive: true, force: true });
     }
+    if (originalEnv === undefined) {
+      delete process.env['GEMINI_API_KEY'];
+    } else {
+      process.env['GEMINI_API_KEY'] = originalEnv;
+    }
+    vi.unstubAllGlobals();
   });
 
   it('reports all green on a healthy local setup', async () => {
@@ -51,16 +63,16 @@ describe('squad doctor', () => {
 
     const checks = await runDoctor(TEST_ROOT);
 
-    const failed = checks.filter((c: DoctorCheck) => c.status === 'fail');
+    // squad.js bundle check fails in test env (no build artifacts in TEST_ROOT) — that's expected
+    const failed = checks.filter((c: DoctorCheck) => c.status === 'fail' && c.name !== 'squad.js bundle');
     expect(failed).toEqual([]);
     expect(checks.some((c: DoctorCheck) => c.name === '.squad/ directory exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'team.md found with ## Members header' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'agents/ directory exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'casting/registry.json exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'decisions.md exists' && c.status === 'pass')).toBe(true);
-    // ESM checks return 'warn' (not fail) when node_modules absent from test dir
-    expect(checks.some((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field')).toBe(true);
-    expect(checks.some((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch')).toBe(true);
+    expect(checks.some((c: DoctorCheck) => c.name === 'Gemini API key')).toBe(true);
+    expect(checks.some((c: DoctorCheck) => c.name === 'squad.js bundle')).toBe(true);
   });
 
   it('reports failures on an empty directory', async () => {
@@ -68,7 +80,7 @@ describe('squad doctor', () => {
 
     const squadDirCheck = checks.find((c: DoctorCheck) => c.name === '.squad/ directory exists');
     expect(squadDirCheck?.status).toBe('fail');
-    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks
+    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + Gemini API key + squad.js bundle
     expect(checks.length).toBe(5);
   });
 
@@ -101,9 +113,9 @@ describe('squad doctor', () => {
     expect(mode).toBe('local');
   });
 
-  it('reports node:sqlite check as pass on current Node version', async () => {
+  it('reports Node.js version check as pass on current Node version', async () => {
     const checks = await runDoctor(TEST_ROOT);
-    const nodeCheck = checks.find((c: DoctorCheck) => c.name.includes('node:sqlite'));
+    const nodeCheck = checks.find((c: DoctorCheck) => c.name === 'Node.js ≥22.5.0');
     expect(nodeCheck).toBeDefined();
     // Tests run on Node >= 22.5.0 — should always pass in CI
     expect(nodeCheck?.status).toBe('pass');
@@ -210,26 +222,24 @@ describe('squad doctor', () => {
 
   // ── #565 — Actionable resolution hints in warnings ────────────────
 
-  it('vscode-jsonrpc info says "expected for global installs" when not in node_modules', async () => {
+  it('Gemini API key check passes when key is valid', async () => {
     await scaffold(TEST_ROOT);
 
     const checks = await runDoctor(TEST_ROOT);
-    const jsonrpcCheck = checks.find((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field');
-    expect(jsonrpcCheck).toBeDefined();
-    expect(jsonrpcCheck?.status).toBe('warn');
-    expect(jsonrpcCheck?.severity).toBe('info');
-    expect(jsonrpcCheck?.message).toContain('expected for global installs');
+    const geminiCheck = checks.find((c: DoctorCheck) => c.name === 'Gemini API key');
+    expect(geminiCheck).toBeDefined();
+    expect(geminiCheck?.status).toBe('pass');
+    expect(geminiCheck?.message).toContain('valid');
   });
 
-  it('copilot-sdk info says "expected for global installs" when not in node_modules', async () => {
+  it('squad.js bundle check fails when bundle is not built', async () => {
     await scaffold(TEST_ROOT);
 
     const checks = await runDoctor(TEST_ROOT);
-    const sdkCheck = checks.find((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch');
-    expect(sdkCheck).toBeDefined();
-    expect(sdkCheck?.status).toBe('warn');
-    expect(sdkCheck?.severity).toBe('info');
-    expect(sdkCheck?.message).toContain('expected for global installs');
+    const bundleCheck = checks.find((c: DoctorCheck) => c.name === 'squad.js bundle');
+    expect(bundleCheck).toBeDefined();
+    expect(bundleCheck?.status).toBe('fail');
+    expect(bundleCheck?.message).toContain('npm run build');
   });
 
   it('absolute teamRoot warning includes "Edit .squad/config.json"', async () => {

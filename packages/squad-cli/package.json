@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad-cli",
-  "version": "0.9.1",
+  "version": "0.9.1-build.8",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {
@@ -15,10 +15,6 @@
     "./upgrade": {
       "types": "./dist/cli/upgrade.d.ts",
       "import": "./dist/cli/upgrade.js"
-    },
-    "./copilot-install": {
-      "types": "./dist/cli/copilot-install.d.ts",
-      "import": "./dist/cli/copilot-install.js"
     },
     "./shell/sessions": {
       "types": "./dist/cli/shell/sessions.d.ts",
@@ -144,17 +140,9 @@
       "types": "./dist/cli/commands/extract.d.ts",
       "import": "./dist/cli/commands/extract.js"
     },
-    "./commands/copilot": {
-      "types": "./dist/cli/commands/copilot.d.ts",
-      "import": "./dist/cli/commands/copilot.js"
-    },
     "./commands/cost": {
       "types": "./dist/cli/commands/cost.d.ts",
       "import": "./dist/cli/commands/cost.js"
-    },
-    "./commands/copilot-bridge": {
-      "types": "./dist/cli/commands/copilot-bridge.d.ts",
-      "import": "./dist/cli/commands/copilot-bridge.js"
     },
     "./commands/personal": {
       "types": "./dist/cli/commands/personal.d.ts",
@@ -172,10 +160,9 @@
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node scripts/patch-esm-imports.mjs && node scripts/patch-ink-rendering.mjs",
-    "prepublishOnly": "npm run build",
-    "build": "tsc -p tsconfig.json && npm run postbuild",
-    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\""
+    "build": "tsc -p tsconfig.json && npm run postbuild && npm run bundle",
+    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\"",
+    "bundle": "node scripts/bundle.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
@@ -183,8 +170,7 @@
   "dependencies": {
     "@bradygaster/squad-sdk": ">=0.9.0",
     "ink": "^6.8.0",
-    "react": "^19.2.4",
-    "vscode-jsonrpc": "^8.2.1"
+    "react": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -194,7 +180,7 @@
     "ink-testing-library": "^4.0.0"
   },
   "keywords": [
-    "copilot",
+    "gemini",
     "multi-agent",
     "squad",
     "cli"

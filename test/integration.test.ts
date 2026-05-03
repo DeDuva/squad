@@ -34,26 +34,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-// Mock CopilotClient
-vi.mock('@github/copilot-sdk', () => {
+vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
-    CopilotClient: vi.fn().mockImplementation(() => {
-      return {
-        start: vi.fn().mockResolvedValue(undefined),
-        stop: vi.fn().mockResolvedValue([]),
-        forceStop: vi.fn().mockResolvedValue(undefined),
-        createSession: vi.fn().mockResolvedValue({ sessionId: 'session-1', send: vi.fn().mockResolvedValue('msg-1'), on: vi.fn().mockReturnValue(() => {}), destroy: vi.fn().mockResolvedValue(undefined) }),
-        resumeSession: vi.fn().mockResolvedValue({ sessionId: 'session-1', send: vi.fn().mockResolvedValue('msg-1'), on: vi.fn().mockReturnValue(() => {}), destroy: vi.fn().mockResolvedValue(undefined) }),
-        listSessions: vi.fn().mockResolvedValue([]),
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        getLastSessionId: vi.fn().mockResolvedValue(undefined),
-        ping: vi.fn().mockResolvedValue({ message: 'pong', timestamp: Date.now() }),
-        getStatus: vi.fn().mockResolvedValue({ version: '1.0.0' }),
-        getAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
-        listModels: vi.fn().mockResolvedValue([]),
-        on: vi.fn().mockReturnValue(() => {}),
-      };
-    }),
+    GeminiClient: vi.fn().mockImplementation(() => ({
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue([]),
+      isStarted: vi.fn().mockReturnValue(false),
+      createSession: vi.fn().mockReturnValue({
+        sessionId: 'session-1',
+        sendMessage: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        off: vi.fn(),
+        close: vi.fn().mockResolvedValue(undefined),
+      }),
+      getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
+    })),
   };
 });
 

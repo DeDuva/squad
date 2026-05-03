@@ -265,12 +265,10 @@ function formatAge(seconds: number): string {
   return `${seconds}s`;
 }
 
-// ── ESM compatibility checks ────────────────────────────────────────
-
 // ── environment checks ─────────────────────────────────────────────
 
 /**
- * Check that Node.js is ≥22.5.0 for node:sqlite availability.
+ * Check that Node.js is ≥22.5.0.
  * Accepts an optional version string for testing.
  */
 export function checkNodeVersion(nodeVersion?: string): DoctorCheck {
@@ -280,127 +278,78 @@ export function checkNodeVersion(nodeVersion?: string): DoctorCheck {
   const minor = parts[1] ?? 0;
   const ok = major > 22 || (major === 22 && minor >= 5);
   return {
-    name: 'Node.js ≥22.5.0 (node:sqlite)',
+    name: 'Node.js ≥22.5.0',
     status: ok ? 'pass' : 'fail',
     message: ok
-      ? `v${version} — node:sqlite available`
-      : `v${version} — node:sqlite requires ≥22.5.0. Upgrade at https://nodejs.org/en/download`,
+      ? `v${version}`
+      : `v${version} — requires ≥22.5.0, upgrade at https://nodejs.org/en/download`,
   };
 }
 
 /**
- * Check that vscode-jsonrpc has the `exports` field needed for Node 22/24+
- * strict ESM subpath resolution. Without it, `import('vscode-jsonrpc/node')`
- * fails with ERR_PACKAGE_PATH_NOT_EXPORTED.
+ * Check that a Gemini API key is configured (env var or stored config).
  */
-function checkVscodeJsonrpcExports(cwd: string): DoctorCheck {
-  const possiblePaths = [
-    path.join(cwd, 'node_modules', 'vscode-jsonrpc', 'package.json'),
-    path.join(cwd, 'packages', 'squad-cli', 'node_modules', 'vscode-jsonrpc', 'package.json'),
-  ];
+async function checkGeminiAuth(): Promise<DoctorCheck> {
+  const { homedir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { existsSync, readFileSync } = await import('node:fs');
 
-  for (const pkgPath of possiblePaths) {
-    if (!fileExists(pkgPath)) continue;
+  let apiKey = process.env['GEMINI_API_KEY'];
 
-    const pkg = tryReadJson(pkgPath) as Record<string, unknown> | undefined;
-    if (!pkg) {
-      return {
-        name: 'vscode-jsonrpc exports field',
-        status: 'fail',
-        message: 'package.json found but not valid JSON',
-      };
-    }
-
-    if (pkg['exports'] && typeof pkg['exports'] === 'object') {
-      const exports = pkg['exports'] as Record<string, unknown>;
-      if (exports['./node']) {
-        return {
-          name: 'vscode-jsonrpc exports field',
-          status: 'pass',
-          message: 'exports field present with ./node subpath',
-        };
+  if (!apiKey) {
+    const configFile = join(homedir(), '.config', 'squad', 'gemini.json');
+    if (existsSync(configFile)) {
+      try {
+        const parsed = JSON.parse(readFileSync(configFile, 'utf-8'));
+        if (typeof parsed.apiKey === 'string') apiKey = parsed.apiKey;
+      } catch {
+        // ignore
       }
     }
+  }
 
+  if (!apiKey) {
     return {
-      name: 'vscode-jsonrpc exports field',
+      name: 'Gemini API key',
       status: 'fail',
-      message: 'missing exports field — run postinstall or reinstall (see #449)',
+      message: 'not configured — run: squad auth setup --provider=gemini --key YOUR_KEY',
     };
   }
 
-  // Detect whether we're in a local dev context (node_modules exists) or global install
-  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
-  if (hasNodeModules) {
+  // Validate the key
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (res.ok) {
+      const source = process.env['GEMINI_API_KEY'] ? 'GEMINI_API_KEY env var' : '~/.config/squad/gemini.json';
+      return { name: 'Gemini API key', status: 'pass', message: `valid (source: ${source})` };
+    }
     return {
-      name: 'vscode-jsonrpc exports field',
+      name: 'Gemini API key',
+      status: 'fail',
+      message: `key found but validation failed (HTTP ${res.status}) — run: squad auth setup --provider=gemini --key YOUR_KEY`,
+    };
+  } catch (err) {
+    return {
+      name: 'Gemini API key',
       status: 'warn',
-      message: 'not found in node_modules — run npm install or check dependencies',
+      message: `key found but connectivity check failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
-
-  return {
-    name: 'vscode-jsonrpc exports field',
-    status: 'warn',
-    severity: 'info',
-    message: 'not found in node_modules (expected for global installs)',
-  };
 }
 
 /**
- * Check that @github/copilot-sdk session.js has the .js extension fix
- * on its vscode-jsonrpc/node import (defense-in-depth behind the exports patch).
+ * Check that the local esbuild bundle exists and is runnable.
  */
-function checkCopilotSdkSessionPatch(cwd: string): DoctorCheck {
-  const possiblePaths = [
-    path.join(cwd, 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
-    path.join(cwd, 'packages', 'squad-cli', 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
-  ];
-
-  for (const sessionPath of possiblePaths) {
-    if (!fileExists(sessionPath)) continue;
-
-    try {
-      const content = storage.readSync(sessionPath) ?? '';
-
-      if (/from\s+["']vscode-jsonrpc\/node["']/.test(content)) {
-        return {
-          name: 'copilot-sdk session.js ESM patch',
-          status: 'fail',
-          message: 'session.js has extensionless vscode-jsonrpc/node import — run postinstall (see #449)',
-        };
-      }
-
-      return {
-        name: 'copilot-sdk session.js ESM patch',
-        status: 'pass',
-        message: 'session.js imports use .js extension',
-      };
-    } catch {
-      return {
-        name: 'copilot-sdk session.js ESM patch',
-        status: 'warn',
-        message: 'could not read session.js',
-      };
-    }
-  }
-
-  // Detect whether we're in a local dev context (node_modules exists) or global install
-  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
-  if (hasNodeModules) {
+function checkBundle(cwd: string): DoctorCheck {
+  const bundlePath = path.join(cwd, 'packages', 'squad-cli', 'dist', 'squad.js');
+  if (!fileExists(bundlePath)) {
     return {
-      name: 'copilot-sdk session.js ESM patch',
-      status: 'warn',
-      message: 'not found in node_modules — run npm install or check dependencies',
+      name: 'squad.js bundle',
+      status: 'fail',
+      message: 'not found — run: npm run build',
     };
   }
-
-  return {
-    name: 'copilot-sdk session.js ESM patch',
-    status: 'warn',
-    severity: 'info',
-    message: 'not found in node_modules (expected for global installs)',
-  };
+  return { name: 'squad.js bundle', status: 'pass', message: bundlePath };
 }
 
 function checkSquadAgentMd(cwd: string): DoctorCheck {
@@ -431,7 +380,7 @@ function checkSquadAgentMd(cwd: string): DoctorCheck {
   return {
     name: '.github/agents/squad.agent.md',
     status: 'pass',
-    message: 'file present (Copilot agent discovery file)',
+    message: 'file present',
   };
 }
 
@@ -473,15 +422,17 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
     if (rateLimitCheck) checks.push(rateLimitCheck);
   }
 
-  // 10. Copilot agent discovery file (relative to cwd, not squadDir)
+  // 10. Agent discovery file
   checks.push(checkSquadAgentMd(resolvedCwd));
 
-  // 11. Node.js version (node:sqlite availability)
+  // 11. Node.js version
   checks.push(checkNodeVersion());
 
-  // 11-12. ESM compatibility (Node 22/24+)
-  checks.push(checkVscodeJsonrpcExports(resolvedCwd));
-  checks.push(checkCopilotSdkSessionPatch(resolvedCwd));
+  // 12. Gemini API key (async — validates connectivity)
+  checks.push(await checkGeminiAuth());
+
+  // 13. Local bundle (airlock mode)
+  checks.push(checkBundle(resolvedCwd));
 
   return checks;
 }

@@ -1,7 +1,7 @@
 {
   "name": "@bradygaster/squad-sdk",
-  "version": "0.9.1",
-  "description": "Squad SDK — Programmable multi-agent runtime for GitHub Copilot",
+  "version": "0.9.1-build.8",
+  "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -231,10 +231,7 @@
   "engines": {
     "node": ">=22.5.0"
   },
-  "dependencies": {
-    "@github/copilot-sdk": "^0.1.32",
-    "vscode-jsonrpc": "^8.2.1"
-  },
+  "dependencies": {},
   "optionalDependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.57.2",
@@ -257,7 +254,7 @@
     "typescript": "^5.7.0"
   },
   "keywords": [
-    "copilot",
+    "gemini",
     "multi-agent",
     "squad",
     "sdk"

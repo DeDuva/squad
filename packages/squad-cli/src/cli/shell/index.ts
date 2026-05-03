@@ -243,7 +243,7 @@ export async function runShell(): Promise<void> {
   }
 
   // Create SDK client (auto-connects on first session creation)
-  const client = new SquadClient({ cwd: teamRoot });
+  const client = new SquadClient();
 
   let shellApi: ShellApi | undefined;
   let origAddMessage: ((msg: ShellMessage) => void) | undefined;

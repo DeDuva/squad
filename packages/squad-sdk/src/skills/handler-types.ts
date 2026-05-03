@@ -1,7 +1,7 @@
 /**
  * Type system for the skill-script model.
  *
- * This module defines the complete type contract for backend skills in `.copilot/skills/`.
+ * This module defines the complete type contract for backend skills in `.squad/skills/`.
  * Skills contain `scripts/` directories with executable JS handlers that replace built-in
  * tool handlers in ToolRegistry.
  *

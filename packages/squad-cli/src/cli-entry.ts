@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Squad CLI — entry point for command-line invocation.
  * Separated from src/index.ts so library consumers can import
@@ -22,41 +20,7 @@ process.emit = function (evt: string, ...args: unknown[]) {
   return _origEmit.apply(this, [evt, ...args] as Parameters<typeof _origEmit>);
 };
 
-// Runtime ESM Import Patcher for @github/copilot-sdk (#265)
-// ---------------------------------------------------------
-// Patch broken ESM import in @github/copilot-sdk@0.1.32 at runtime before
-// Node's module loader attempts resolution.
-//
-// Root cause: copilot-sdk's session.js imports 'vscode-jsonrpc/node' without
-// .js extension, violating Node 24+ strict ESM resolution requirements.
-//
-// Why runtime patch?: NPX caches packages in ~/.npm/_cacache and skips
-// postinstall scripts on cache hits (documented npm behavior). The install-time
-// patch in scripts/patch-esm-imports.mjs never runs on npx cache hits, causing
-// ERR_MODULE_NOT_FOUND crashes on Node 24+.
-//
-// This runtime patch intercepts Module._resolveFilename before any imports
-// trigger copilot-sdk loading, rewriting the broken import to include .js.
-// Works everywhere: npx (cache hit/miss), global install, CI/CD.
-//
-// Upstream issue: https://github.com/github/copilot-sdk/issues/707
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const Module = require('node:module');
-
-const _origResolveFilename = Module._resolveFilename;
-Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options?: unknown) {
-  // Intercept the broken import: 'vscode-jsonrpc/node' → 'vscode-jsonrpc/node.js'
-  if (request === 'vscode-jsonrpc/node') {
-    request = 'vscode-jsonrpc/node.js';
-  }
-  return _origResolveFilename.call(this, request, parent, isMain, options);
-};
-
-// Pre-flight: require Node.js ≥22.5.0 for node:sqlite (#214, #502).
-// node:sqlite is used by the Copilot SDK for session storage.
-// Fail fast with a clear message rather than letting users hit a cryptic
-// ERR_UNKNOWN_BUILTIN_MODULE crash when the SDK loads.
+// Pre-flight: require Node.js ≥22.5.0 for node:sqlite.
 {
   const parts = process.versions.node.split('.').map(Number);
   const major = parts[0] ?? 0;
@@ -64,7 +28,6 @@ Module._resolveFilename = function (request: string, parent: unknown, isMain: bo
   if (major < 22 || (major === 22 && minor < 5)) {
     console.error(
       `✗ Squad requires Node.js ≥22.5.0 (you have v${process.versions.node}).\n` +
-      `  node:sqlite (required by the Copilot SDK for session storage) was added in Node 22.5.0.\n` +
       `  Upgrade at: https://nodejs.org/en/download\n`,
     );
     process.exit(1);
@@ -98,8 +61,6 @@ import { runInit } from './cli/core/init.js';
 import { runCost } from './cli/commands/cost.js';
 import { getPackageVersion } from './cli/core/version.js';
 
-// Lazy-load squad-sdk to avoid triggering @github/copilot-sdk import on Node 24+
-// (Issue: copilot-sdk has broken ESM imports - vscode-jsonrpc/node without .js extension)
 const lazySquadSdk = () => import('@bradygaster/squad-sdk');
 const lazyRunShell = () => import('./cli/shell/index.js');
 
@@ -200,8 +161,6 @@ async function main(): Promise<void> {
     console.log(`                    --monitor-email, --monitor-teams (add monitoring)`);
     console.log(`  ${BOLD}hire${RESET}       Team creation wizard`);
     console.log(`             Usage: hire [--name <name>] [--role <role>]`);
-    console.log(`  ${BOLD}copilot${RESET}    Add/remove the Copilot coding agent (@copilot)`);
-    console.log(`             Usage: copilot [--off] [--auto-assign]`);
     console.log(`  ${BOLD}plugin${RESET}     Manage plugin marketplaces`);
     console.log(`             Usage: plugin marketplace add|remove|list|browse`);
     console.log(`  ${BOLD}export${RESET}     Export squad to a portable JSON snapshot`);
@@ -210,12 +169,8 @@ async function main(): Promise<void> {
     console.log(`             Usage: import <file> [--force]`);
     console.log(`  ${BOLD}scrub-emails${RESET}  Remove email addresses from Squad state files`);
     console.log(`             Usage: scrub-emails [directory] (default: .ai-team/)`);
-    console.log(`  ${BOLD}start${RESET}      Start Copilot with remote access from phone/browser`);
+    console.log(`  ${BOLD}start${RESET}      Start Squad with remote access from phone/browser`);
     console.log(`             Usage: start [--tunnel] [--port <n>] [--command <cmd>]`);
-    console.log(`                    [copilot flags...]`);
-    console.log(`             Examples: start --tunnel --yolo`);
-    console.log(`                       start --tunnel --model claude-sonnet-4`);
-    console.log(`                       start --tunnel --command "gh copilot"`);
     console.log(`  ${BOLD}nap${RESET}        Context hygiene (compress, prune, archive .squad/ state)`);
     console.log(`             Usage: nap [--deep] [--dry-run]`);
     console.log(`             Flags: --deep (thorough cleanup), --dry-run (preview only)`);
@@ -244,9 +199,8 @@ async function main(): Promise<void> {
     console.log(`                    apply <name> [--force] | save <name>`);
     console.log(`                    init [--remote]`);
     console.log(`  ${BOLD}cast${RESET}       Show current session cast (project + personal agents)`);
-    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser → Copilot)`);
+    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser → Squad)`);
     console.log(`             Usage: rc [--tunnel] [--port <n>] [--path <dir>]`);
-    console.log(`  ${BOLD}copilot-bridge${RESET}  Check Copilot ACP stdio compatibility`);
     console.log(`  ${BOLD}init-remote${RESET}    Link project to remote team root (shorthand)`);
     console.log(`             Usage: init-remote <team-repo-path>`);
     console.log(`  ${BOLD}rc-tunnel${RESET}      Check devtunnel CLI availability`);
@@ -261,6 +215,10 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}economy${RESET}    Toggle economy mode (cost-conscious model selection)`);
     console.log(`             Usage: economy [on|off]`);
 
+    console.log(`  ${BOLD}auth${RESET}       Manage API credentials`);
+    console.log(`             Usage: auth setup --provider=gemini [--key KEY]`);
+    console.log(`                    auth status`);
+    console.log(`                    auth logout`);
     console.log(`  ${BOLD}version${RESET}    Print installed version`);
     console.log(`  ${BOLD}help${RESET}       Show this help message`);
     console.log(`\nFlags:`);
@@ -269,10 +227,10 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}--global${RESET}       Use personal (global) squad path (for init, upgrade)`);
     console.log(`  ${BOLD}--economy${RESET}      Activate economy mode for this session (cheaper models)`);
     console.log(`  ${BOLD}--team-root${RESET}    Override team root path for resolution`);
-    console.log(`\nInstallation:`);
-    console.log(`  npm install --save-dev @bradygaster/squad-cli`);
-    console.log(`\nInsider channel:`);
-    console.log(`  npm install --save-dev @bradygaster/squad-cli@insider\n`);
+    console.log(`\nSetup (airlock — build from source):`);
+    console.log(`  git clone <squad-repo> && cd squad`);
+    console.log(`  npm ci && npm run build`);
+    console.log(`  ./squad auth setup --provider=gemini --key YOUR_KEY\n`);
     return;
   }
 
@@ -700,14 +658,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (cmd === 'copilot') {
-    const { runCopilot } = await import('./cli/commands/copilot.js');
-    const isOff = args.includes('--off');
-    const autoAssign = args.includes('--auto-assign');
-    await runCopilot(getSquadStartDir(), { off: isOff, autoAssign });
-    return;
-  }
-
   if (cmd === 'scrub-emails') {
     const { scrubEmails } = await import('./cli/core/email-scrub.js');
     const targetDir = args[1] || '.ai-team';
@@ -792,8 +742,7 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'start') {
-    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad start" is deprecated and will be removed in a future release.`);
-    console.log(`  Use the GitHub Copilot CLI directly: ${BOLD}gh copilot${RESET}\n`);
+    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad start" is deprecated and will be removed in a future release.\n`);
     const { runStart } = await import('./cli/commands/start.js');
     const hasTunnel = args.includes('--tunnel');
     const portIdx = args.indexOf('--port');
@@ -875,8 +824,7 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'rc' || cmd === 'remote-control') {
-    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad rc" is deprecated and will be removed in a future release.`);
-    console.log(`  Use the GitHub Copilot CLI directly: ${BOLD}gh copilot${RESET}\n`);
+    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad rc" is deprecated and will be removed in a future release.\n`);
     const { runRC } = await import('./cli/commands/rc.js');
     const hasTunnel = args.includes('--tunnel');
     const portIdx = args.indexOf('--port');
@@ -884,17 +832,6 @@ async function main(): Promise<void> {
     const pathIdx = args.indexOf('--path');
     const rcPath = (pathIdx !== -1 && args[pathIdx + 1]) ? args[pathIdx + 1] : undefined;
     await runRC(rcPath || getSquadStartDir(), { tunnel: hasTunnel, port });
-    return;
-  }
-
-  if (cmd === 'copilot-bridge') {
-    const { CopilotBridge } = await import('./cli/commands/copilot-bridge.js');
-    const result = await CopilotBridge.checkCompatibility();
-    if (result.compatible) {
-      console.log(`${GREEN}✓${RESET} ${result.message}`);
-    } else {
-      console.log(`${YELLOW}⚠${RESET} ${result.message}`);
-    }
     return;
   }
 
@@ -968,6 +905,12 @@ async function main(): Promise<void> {
   if (cmd === 'economy') {
     const { runEconomy } = await import('./cli/commands/economy.js');
     await runEconomy(getSquadStartDir(), args.slice(1));
+    return;
+  }
+
+  if (cmd === 'auth') {
+    const { runAuth } = await import('./cli/commands/auth.js');
+    await runAuth(args.slice(1));
     return;
   }
 
