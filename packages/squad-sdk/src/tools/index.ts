@@ -12,34 +12,17 @@
 
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { SquadTool, SquadToolResult } from '../adapter/types.js';
-import { trace, SpanStatusCode } from '../runtime/otel-api.js';
+import type { SquadTool } from '../adapter/types.js';
 import type { StorageProvider } from '../storage/storage-provider.js';
 import { FSStorageProvider } from '../storage/fs-storage-provider.js';
 import type { SquadState } from '../state/squad-state.js';
+import { createWorkstationTools, type WorkstationToolsOptions } from './workstation.js';
+import { defineTool } from './define-tool.js';
 
-const tracer = trace.getTracer('squad-sdk');
-
-// --- Argument Sanitization ---
-
-/** Sensitive field patterns — strip before recording as span attributes. */
-const SENSITIVE_PATTERNS = /token|secret|password|key|auth/i;
-
-/**
- * Sanitize tool arguments for OTel span attributes.
- * Strips any field whose name matches sensitive patterns (case-insensitive).
- * Returns JSON string truncated to 1024 chars.
- */
-export function sanitizeArgs(args: unknown): string {
-  if (args == null || typeof args !== 'object') {
-    return JSON.stringify(args ?? null).slice(0, 1024);
-  }
-  const sanitized: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(args as Record<string, unknown>)) {
-    sanitized[k] = SENSITIVE_PATTERNS.test(k) ? '[REDACTED]' : v;
-  }
-  return JSON.stringify(sanitized).slice(0, 1024);
-}
+// Re-export so callers can import from '@bradygaster/squad-sdk/tools'
+export { defineTool, sanitizeArgs } from './define-tool.js';
+export type { WorkstationToolsOptions } from './workstation.js';
+export { createWorkstationTools } from './workstation.js';
 
 // --- Tool Types ---
 
@@ -107,64 +90,6 @@ export interface SkillRequest {
   confidence?: 'low' | 'medium' | 'high';
 }
 
-// --- Tool Definition Helper ---
-
-/**
- * Define a typed Squad tool with JSON schema parameters.
- * Creates a SquadTool object compatible with the adapter layer.
- */
-export function defineTool<TArgs = unknown>(config: {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-  handler: (args: TArgs) => Promise<SquadToolResult> | SquadToolResult;
-  /** Optional agent name for span attribution */
-  agentName?: string;
-}): SquadTool<TArgs> {
-  return {
-    name: config.name,
-    description: config.description,
-    parameters: config.parameters,
-    // TODO: Parent span context propagation — tool spans should be children of
-    // agent.work spans once the agent work span lifecycle is complete.
-    handler: async (args: TArgs) => {
-      const span = tracer.startSpan('squad.tool.call', {
-        attributes: {
-          'tool.name': config.name,
-          ...(config.agentName ? { 'agent.name': config.agentName } : {}),
-          'tool.args': sanitizeArgs(args),
-        },
-      });
-      const startTime = Date.now();
-      try {
-        const result = await config.handler(args);
-        const durationMs = Date.now() - startTime;
-        const resultType = typeof result === 'string' ? 'unknown' : (result.resultType ?? 'unknown');
-        const resultText = typeof result === 'string' ? result : (result.textResultForLlm ?? '');
-        span.addEvent('squad.tool.result', {
-          'result.type': resultType,
-          'result.length': resultText.length,
-          'duration_ms': durationMs,
-          'success': resultType !== 'failure',
-        });
-        return result;
-      } catch (err) {
-        const durationMs = Date.now() - startTime;
-        span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
-        span.addEvent('squad.tool.error', {
-          'error.type': err instanceof Error ? err.constructor.name : 'unknown',
-          'error.message': err instanceof Error ? err.message : String(err),
-          'duration_ms': durationMs,
-        });
-        span.recordException(err instanceof Error ? err : new Error(String(err)));
-        throw err;
-      } finally {
-        span.end();
-      }
-    },
-  };
-}
-
 // --- Error Sanitization ---
 
 /**
@@ -185,6 +110,21 @@ export type AgentSessionFactory = (
   context?: string,
 ) => Promise<{ sessionId: string }>;
 
+export interface ToolRegistryOptions {
+  /**
+   * Register the built-in workstation tools (workstation_bash, workstation_read_file,
+   * workstation_write_file, workstation_list_dir, workstation_find_files).
+   *
+   * ⚠️  SECURITY: Enables full filesystem and shell access for agents. Use the
+   * onPreToolUse hook to enforce per-call allow-lists or confirmation flows.
+   *
+   * @default false
+   */
+  enableWorkstationTools?: boolean;
+  /** Options forwarded to createWorkstationTools() when enableWorkstationTools is true. */
+  workstationOptions?: WorkstationToolsOptions;
+}
+
 export class ToolRegistry {
   private tools: Map<string, SquadTool<any>> = new Map();
   private squadRoot: string;
@@ -192,6 +132,7 @@ export class ToolRegistry {
   private storage: StorageProvider;
   private state?: SquadState;
   private sessionFactory?: AgentSessionFactory;
+  private registryOptions: ToolRegistryOptions;
 
   constructor(
     squadRoot = '.squad',
@@ -199,12 +140,14 @@ export class ToolRegistry {
     storage: StorageProvider = new FSStorageProvider(),
     state?: SquadState,
     sessionFactory?: AgentSessionFactory,
+    options?: ToolRegistryOptions,
   ) {
     this.squadRoot = squadRoot;
     this.sessionPoolGetter = sessionPoolGetter;
     this.storage = storage;
     this.state = state;
     this.sessionFactory = sessionFactory;
+    this.registryOptions = options ?? {};
     this.registerSquadTools();
   }
 
@@ -662,6 +605,12 @@ export class ToolRegistry {
     this.tools.set('squad_memory', squadMemory);
     this.tools.set('squad_status', squadStatus);
     this.tools.set('squad_skill', squadSkill);
+
+    if (this.registryOptions.enableWorkstationTools) {
+      for (const tool of createWorkstationTools(this.registryOptions.workstationOptions)) {
+        this.tools.set(tool.name, tool);
+      }
+    }
   }
 
   /** Get all registered tools for session config */
