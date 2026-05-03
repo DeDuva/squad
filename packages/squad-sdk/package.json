@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad-sdk",
-  "version": "0.9.4",
+  "version": "0.9.4-build.1",
   "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
@@ -57,6 +57,10 @@
     "./tools": {
       "types": "./dist/tools/index.d.ts",
       "import": "./dist/tools/index.js"
+    },
+    "./workstation-tools": {
+      "types": "./dist/tools/workstation.d.ts",
+      "import": "./dist/tools/workstation.js"
     },
     "./runtime": {
       "types": "./dist/runtime/config.d.ts",
