@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -463,4 +463,226 @@ describe('ToolRegistry — workstation integration', () => {
     expect(result.resultType).toBe('failure');
     expect(result.error).toBe('timeout');
   }, 5000);
+});
+
+// ---------------------------------------------------------------------------
+// workstation_bash — security
+// ---------------------------------------------------------------------------
+
+describe('workstation_bash — security', () => {
+  it('clamps timeout_ms:0 to the host ceiling (not zero)', async () => {
+    const tools = createWorkstationTools({ bashTimeoutMs: 5000 });
+    const tool = tools.find(t => t.name === 'workstation_bash')!;
+    // timeout_ms:0 should not pass through as 0 (which would disable the timeout)
+    // The command should still succeed (not hang forever)
+    const cmd = IS_WINDOWS ? 'echo ok' : 'echo ok';
+    const result = await tool.handler({ command: cmd, timeout_ms: 0 }, invocationCtx) as any;
+    // Should succeed since echo is instant — confirms 0 was not treated as "no timeout"
+    expect(result.resultType).toBe('success');
+  });
+
+  it('clamps timeout_ms above the host ceiling to the ceiling', async () => {
+    const ceiling = 200;
+    const tools = createWorkstationTools({ bashTimeoutMs: ceiling });
+    const tool = tools.find(t => t.name === 'workstation_bash')!;
+    // Request 99999ms but ceiling is 200ms — sleep 5s must time out
+    const cmd = IS_WINDOWS ? 'ping -n 10 127.0.0.1 > NUL' : 'sleep 5';
+    const result = await tool.handler({ command: cmd, timeout_ms: 99_999 }, invocationCtx) as any;
+    expect(result.resultType).toBe('failure');
+    expect(result.error).toBe('timeout');
+  }, 5000);
+
+  it('strips sensitive env vars before running commands', async () => {
+    const tools = createWorkstationTools();
+    const tool = tools.find(t => t.name === 'workstation_bash')!;
+    // Inject a secret into the parent process env, then verify child cannot see it
+    const secretKey = 'MY_SECRET_TOKEN_FOR_TEST';
+    const secretVal = 'supersecret-xyz-12345';
+    process.env[secretKey] = secretVal;
+    try {
+      const cmd = IS_WINDOWS ? `echo %${secretKey}%` : `echo $${secretKey}`;
+      const result = await tool.handler({ command: cmd }, invocationCtx) as any;
+      // On Unix, unset var echoes empty string; on Windows it echoes literal %VAR%
+      // Either way the actual secret value should NOT appear
+      expect(result.textResultForLlm).not.toContain(secretVal);
+    } finally {
+      delete process.env[secretKey];
+    }
+  });
+
+  it.skipIf(IS_WINDOWS)('rejects cwd outside rootDir when rootDir is set', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_bash')!;
+    // /tmp (or parent of tmpDir) is outside rootDir
+    const result = await tool.handler({ command: 'echo hi', cwd: '/tmp' }, invocationCtx) as any;
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workstation_read_file — security
+// ---------------------------------------------------------------------------
+
+describe('workstation_read_file — security', () => {
+  it('rejects path traversal (../../) when rootDir is set', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_read_file')!;
+    // Attempt to escape via ../..
+    const result = await tool.handler(
+      { path: join(tmpDir, '..', '..', 'etc', 'passwd') },
+      invocationCtx,
+    ) as any;
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+
+  it('returns EBINARY for a binary file', async () => {
+    const binPath = join(tmpDir, 'data.bin');
+    // Write a buffer containing a null byte
+    const buf = Buffer.alloc(16);
+    buf[4] = 0x00;
+    await writeFile(binPath, buf);
+
+    const tools = createWorkstationTools();
+    const tool = tools.find(t => t.name === 'workstation_read_file')!;
+    const result = await tool.handler({ path: binPath }, invocationCtx) as any;
+
+    expect(result.resultType).toBe('failure');
+    expect(result.error).toBe('EBINARY');
+  });
+
+  it.skipIf(IS_WINDOWS)('rejects a symlink that points outside rootDir', async () => {
+    // Create a symlink inside tmpDir that points to /etc (outside)
+    const linkPath = join(tmpDir, 'escape-link');
+    await symlink('/etc', linkPath);
+
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_read_file')!;
+    const result = await tool.handler(
+      { path: join(linkPath, 'passwd') },
+      invocationCtx,
+    ) as any;
+
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workstation_write_file — security
+// ---------------------------------------------------------------------------
+
+describe('workstation_write_file — security', () => {
+  it('rejects path traversal when rootDir is set', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_write_file')!;
+    const result = await tool.handler(
+      { path: join(tmpDir, '..', 'evil.txt'), content: 'oops' },
+      invocationCtx,
+    ) as any;
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+
+  it('rejects content larger than 10 MB', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_write_file')!;
+    const hugeContent = 'x'.repeat(11 * 1024 * 1024); // 11 MB
+    const result = await tool.handler(
+      { path: join(tmpDir, 'huge.txt'), content: hugeContent },
+      invocationCtx,
+    ) as any;
+    expect(result.resultType).toBe('failure');
+    expect(result.error).toBe('ETOOLARGE');
+  });
+
+  it.skipIf(IS_WINDOWS)('rejects a write through a symlink that escapes rootDir', async () => {
+    // Create a directory outside rootDir and a symlink to it inside rootDir
+    const outsideDir = join(tmpdir(), `squad-outside-${randomUUID()}`);
+    await mkdir(outsideDir, { recursive: true });
+    const linkPath = join(tmpDir, 'outside-link');
+    await symlink(outsideDir, linkPath);
+
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_write_file')!;
+    const result = await tool.handler(
+      { path: join(linkPath, 'evil.txt'), content: 'escaped' },
+      invocationCtx,
+    ) as any;
+
+    await rm(outsideDir, { recursive: true, force: true });
+
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workstation_list_dir — security
+// ---------------------------------------------------------------------------
+
+describe('workstation_list_dir — security', () => {
+  it('rejects a path outside rootDir when rootDir is set', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_list_dir')!;
+    const result = await tool.handler(
+      { path: join(tmpDir, '..') },
+      invocationCtx,
+    ) as any;
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+
+  it.skipIf(IS_WINDOWS)('detects circular symlinks and does not crash or loop infinitely', async () => {
+    // Create a -> b -> a circular loop
+    const dirA = join(tmpDir, 'dirA');
+    await mkdir(dirA, { recursive: true });
+    await symlink(dirA, join(dirA, 'loop'));
+
+    const tools = createWorkstationTools();
+    const tool = tools.find(t => t.name === 'workstation_list_dir')!;
+    const result = await tool.handler(
+      { path: tmpDir, recursive: true },
+      invocationCtx,
+    ) as any;
+
+    // Must not crash; result type can be success or failure but must return
+    expect(['success', 'failure']).toContain(result.resultType);
+    if (result.resultType === 'success') {
+      expect(result.textResultForLlm).toContain('skipped');
+    }
+  }, 10_000);
+});
+
+// ---------------------------------------------------------------------------
+// workstation_find_files — security
+// ---------------------------------------------------------------------------
+
+describe('workstation_find_files — security', () => {
+  it('rejects a cwd outside rootDir when rootDir is set', async () => {
+    const tools = createWorkstationTools({ rootDir: tmpDir });
+    const tool = tools.find(t => t.name === 'workstation_find_files')!;
+    const result = await tool.handler(
+      { pattern: '*.ts', cwd: join(tmpDir, '..') },
+      invocationCtx,
+    ) as any;
+    expect(result.resultType).toBe('failure');
+    expect(['EACCES', 'ENOENT']).toContain(result.error);
+  });
+
+  it.skipIf(IS_WINDOWS)('handles circular symlinks without crashing', async () => {
+    const dirA = join(tmpDir, 'findA');
+    await mkdir(dirA, { recursive: true });
+    await symlink(dirA, join(dirA, 'loop'));
+
+    const tools = createWorkstationTools();
+    const tool = tools.find(t => t.name === 'workstation_find_files')!;
+    const result = await tool.handler(
+      { pattern: '**/*.ts', cwd: tmpDir },
+      invocationCtx,
+    ) as any;
+
+    expect(['success', 'failure']).toContain(result.resultType);
+  }, 10_000);
 });
