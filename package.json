@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad",
-  "version": "0.9.1-build.8",
+  "version": "0.9.4",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime powered by Gemini (airlock mode)",
   "type": "module",
