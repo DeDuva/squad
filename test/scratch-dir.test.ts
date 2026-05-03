@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { scratchDir, scratchFile } from '@bradygaster/squad-sdk';
+import { scratchDir, scratchFile } from '@deduvafork/squad-sdk';
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';

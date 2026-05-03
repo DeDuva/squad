@@ -20,7 +20,7 @@ import {
   type SquadDirConfig,
   type LicenseInfo,
   type StagedLearning,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import { fatal } from '../core/errors.js';
 
 const storage = new FSStorageProvider();

@@ -9,10 +9,10 @@ import path from 'node:path';
 // createReadStream retained — streaming not in StorageProvider scope
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { FSStorageProvider, RemoteBridge } from '@bradygaster/squad-sdk';
+import { FSStorageProvider, RemoteBridge } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
-import type { RemoteBridgeConfig } from '@bradygaster/squad-sdk';
+import type { RemoteBridgeConfig } from '@deduvafork/squad-sdk';
 import {
   isDevtunnelAvailable,
   createTunnel,

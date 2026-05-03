@@ -13,7 +13,7 @@ import {
   PolicyConfig,
   PreToolUseContext,
   PostToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
+} from '@deduvafork/squad-sdk/hooks';
 
 describe('Secret Leak Mitigation (Issue #267)', () => {
   describe('A. .env File Read Blocking (PreToolUseHook)', () => {
@@ -233,7 +233,7 @@ describe('Secret Leak Mitigation (Issue #267)', () => {
     // Placeholder test to document expected API
     it('should export scanFileForSecrets utility', () => {
       // TODO: Uncomment when implemented
-      // const { scanFileForSecrets } = await import('@bradygaster/squad-sdk/hooks');
+      // const { scanFileForSecrets } = await import('@deduvafork/squad-sdk/hooks');
       // expect(typeof scanFileForSecrets).toBe('function');
       expect(true).toBe(true); // Placeholder
     });

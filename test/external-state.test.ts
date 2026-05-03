@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { resolveExternalStateDir, deriveProjectKey } from '@bradygaster/squad-sdk';
+import { resolveExternalStateDir, deriveProjectKey } from '@deduvafork/squad-sdk';
 import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -73,7 +73,7 @@ describe('resolveExternalStateDir', () => {
 
 describe('SquadDirConfig stateLocation', () => {
   it('loadDirConfig parses stateLocation: external', async () => {
-    const { loadDirConfig } = await import('@bradygaster/squad-sdk');
+    const { loadDirConfig } = await import('@deduvafork/squad-sdk');
     
     const configDir = path.join(TEST_ROOT, '.squad');
     mkdirSync(configDir, { recursive: true });
@@ -91,7 +91,7 @@ describe('SquadDirConfig stateLocation', () => {
   });
 
   it('loadDirConfig defaults stateLocation to undefined (local)', async () => {
-    const { loadDirConfig } = await import('@bradygaster/squad-sdk');
+    const { loadDirConfig } = await import('@deduvafork/squad-sdk');
     
     const configDir = path.join(TEST_ROOT, '.squad2');
     mkdirSync(configDir, { recursive: true });

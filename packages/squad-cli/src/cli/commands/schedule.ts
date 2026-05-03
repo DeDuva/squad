@@ -9,18 +9,18 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
 import { detectSquadDir } from '../core/detect-squad-dir.js';
 import { success, warn, info, secondary, BOLD, RESET, GREEN, YELLOW, RED, GRAY, DIM } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 
-import type { ScheduleManifest, ScheduleState, ScheduleEntry, ScheduleProvider } from '@bradygaster/squad-sdk/runtime/scheduler';
+import type { ScheduleManifest, ScheduleState, ScheduleEntry, ScheduleProvider } from '@deduvafork/squad-sdk/runtime/scheduler';
 
 // Re-export so tests can mock through this module
 async function loadSchedulerModule() {
-  return import('@bradygaster/squad-sdk/runtime/scheduler');
+  return import('@deduvafork/squad-sdk/runtime/scheduler');
 }
 
 function resolveSchedulePath(cwd: string): string {

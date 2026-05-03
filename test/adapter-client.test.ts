@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
+import { SquadClient } from '@deduvafork/squad-sdk/client';
 
 vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {

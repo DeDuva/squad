@@ -17,7 +17,7 @@ import {
   type PrReview,
   type PrCommit,
   type PrReworkResult,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 // ---------------------------------------------------------------------------
 // calculatePrRework
@@ -296,7 +296,7 @@ function createSpyMeter(): SpyMeter {
 
 let spyMeter: SpyMeter;
 
-vi.mock('@bradygaster/squad-sdk/runtime/otel', () => ({
+vi.mock('@deduvafork/squad-sdk/runtime/otel', () => ({
   getMeter: () => spyMeter,
 }));
 

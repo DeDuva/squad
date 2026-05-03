@@ -9,8 +9,8 @@ import {
   auditAccessibility,
   type MessageCatalog,
   type AccessibilityReport,
-} from '@bradygaster/squad-sdk/runtime/i18n';
-import type { SquadConfig } from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/runtime/i18n';
+import type { SquadConfig } from '@deduvafork/squad-sdk/config';
 
 function makeConfig(overrides: Partial<SquadConfig> = {}): SquadConfig {
   return {

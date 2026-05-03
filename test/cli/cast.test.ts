@@ -44,7 +44,7 @@ async function scaffold(root: string): Promise<void> {
 }
 
 // Mock personal agents to isolate project agent discovery
-vi.mock('@bradygaster/squad-sdk/agents/personal', () => ({
+vi.mock('@deduvafork/squad-sdk/agents/personal', () => ({
   resolvePersonalAgents: vi.fn(async () => [] as unknown[]),
   mergeSessionCast: vi.fn((project: unknown[], personal: unknown[]) => [...(project as unknown[]), ...(personal as unknown[])]),
 }));
@@ -70,7 +70,7 @@ describe('squad cast', () => {
     // Suppress console output during test
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { runCast } = await import('@bradygaster/squad-cli/commands/cast');
+    const { runCast } = await import('@deduvafork/squad-cli/commands/cast');
     await runCast(TEST_ROOT);
 
     // If the bug were present (passing paths.teamDir = .squad/ to LocalAgentSource),
@@ -91,7 +91,7 @@ describe('squad cast', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { runCast } = await import('@bradygaster/squad-cli/commands/cast');
+    const { runCast } = await import('@deduvafork/squad-cli/commands/cast');
     await runCast(TEST_ROOT);
 
     const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
@@ -111,7 +111,7 @@ describe('squad cast', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { runCast } = await import('@bradygaster/squad-cli/commands/cast');
+    const { runCast } = await import('@deduvafork/squad-cli/commands/cast');
     await runCast(nestedDir);
 
     const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
@@ -143,7 +143,7 @@ describe('squad cast', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { runCast } = await import('@bradygaster/squad-cli/commands/cast');
+    const { runCast } = await import('@deduvafork/squad-cli/commands/cast');
     await runCast(projectRoot);
 
     const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');

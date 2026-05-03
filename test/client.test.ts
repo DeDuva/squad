@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SquadClientWithPool } from '@bradygaster/squad-sdk/client';
-import { SessionPool, DEFAULT_POOL_CONFIG } from '@bradygaster/squad-sdk/client';
-import { EventBus } from '@bradygaster/squad-sdk/client';
+import { SquadClientWithPool } from '@deduvafork/squad-sdk/client';
+import { SessionPool, DEFAULT_POOL_CONFIG } from '@deduvafork/squad-sdk/client';
+import { EventBus } from '@deduvafork/squad-sdk/client';
 
 vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {

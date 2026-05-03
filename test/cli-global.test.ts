@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { resolveSquad, resolveGlobalSquadPath } from '@bradygaster/squad-sdk/resolution';
+import { resolveSquad, resolveGlobalSquadPath } from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(process.cwd(), `.test-cli-global-${randomBytes(4).toString('hex')}`);
 

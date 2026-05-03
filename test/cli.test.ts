@@ -19,24 +19,24 @@ import {
   setVersionFetcher,
   setPackageJsonReader,
   setPackageJsonWriter,
-} from '@bradygaster/squad-cli/upgrade';
+} from '@deduvafork/squad-cli/upgrade';
 import type {
   UpdateInfo,
   UpgradeOptions,
   SDKUpgradeOptions,
   ReleaseChannel,
-} from '@bradygaster/squad-cli/upgrade';
-import { MigrationRegistry } from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-cli/upgrade';
+import { MigrationRegistry } from '@deduvafork/squad-sdk/config';
 import {
   detectCopilotEnvironment,
   getInstallInstructions,
   installFromCopilot,
-} from '@bradygaster/squad-cli/copilot-install';
+} from '@deduvafork/squad-cli/copilot-install';
 import type {
   CopilotEnvironment,
   InstallConfig,
   EnvironmentIndicators,
-} from '@bradygaster/squad-cli/copilot-install';
+} from '@deduvafork/squad-cli/copilot-install';
 
 // ============================================================================
 // Upgrade — version parsing & comparison
@@ -184,7 +184,7 @@ describe('upgradeSDK', () => {
     setVersionFetcher(async () => '2.0.0');
     setPackageJsonReader(async () => ({
       version: '1.0.0',
-      dependencies: { '@bradygaster/squad': '^1.0.0' },
+      dependencies: { '@deduvafork/squad': '^1.0.0' },
     }));
     setPackageJsonWriter(async () => {});
   });

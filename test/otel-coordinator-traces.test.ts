@@ -18,7 +18,7 @@ import { trace } from '@opentelemetry/api';
 import {
   Coordinator,
   type CoordinatorConfig,
-} from '@bradygaster/squad-sdk/coordinator';
+} from '@deduvafork/squad-sdk/coordinator';
 
 // ---------------------------------------------------------------------------
 // Test OTel infrastructure

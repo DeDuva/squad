@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import { detectSquadDir } from '../core/detect-squad-dir.js';
 import { success, warn, info } from '../core/output.js';
 import { fatal } from '../core/errors.js';

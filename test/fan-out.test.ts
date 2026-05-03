@@ -15,10 +15,10 @@ import {
   type AgentSpawnConfig,
   type SpawnResult,
   type FanOutDependencies,
-} from '@bradygaster/squad-sdk/coordinator';
-import { EventBus } from '@bradygaster/squad-sdk/client';
-import { SessionPool } from '@bradygaster/squad-sdk/client';
-import type { AgentCharter } from '@bradygaster/squad-sdk/agents';
+} from '@deduvafork/squad-sdk/coordinator';
+import { EventBus } from '@deduvafork/squad-sdk/client';
+import { SessionPool } from '@deduvafork/squad-sdk/client';
+import type { AgentCharter } from '@deduvafork/squad-sdk/agents';
 
 describe('spawnParallel', () => {
   let mockDeps: FanOutDependencies;

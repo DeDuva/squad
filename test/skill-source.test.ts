@@ -12,8 +12,8 @@ import {
   SkillSourceRegistry,
   type SkillSource,
   type SkillManifest,
-} from '@bradygaster/squad-sdk/skills';
-import type { GitHubFetcher } from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/skills';
+import type { GitHubFetcher } from '@deduvafork/squad-sdk/config';
 
 // --- Helpers ---
 

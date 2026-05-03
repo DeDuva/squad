@@ -18,10 +18,10 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { trace, context, SpanStatusCode } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
-import { createOTelTransport } from '@bradygaster/squad-sdk/runtime/otel-bridge';
-import type { TelemetryEvent } from '@bradygaster/squad-sdk/runtime/telemetry';
-import { TelemetryCollector, setTelemetryTransport } from '@bradygaster/squad-sdk/runtime/telemetry';
-import { EventBus } from '@bradygaster/squad-sdk/runtime/event-bus';
+import { createOTelTransport } from '@deduvafork/squad-sdk/runtime/otel-bridge';
+import type { TelemetryEvent } from '@deduvafork/squad-sdk/runtime/telemetry';
+import { TelemetryCollector, setTelemetryTransport } from '@deduvafork/squad-sdk/runtime/telemetry';
+import { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
 
 // ===========================================================================
 // Test OTel infrastructure
@@ -239,8 +239,8 @@ describe('OTel Integration — zero-overhead when unconfigured', () => {
 
   it('metric operations are safe no-ops without provider', async () => {
     trace.disable();
-    const { getTracer, getMeter } = await vi.importActual<typeof import('@bradygaster/squad-sdk/runtime/otel')>(
-      '@bradygaster/squad-sdk/runtime/otel',
+    const { getTracer, getMeter } = await vi.importActual<typeof import('@deduvafork/squad-sdk/runtime/otel')>(
+      '@deduvafork/squad-sdk/runtime/otel',
     );
     const tracer = getTracer('test');
     expect(() => tracer.startSpan('noop').end()).not.toThrow();
@@ -257,7 +257,7 @@ describe('OTel Integration — zero-overhead when unconfigured', () => {
 
 describe('OTel Integration — metrics across operations', () => {
   it('StreamingPipeline processes usage events and tracks data', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@deduvafork/squad-sdk/runtime/streaming');
     const pipeline = new StreamingPipeline();
     pipeline.attachToSession('sess-e2e');
 
@@ -280,7 +280,7 @@ describe('OTel Integration — metrics across operations', () => {
   });
 
   it('StreamingPipeline TTFT tracking works with message_delta events', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@deduvafork/squad-sdk/runtime/streaming');
     const pipeline = new StreamingPipeline();
     pipeline.attachToSession('sess-ttft');
 
@@ -317,7 +317,7 @@ describe('OTel Integration — metrics across operations', () => {
   });
 
   it('StreamingPipeline ignores events from unattached sessions', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@deduvafork/squad-sdk/runtime/streaming');
     const pipeline = new StreamingPipeline();
 
     await pipeline.processEvent({
@@ -335,7 +335,7 @@ describe('OTel Integration — metrics across operations', () => {
   });
 
   it('multiple sessions accumulate metrics independently', async () => {
-    const { StreamingPipeline } = await import('@bradygaster/squad-sdk/runtime/streaming');
+    const { StreamingPipeline } = await import('@deduvafork/squad-sdk/runtime/streaming');
     const pipeline = new StreamingPipeline();
     pipeline.attachToSession('sess-a');
     pipeline.attachToSession('sess-b');

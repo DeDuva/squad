@@ -11,8 +11,8 @@ import { mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { ToolRegistry } from '@bradygaster/squad-sdk/tools';
-import { createWorkstationTools } from '@bradygaster/squad-sdk/workstation-tools';
+import { ToolRegistry } from '@deduvafork/squad-sdk/tools';
+import { createWorkstationTools } from '@deduvafork/squad-sdk/workstation-tools';
 
 const IS_WINDOWS = process.platform === 'win32';
 

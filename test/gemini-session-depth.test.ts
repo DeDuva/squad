@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { GeminiSession } from '../packages/squad-sdk/dist/adapter/gemini-client.js';
-import type { SquadTool, SquadSessionConfig } from '@bradygaster/squad-sdk/adapter';
+import type { SquadTool, SquadSessionConfig } from '@deduvafork/squad-sdk/adapter';
 
 // ---------------------------------------------------------------------------
 // SSE stream helpers (duplicated from hooks test for isolation)

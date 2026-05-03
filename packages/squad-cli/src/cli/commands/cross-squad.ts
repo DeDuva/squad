@@ -19,7 +19,7 @@ import {
   findSquadByName,
   buildDelegationArgs,
   type DiscoveredSquad,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 const execFileAsync = promisify(execFile);
 

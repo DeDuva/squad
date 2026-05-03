@@ -4,7 +4,7 @@
 
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
 
 const storage = new FSStorageProvider();

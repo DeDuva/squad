@@ -2,7 +2,7 @@
  * Self-update check — Phase 1: background version check with notification.
  *
  * Non-blocking startup check that queries the npm registry for the latest
- * version of @bradygaster/squad-cli and displays a passive banner when
+ * version of @deduvafork/squad-cli and displays a passive banner when
  * an update is available. Results are cached for 24 hours.
  *
  * Disable with: SQUAD_NO_UPDATE_CHECK=1
@@ -12,13 +12,13 @@
 
 import path from 'node:path';
 import os from 'node:os';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
 import { compareVersions } from './upgrade.js';
 import { BOLD, RESET, DIM, YELLOW } from './core/output.js';
 
-const PACKAGE_NAME = '@bradygaster/squad-cli';
+const PACKAGE_NAME = '@deduvafork/squad-cli';
 const REGISTRY_URL = `https://registry.npmjs.org/${PACKAGE_NAME}`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000; // 3 seconds
@@ -90,7 +90,7 @@ async function fetchLatestVersion(): Promise<string | null> {
  * Check for updates and print a banner if a newer version is available.
  *
  * Disabled in this fork — this build is not published to npm and the upstream
- * @bradygaster/squad-cli package is not the source of updates here.
+ * @deduvafork/squad-cli package is not the source of updates here.
  * Set SQUAD_UPDATE_CHECK=1 to re-enable for development/testing.
  *
  * @param currentVersion - The currently running CLI version
@@ -116,7 +116,7 @@ export async function notifyIfUpdateAvailable(_currentVersion: string): Promise<
     if (compareVersions(latest, _currentVersion) > 0) {
       console.log(
         `\n${YELLOW}⚡${RESET} ${BOLD}Squad v${latest}${RESET} available ${DIM}(you have v${_currentVersion})${RESET}` +
-        `\n   Run: ${BOLD}npm install -g @bradygaster/squad-cli@latest${RESET}\n`,
+        `\n   Run: ${BOLD}npm install -g @deduvafork/squad-cli@latest${RESET}\n`,
       );
     }
   } catch {

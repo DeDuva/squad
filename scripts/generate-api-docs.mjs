@@ -107,14 +107,14 @@ const total = classCount + ifaceCount + fnCount + typeCount + varCount;
 
 let landing = `---
 title: SDK API reference
-description: Auto-generated TypeScript API reference for @bradygaster/squad-sdk.
+description: Auto-generated TypeScript API reference for @deduvafork/squad-sdk.
 ---
 
 # SDK API reference
 
 > ⚠️ **Experimental** — Squad is alpha software. APIs may change between releases.
 
-Auto-generated from the \`@bradygaster/squad-sdk\` TypeScript source using [TypeDoc](https://typedoc.org/).
+Auto-generated from the \`@deduvafork/squad-sdk\` TypeScript source using [TypeDoc](https://typedoc.org/).
 This reference covers **${total}** public exports: ${classCount} classes, ${ifaceCount} interfaces, ${fnCount} functions, ${typeCount} type aliases, and ${varCount} variables.
 
 To regenerate, run:

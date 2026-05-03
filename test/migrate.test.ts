@@ -91,7 +91,7 @@ describe('squad migrate', () => {
   async function createSdkSquad(targetDir: string) {
     await createMarkdownSquad(targetDir);
 
-    const configTs = `import { defineSquad, defineTeam, defineAgent } from '@bradygaster/squad-sdk';
+    const configTs = `import { defineSquad, defineTeam, defineAgent } from '@deduvafork/squad-sdk';
 
 export default defineSquad({
   team: defineTeam({

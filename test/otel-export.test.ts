@@ -16,8 +16,8 @@ import {
   BasicTracerProvider,
 } from '@opentelemetry/sdk-trace-base';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
-import { getTracer, shutdownOTel } from '@bradygaster/squad-sdk/runtime/otel';
-import { initAgentModeTelemetry } from '@bradygaster/squad-sdk';
+import { getTracer, shutdownOTel } from '@deduvafork/squad-sdk/runtime/otel';
+import { initAgentModeTelemetry } from '@deduvafork/squad-sdk';
 
 // ---------------------------------------------------------------------------
 // Test infrastructure — in-memory exporter

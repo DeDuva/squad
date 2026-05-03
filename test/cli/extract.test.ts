@@ -19,25 +19,25 @@ describe('CLI: extract command', () => {
   });
 
   it('module exports runExtract function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/extract');
+    const mod = await import('@deduvafork/squad-cli/commands/extract');
     expect(typeof mod.runExtract).toBe('function');
   });
 
   it('runExtract accepts cwd and args parameters', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/extract');
+    const mod = await import('@deduvafork/squad-cli/commands/extract');
     // runExtract(cwd, args) — 2 parameters
     expect(mod.runExtract.length).toBe(2);
   });
 
   it('throws when no .squad/config.json exists', async () => {
-    const { runExtract } = await import('@bradygaster/squad-cli/commands/extract');
+    const { runExtract } = await import('@deduvafork/squad-cli/commands/extract');
     mkdirSync(TEST_ROOT, { recursive: true });
 
     await expect(runExtract(TEST_ROOT, [])).rejects.toThrow(/config\.json/i);
   });
 
   it('throws when config.json is invalid JSON', async () => {
-    const { runExtract } = await import('@bradygaster/squad-cli/commands/extract');
+    const { runExtract } = await import('@deduvafork/squad-cli/commands/extract');
     mkdirSync(join(TEST_ROOT, '.squad'), { recursive: true });
     writeFileSync(join(TEST_ROOT, '.squad', 'config.json'), '{broken json!!!');
 
@@ -45,7 +45,7 @@ describe('CLI: extract command', () => {
   });
 
   it('throws when not in consult mode', async () => {
-    const { runExtract } = await import('@bradygaster/squad-cli/commands/extract');
+    const { runExtract } = await import('@deduvafork/squad-cli/commands/extract');
     mkdirSync(join(TEST_ROOT, '.squad'), { recursive: true });
     writeFileSync(
       join(TEST_ROOT, '.squad', 'config.json'),

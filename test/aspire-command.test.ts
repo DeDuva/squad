@@ -16,13 +16,13 @@ describe('squad aspire command', () => {
   });
 
   it('module exports runAspire function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/aspire');
+    const mod = await import('@deduvafork/squad-cli/commands/aspire');
     expect(typeof mod.runAspire).toBe('function');
   });
 
   it('AspireOptions accepts docker and port', async () => {
     // Type-level test — if this compiles, the interface is correct
-    const mod = await import('@bradygaster/squad-cli/commands/aspire');
+    const mod = await import('@deduvafork/squad-cli/commands/aspire');
     expect(mod.runAspire).toBeDefined();
   });
 });

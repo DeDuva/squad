@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@bradygaster/squad-sdk/tools';
-import { SessionPool } from '@bradygaster/squad-sdk/client';
-import { InMemoryStorageProvider } from '@bradygaster/squad-sdk/storage';
+import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@deduvafork/squad-sdk/tools';
+import { SessionPool } from '@deduvafork/squad-sdk/client';
+import { InMemoryStorageProvider } from '@deduvafork/squad-sdk/storage';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';

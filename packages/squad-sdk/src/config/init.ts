@@ -220,7 +220,7 @@ function formatModelArray(chain: readonly string[]): string {
 function generateTypeScriptConfig(options: InitOptions): string {
   const { projectName, projectDescription, agents } = options;
   
-  return `import type { SquadConfig } from '@bradygaster/squad';
+  return `import type { SquadConfig } from '@deduvafork/squad';
 
 /**
  * Squad Configuration for ${projectName}
@@ -380,7 +380,7 @@ function generateSDKBuilderConfig(options: InitOptions): string {
   const { projectName, projectDescription, agents } = options;
   
   // Generate imports
-  let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@bradygaster/squad-sdk';\n\n`;
+  let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@deduvafork/squad-sdk';\n\n`;
   
   code += `/**\n * Squad Configuration — ${projectName}\n`;
   if (projectDescription) {
@@ -449,7 +449,7 @@ function generateSDKBuilderConfigWithRoles(options: InitOptions): string {
   if (needsDefineAgent) imports.push('defineAgent');
   if (needsUseRole) imports.push('useRole');
 
-  let code = `import {\n${imports.map(i => `  ${i},`).join('\n')}\n} from '@bradygaster/squad-sdk';\n\n`;
+  let code = `import {\n${imports.map(i => `  ${i},`).join('\n')}\n} from '@deduvafork/squad-sdk';\n\n`;
 
   code += `/**\n * Squad Configuration — ${projectName}\n`;
   if (projectDescription) {
