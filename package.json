@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad",
-  "version": "0.9.1-build.6",
+  "version": "0.9.1-build.8",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime powered by Gemini (airlock mode)",
   "type": "module",
@@ -45,7 +45,7 @@
     "vitest": "^3.0.0"
   },
   "keywords": [
-    "copilot",
+    "gemini",
     "multi-agent",
     "squad",
     "sdk"

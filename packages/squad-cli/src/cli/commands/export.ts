@@ -77,7 +77,7 @@ export async function runExport(dest: string, outPath?: string): Promise<void> {
 
   // Read skills
   const skillSources = [
-    { dir: path.join(dest, '.copilot', 'skills'), layout: 'nested' as const },
+    { dir: path.join(dest, '.squad', 'skills'), layout: 'nested' as const },
     { dir: path.join(squadInfo.path, 'skills'), layout: 'nested' as const },
     { dir: path.join(dest, '.ai-team', 'skills'), layout: 'flat' as const },
   ];

@@ -614,7 +614,7 @@ describe('squad_skill handler', () => {
       resultType: 'success',
     });
 
-    const skillFile = path.join(projectRoot, '.copilot', 'skills', 'typescript-refactoring', 'SKILL.md');
+    const skillFile = path.join(projectRoot, '.squad', 'skills', 'typescript-refactoring', 'SKILL.md');
     expect(fs.existsSync(skillFile)).toBe(true);
 
     const content = fs.readFileSync(skillFile, 'utf-8');
@@ -709,7 +709,7 @@ describe('squad_skill handler', () => {
       }
     );
 
-    const skillFile = path.join(projectRoot, '.copilot', 'skills', 'test-skill', 'SKILL.md');
+    const skillFile = path.join(projectRoot, '.squad', 'skills', 'test-skill', 'SKILL.md');
     const content = fs.readFileSync(skillFile, 'utf-8');
     expect(content).toContain('**Confidence:** medium');
   });

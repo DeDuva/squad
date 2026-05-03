@@ -301,7 +301,7 @@ describe('CLI: upgrade command', () => {
     expect(created.length).toBeGreaterThanOrEqual(5);
     expect(existsSync(join(dir, '.squad', 'identity'))).toBe(true);
     expect(existsSync(join(dir, '.squad', 'sessions'))).toBe(true);
-    expect(existsSync(join(dir, '.copilot', 'skills'))).toBe(true);
+    expect(existsSync(join(dir, '.squad', 'skills'))).toBe(true);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -423,7 +423,7 @@ describe('CLI: upgrade command', () => {
 
   it('warnIfSkillCustomized warns when a skill has been modified', async () => {
     const agentPath = join(TEST_ROOT, '.github', 'agents', 'squad.agent.md');
-    const skillPath = join(TEST_ROOT, '.copilot', 'skills', 'squad-conventions', 'SKILL.md');
+    const skillPath = join(TEST_ROOT, '.squad', 'skills', 'squad-conventions', 'SKILL.md');
     expect(existsSync(skillPath)).toBe(true);
 
     // Simulate old version so upgrade goes through the full manifest path
@@ -447,7 +447,7 @@ describe('CLI: upgrade command', () => {
 
   it('warnIfSkillCustomized does NOT warn for CRLF-only differences', async () => {
     const agentPath = join(TEST_ROOT, '.github', 'agents', 'squad.agent.md');
-    const skillPath = join(TEST_ROOT, '.copilot', 'skills', 'squad-conventions', 'SKILL.md');
+    const skillPath = join(TEST_ROOT, '.squad', 'skills', 'squad-conventions', 'SKILL.md');
     if (!existsSync(skillPath)) {
       await runUpgrade(TEST_ROOT);
     }
@@ -493,7 +493,7 @@ describe('CLI: upgrade command', () => {
 
   it('warnIfSkillCustomized warns during full version upgrade path', async () => {
     const agentPath = join(TEST_ROOT, '.github', 'agents', 'squad.agent.md');
-    const skillPath = join(TEST_ROOT, '.copilot', 'skills', 'squad-conventions', 'SKILL.md');
+    const skillPath = join(TEST_ROOT, '.squad', 'skills', 'squad-conventions', 'SKILL.md');
     if (!existsSync(skillPath)) {
       await runUpgrade(TEST_ROOT);
     }
