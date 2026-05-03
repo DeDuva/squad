@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { initSquad } from '@bradygaster/squad-sdk/config';
-import { onboardAgent, addAgentToConfig } from '@bradygaster/squad-sdk/agents';
-import type { InitOptions, InitAgentSpec } from '@bradygaster/squad-sdk/config';
-import type { OnboardOptions } from '@bradygaster/squad-sdk/agents';
+import { initSquad } from '@deduvafork/squad-sdk/config';
+import { onboardAgent, addAgentToConfig } from '@deduvafork/squad-sdk/agents';
+import type { InitOptions, InitAgentSpec } from '@deduvafork/squad-sdk/config';
+import type { OnboardOptions } from '@deduvafork/squad-sdk/agents';
 
 const TEST_ROOT = join(process.cwd(), 'test-fixtures', 'init-test');
 
@@ -418,7 +418,7 @@ describe('Squad Initialization', () => {
   describe('addAgentToConfig', () => {
     it('should add agent routing rule to TypeScript config', async () => {
       // Create a basic TypeScript config
-      const configContent = `import type { SquadConfig } from '@bradygaster/squad';
+      const configContent = `import type { SquadConfig } from '@deduvafork/squad';
 
 const config: SquadConfig = {
   version: '1.0.0',
@@ -459,7 +459,7 @@ export default config;
     });
 
     it('should return false if work type already has a rule', async () => {
-      const configContent = `import type { SquadConfig } from '@bradygaster/squad';
+      const configContent = `import type { SquadConfig } from '@deduvafork/squad';
 
 const config: SquadConfig = {
   version: '1.0.0',
@@ -487,7 +487,7 @@ export default config;
     });
 
     it('should return false for role without obvious work type mapping', async () => {
-      const configContent = `import type { SquadConfig } from '@bradygaster/squad';
+      const configContent = `import type { SquadConfig } from '@deduvafork/squad';
 const config: SquadConfig = {
   version: '1.0.0',
   models: { defaultModel: 'claude-sonnet-4.5', defaultTier: 'standard', fallbackChains: { premium: [], standard: [], fast: [] } },

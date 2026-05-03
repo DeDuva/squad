@@ -8,21 +8,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { join } from 'node:path';
 
-import { SessionRegistry } from '@bradygaster/squad-cli/shell/sessions';
+import { SessionRegistry } from '@deduvafork/squad-cli/shell/sessions';
 import {
   loadAgentCharter,
   buildAgentPrompt,
-} from '@bradygaster/squad-cli/shell/spawn';
+} from '@deduvafork/squad-cli/shell/spawn';
 import {
   buildCoordinatorPrompt,
   parseCoordinatorResponse,
   formatConversationContext,
-} from '@bradygaster/squad-cli/shell/coordinator';
-import { ShellLifecycle } from '@bradygaster/squad-cli/shell/lifecycle';
-import { StreamBridge } from '@bradygaster/squad-cli/shell/stream-bridge';
-import { ShellRenderer } from '@bradygaster/squad-cli/shell/render';
-import type { ShellMessage } from '@bradygaster/squad-cli/shell/types';
-import type { StreamDelta, UsageEvent, ReasoningDelta } from '@bradygaster/squad-sdk/runtime/streaming';
+} from '@deduvafork/squad-cli/shell/coordinator';
+import { ShellLifecycle } from '@deduvafork/squad-cli/shell/lifecycle';
+import { StreamBridge } from '@deduvafork/squad-cli/shell/stream-bridge';
+import { ShellRenderer } from '@deduvafork/squad-cli/shell/render';
+import type { ShellMessage } from '@deduvafork/squad-cli/shell/types';
+import type { StreamDelta, UsageEvent, ReasoningDelta } from '@deduvafork/squad-sdk/runtime/streaming';
 
 const FIXTURES = join(process.cwd(), 'test-fixtures');
 

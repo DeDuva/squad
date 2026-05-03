@@ -234,7 +234,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@bradygaster', 'squad-sdk', 'package.json');
     expect(existsSync(sdkPkg), 'squad-sdk not installed as dependency of squad-cli').toBe(true);
     const pkg = JSON.parse(readFileSync(sdkPkg, 'utf8'));
-    expect(pkg.name).toBe('@bradygaster/squad-sdk');
+    expect(pkg.name).toBe('@deduvafork/squad-sdk');
   });
 
   // ============================================================================

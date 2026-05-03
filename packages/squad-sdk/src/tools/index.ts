@@ -19,7 +19,7 @@ import type { SquadState } from '../state/squad-state.js';
 import { createWorkstationTools, type WorkstationToolsOptions } from './workstation.js';
 import { defineTool } from './define-tool.js';
 
-// Re-export so callers can import from '@bradygaster/squad-sdk/tools'
+// Re-export so callers can import from '@deduvafork/squad-sdk/tools'
 export { defineTool, sanitizeArgs } from './define-tool.js';
 export type { WorkstationToolsOptions } from './workstation.js';
 export { createWorkstationTools } from './workstation.js';

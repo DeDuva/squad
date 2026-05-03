@@ -1,6 +1,6 @@
 {
-  "name": "@bradygaster/squad",
-  "version": "0.9.4",
+  "name": "@deduvafork/squad",
+  "version": "0.9.4-build.6",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime powered by Gemini (airlock mode)",
   "type": "module",
@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "prebuild": "node scripts/bump-build.mjs && node scripts/sync-skill-templates.mjs && node scripts/sync-templates.mjs",
+    "prebuild": "node -e \"const f=require('fs');f.rmSync('packages/squad-sdk/dist',{recursive:true,force:true});f.rmSync('packages/squad-sdk/tsconfig.tsbuildinfo',{force:true});f.rmSync('packages/squad-cli/node_modules/@bradygaster',{recursive:true,force:true});f.rmSync('packages/squad-cli/node_modules/@deduvafork',{recursive:true,force:true})\" && node scripts/bump-build.mjs && node scripts/sync-skill-templates.mjs && node scripts/sync-templates.mjs",
     "build": "npm run build -w packages/squad-sdk && npm run build -w packages/squad-cli",
     "sync-templates": "node scripts/sync-templates.mjs",
     "test": "vitest run",

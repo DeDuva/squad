@@ -9,9 +9,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { SkillScriptLoader, resolveSkillPath } from '@bradygaster/squad-sdk/skills';
-import type { LoadResult } from '@bradygaster/squad-sdk/skills';
-import { ToolRegistry } from '@bradygaster/squad-sdk/tools';
+import { SkillScriptLoader, resolveSkillPath } from '@deduvafork/squad-sdk/skills';
+import type { LoadResult } from '@deduvafork/squad-sdk/skills';
+import { ToolRegistry } from '@deduvafork/squad-sdk/tools';
 
 // --- Test fixtures and helpers ---
 

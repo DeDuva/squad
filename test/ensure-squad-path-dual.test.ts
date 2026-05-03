@@ -6,8 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ensureSquadPathDual, ensureSquadPathResolved } from '@bradygaster/squad-sdk/resolution';
-import type { ResolvedSquadPaths } from '@bradygaster/squad-sdk/resolution';
+import { ensureSquadPathDual, ensureSquadPathResolved } from '@deduvafork/squad-sdk/resolution';
+import type { ResolvedSquadPaths } from '@deduvafork/squad-sdk/resolution';
 
 // Use fixed absolute paths for deterministic tests (no filesystem needed — pure validation)
 const PROJECT_DIR = join(process.cwd(), 'project', '.squad');

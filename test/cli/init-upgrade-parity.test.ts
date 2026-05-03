@@ -14,12 +14,12 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { tmpdir } from 'os';
-import { runInit } from '@bradygaster/squad-cli/core/init';
+import { runInit } from '@deduvafork/squad-cli/core/init';
 import {
   runUpgrade,
   ensureGitattributes,
   ensureDirectories,
-} from '@bradygaster/squad-cli/core/upgrade';
+} from '@deduvafork/squad-cli/core/upgrade';
 
 const TEST_ROOT = join(
   tmpdir(),

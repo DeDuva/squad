@@ -8,8 +8,8 @@
  * @module cli/copilot-install
  */
 
-import { initSquad } from '@bradygaster/squad-sdk/config';
-import type { InitOptions, InitResult } from '@bradygaster/squad-sdk/config';
+import { initSquad } from '@deduvafork/squad-sdk/config';
+import type { InitOptions, InitResult } from '@deduvafork/squad-sdk/config';
 
 // ============================================================================
 // Types
@@ -99,19 +99,19 @@ export function getInstallInstructions(env: CopilotEnvironment): InstallStep[] {
   switch (env) {
     case 'cli':
       return [
-        { description: 'Install the Squad SDK globally', command: 'npm install -g @bradygaster/squad' },
+        { description: 'Install the Squad SDK globally', command: 'npm install -g @deduvafork/squad' },
         { description: 'Initialise a new Squad project', command: 'npx create-squad' },
         { description: 'Start the Squad orchestrator', command: 'squad start' },
       ];
     case 'vscode':
       return [
-        { description: 'Install Squad SDK as a project dependency', command: 'npm install @bradygaster/squad' },
+        { description: 'Install Squad SDK as a project dependency', command: 'npm install @deduvafork/squad' },
         { description: 'Run Squad init via the VS Code terminal', command: 'npx create-squad' },
         { description: 'Reload the VS Code window to activate Squad agents' },
       ];
     case 'web':
       return [
-        { description: 'Install Squad SDK in the Codespace', command: 'npm install @bradygaster/squad' },
+        { description: 'Install Squad SDK in the Codespace', command: 'npm install @deduvafork/squad' },
         { description: 'Initialise Squad scaffolding', command: 'npx create-squad' },
         { description: 'Squad agents are available in the Codespace Copilot Chat' },
       ];
@@ -119,7 +119,7 @@ export function getInstallInstructions(env: CopilotEnvironment): InstallStep[] {
     default:
       return [
         { description: 'Install Node.js 20+ if not already installed' },
-        { description: 'Install the Squad SDK', command: 'npm install @bradygaster/squad' },
+        { description: 'Install the Squad SDK', command: 'npm install @deduvafork/squad' },
         { description: 'Initialise a new Squad project', command: 'npx create-squad' },
       ];
   }

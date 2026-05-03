@@ -10,7 +10,7 @@
  * @module shell/shell-metrics
  */
 
-import { getMeter } from '@bradygaster/squad-sdk';
+import { getMeter } from '@deduvafork/squad-sdk';
 
 // ============================================================================
 // Types

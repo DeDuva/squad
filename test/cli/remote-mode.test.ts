@@ -7,9 +7,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { runLink } from '@bradygaster/squad-cli/commands/link';
-import { writeRemoteConfig } from '@bradygaster/squad-cli/commands/init-remote';
-import { resolveSquadPaths } from '@bradygaster/squad-sdk/resolution';
+import { runLink } from '@deduvafork/squad-cli/commands/link';
+import { writeRemoteConfig } from '@deduvafork/squad-cli/commands/init-remote';
+import { resolveSquadPaths } from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(process.cwd(), `.test-remote-mode-${randomBytes(4).toString('hex')}`);
 

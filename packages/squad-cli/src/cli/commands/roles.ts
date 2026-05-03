@@ -1,4 +1,4 @@
-import { listRoles, searchRoles, getCategories } from '@bradygaster/squad-sdk';
+import { listRoles, searchRoles, getCategories } from '@deduvafork/squad-sdk';
 
 type RoleRecord = ReturnType<typeof listRoles>[number];
 

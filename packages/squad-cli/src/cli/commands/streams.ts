@@ -9,11 +9,11 @@
 
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
-import { loadSubSquadsConfig, resolveSubSquad } from '@bradygaster/squad-sdk';
-import type { SubSquadDefinition } from '@bradygaster/squad-sdk';
+import { loadSubSquadsConfig, resolveSubSquad } from '@deduvafork/squad-sdk';
+import type { SubSquadDefinition } from '@deduvafork/squad-sdk';
 
 const BOLD = '\x1b[1m';
 const RESET = '\x1b[0m';

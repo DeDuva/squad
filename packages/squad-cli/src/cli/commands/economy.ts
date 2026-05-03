@@ -8,8 +8,8 @@
  */
 
 import { join } from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
-import { writeEconomyMode, readEconomyMode } from '@bradygaster/squad-sdk/config';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
+import { writeEconomyMode, readEconomyMode } from '@deduvafork/squad-sdk/config';
 
 const storage = new FSStorageProvider();
 import { fatal } from '../core/errors.js';

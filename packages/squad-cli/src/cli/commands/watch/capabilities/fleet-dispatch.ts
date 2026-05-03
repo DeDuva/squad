@@ -13,7 +13,7 @@ import { writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
-import type { MachineCapabilities } from '@bradygaster/squad-sdk/ralph/capabilities';
+import type { MachineCapabilities } from '@deduvafork/squad-sdk/ralph/capabilities';
 import type { DispatchMode } from '../config.js';
 import {
   type ExecutableWorkItem,
@@ -133,7 +133,7 @@ export class FleetDispatchCapability implements WatchCapability {
         assignees: wi.assignedTo ? [{ login: wi.assignedTo }] : [],
       }));
 
-      const { filterByCapabilities, loadCapabilities } = await import('@bradygaster/squad-sdk/ralph/capabilities');
+      const { filterByCapabilities, loadCapabilities } = await import('@deduvafork/squad-sdk/ralph/capabilities');
       const capabilities: MachineCapabilities | null = await loadCapabilities(context.teamRoot);
       const { handled } = filterByCapabilities(issues, capabilities);
 

@@ -13,7 +13,7 @@ import {
   rateLimitGuidance,
   extractRetryAfter,
   formatGuidance,
-} from '@bradygaster/squad-cli/shell/error-messages';
+} from '@deduvafork/squad-cli/shell/error-messages';
 
 describe('error-messages', () => {
   // ---------- sdkDisconnectGuidance ----------

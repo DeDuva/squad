@@ -6,7 +6,7 @@
 
 // Raw fs imports removed — Wave 3a migrated all stat/append/delete to StorageProvider.
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
 

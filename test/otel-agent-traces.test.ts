@@ -19,7 +19,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import {
   AgentSessionManager,
   type AgentCharter,
-} from '@bradygaster/squad-sdk/agents';
+} from '@deduvafork/squad-sdk/agents';
 
 // ---------------------------------------------------------------------------
 // Test OTel infrastructure

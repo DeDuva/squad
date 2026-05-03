@@ -7,13 +7,13 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { initSquadTelemetry } from '@bradygaster/squad-sdk/runtime/otel-init';
-import type { SquadTelemetryHandle } from '@bradygaster/squad-sdk/runtime/otel-init';
-import { EventBus } from '@bradygaster/squad-sdk/runtime/event-bus';
-import { CostTracker } from '@bradygaster/squad-sdk/runtime/cost-tracker';
-import { estimateCost } from '@bradygaster/squad-sdk/config/models';
-import { MODEL_CATALOG } from '@bradygaster/squad-sdk/config/models';
-import type { ModelPricing } from '@bradygaster/squad-sdk/config/models';
+import { initSquadTelemetry } from '@deduvafork/squad-sdk/runtime/otel-init';
+import type { SquadTelemetryHandle } from '@deduvafork/squad-sdk/runtime/otel-init';
+import { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
+import { CostTracker } from '@deduvafork/squad-sdk/runtime/cost-tracker';
+import { estimateCost } from '@deduvafork/squad-sdk/config/models';
+import { MODEL_CATALOG } from '@deduvafork/squad-sdk/config/models';
+import type { ModelPricing } from '@deduvafork/squad-sdk/config/models';
 
 // ============================================================================
 // initSquadTelemetry — auto-wiring

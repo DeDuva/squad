@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { listRoles, searchRoles, FSStorageProvider } from '@bradygaster/squad-sdk';
+import { listRoles, searchRoles, FSStorageProvider } from '@deduvafork/squad-sdk';
 
 import type { ShellMessage } from './types.js';
 

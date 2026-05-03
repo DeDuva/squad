@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ToolRegistry } from '@bradygaster/squad-sdk/tools';
-import type { RouteRequest, AgentSessionFactory } from '@bradygaster/squad-sdk/tools';
+import { ToolRegistry } from '@deduvafork/squad-sdk/tools';
+import type { RouteRequest, AgentSessionFactory } from '@deduvafork/squad-sdk/tools';
 
 describe('squad_route — with sessionFactory', () => {
   const invocationCtx = {

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseAgentFromDescription } from '@bradygaster/squad-cli/shell/agent-name-parser';
+import { parseAgentFromDescription } from '@deduvafork/squad-cli/shell/agent-name-parser';
 
 const KNOWN = ['eecom', 'flight', 'scribe', 'fido', 'vox', 'dsky', 'pao'];
 

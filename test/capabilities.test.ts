@@ -8,7 +8,7 @@ import {
   getPodId,
   generatePodCapabilitiesPath,
   type MachineCapabilities,
-} from '@bradygaster/squad-sdk/ralph/capabilities';
+} from '@deduvafork/squad-sdk/ralph/capabilities';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';

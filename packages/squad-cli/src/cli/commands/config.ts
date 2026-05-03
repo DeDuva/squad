@@ -17,7 +17,7 @@ import {
   readAgentModelOverrides,
   writeAgentModelOverrides,
   MODEL_CATALOG,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 import { fatal } from '../core/errors.js';
 import { BOLD, RESET, GREEN, DIM, RED, YELLOW } from '../core/output.js';
 

@@ -53,7 +53,7 @@ function _handleTopLevelSignal(signal: 'SIGINT' | 'SIGTERM'): void {
 process.on('SIGINT', () => _handleTopLevelSignal('SIGINT'));
 process.on('SIGTERM', () => _handleTopLevelSignal('SIGTERM'));
 
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import path from 'node:path';
 import { fatal, SquadError } from './cli/core/errors.js';
 import { BOLD, RESET, DIM, RED, GREEN, YELLOW } from './cli/core/output.js';
@@ -61,7 +61,7 @@ import { runInit } from './cli/core/init.js';
 import { runCost } from './cli/commands/cost.js';
 import { getPackageVersion } from './cli/core/version.js';
 
-const lazySquadSdk = () => import('@bradygaster/squad-sdk');
+const lazySquadSdk = () => import('@deduvafork/squad-sdk');
 const lazyRunShell = () => import('./cli/shell/index.js');
 
 // Use local version resolver instead of importing VERSION from squad-sdk
@@ -277,8 +277,8 @@ async function main(): Promise<void> {
     // Global init: suppress workflows (no GitHub CI in ~/.config/squad/) and bootstrap personal squad
     runInit(dest, { includeWorkflows: !noWorkflows && !hasGlobal, sdk, roles, isGlobal: hasGlobal }).then(async () => {
       if (presetName) {
-        const { seedBuiltinPresets, applyPreset } = await import('@bradygaster/squad-sdk/presets');
-        const { resolvePresetsDir, ensureSquadHome } = await import('@bradygaster/squad-sdk/resolution');
+        const { seedBuiltinPresets, applyPreset } = await import('@deduvafork/squad-sdk/presets');
+        const { resolvePresetsDir, ensureSquadHome } = await import('@deduvafork/squad-sdk/resolution');
         const nodePath = await import('node:path');
 
         // Auto-initialize squad home + presets if they don't exist yet
@@ -560,7 +560,7 @@ async function main(): Promise<void> {
     if (args.includes('--init')) {
       const fileIdx = args.indexOf('--file');
       const filePath = (fileIdx !== -1 && args[fileIdx + 1]) ? args[fileIdx + 1]! : 'loop.md';
-      const { FSStorageProvider } = await import('@bradygaster/squad-sdk');
+      const { FSStorageProvider } = await import('@deduvafork/squad-sdk');
       const storage = new FSStorageProvider();
       const pathMod = await import('node:path');
       const absPath = pathMod.default.resolve(getSquadStartDir(), filePath);

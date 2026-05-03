@@ -21,9 +21,9 @@
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
-import { resolveSquadHome, ensureSquadHome, resolvePresetsDir } from '@bradygaster/squad-sdk/resolution';
-import { listPresets, loadPreset, applyPreset, savePreset, seedBuiltinPresets } from '@bradygaster/squad-sdk/presets';
-import { resolveSquad } from '@bradygaster/squad-sdk/resolution';
+import { resolveSquadHome, ensureSquadHome, resolvePresetsDir } from '@deduvafork/squad-sdk/resolution';
+import { listPresets, loadPreset, applyPreset, savePreset, seedBuiltinPresets } from '@deduvafork/squad-sdk/presets';
+import { resolveSquad } from '@deduvafork/squad-sdk/resolution';
 import { success, warn, info, BOLD, RESET, DIM } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 
