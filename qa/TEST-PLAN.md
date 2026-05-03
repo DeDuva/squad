@@ -1,226 +1,269 @@
-# Squad QA Test Plan
+# Squad QA — Test Plan
 
-**Version tested:** 0.9.4-build.3  
-**Platform:** Windows 11 / Node 24.12.0 / npm 11.6.2  
-**Date:** 2026-05-03  
-**Scope:** Source-build happy path, workstation tool security, CLI commands, test suite audit
-
----
-
-## 1. Objectives
-
-1. Verify a user can clone the repo, build from source, and use the CLI in a separate project.
-2. Confirm Squad's operations stay confined to the user's project directory.
-3. Validate the workstation tool security model (path confinement, env sanitisation, timeouts).
-4. Identify broken or missing CLI commands.
-5. Audit the existing test suite for coverage gaps and false negatives.
+**Version:** 0.9.4-build.6
+**Date:** 2026-05-03
+**Fork goals under test:**
+1. Replatform off GitHub Copilot onto Google Gemini
+2. Airgap — build from source, zero dependency on bradygaster npm binaries
 
 ---
 
-## 2. Test Scope
+## Scope
 
-### In-Scope
-
-| Area | Description |
-|------|-------------|
-| Build from source | `npm install` + `npm run build` produces a working CLI binary |
-| CLI core commands | `init`, `doctor`, `status`, `roles`, `upgrade`, `export`/`import`, `nap` |
-| Init isolation | `squad init` writes only to the current directory; squad source is untouched |
-| Workstation tools | Path traversal, symlink attacks, env stripping, timeout clamping, write limits |
-| Test suite | Run existing Vitest suite and catalogue failures |
-| Doctor accuracy | False positives/negatives in `squad doctor` output |
-
-### Out-of-Scope
-
-| Area | Reason |
-|------|--------|
-| GitHub Copilot integration | Requires live Copilot subscription |
-| Ralph watch mode (--execute) | Requires authenticated GitHub account with repos |
-| MCP server integrations | Requires third-party setup |
-| Personal squad | Optional ambient agent layer |
-| Cloud / KEDA scheduler | Infrastructure dependency |
+| In scope | Out of scope |
+|----------|-------------|
+| Build from source | Production deployment |
+| squad init in a user project | squad triage --execute (requires external Copilot CLI) |
+| squad doctor accuracy | squad start (deprecated PTY feature) |
+| Gemini LLM wiring | Multi-agent live sessions (require Gemini quota) |
+| Airgap compliance (static analysis) | squad aspire (requires Aspire runtime) |
+| Unit/integration test suite | Cross-platform (Linux/Mac; Windows only in this run) |
+| Package rename completeness | |
+| Security model review | |
 
 ---
 
-## 3. Test Cases
+## Test Cases
 
-### TC-01 — Build from Source (Happy Path)
+### TC-01: Build from Source
 
-**Goal:** Verify a clean clone produces a working CLI.
+**Goal:** Verify `npm run build` succeeds cleanly from a fresh clone.
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | `git clone` the repo | Clone succeeds |
-| 2 | `node --version` | Prints ≥22.5.0 |
-| 3 | `npm install` | Installs without error |
-| 4 | Verify workspace linking | `node_modules/@bradygaster/squad-sdk` is a symlink; `packages/squad-cli/node_modules/@bradygaster/squad-sdk` does NOT exist or is a symlink |
-| 5 | `npm run build` | Both packages compile; `packages/squad-cli/dist/cli-entry.js` exists |
-| 6 | `node packages/squad-cli/dist/cli-entry.js --version` | Prints version string |
+**Steps:**
+1. Clone `https://github.com/DeDuva/squad.git`
+2. `npm install`
+3. `npm run build`
+4. `node packages/squad-cli/dist/cli-entry.js --version`
 
-**Known issue:** If a stale `packages/squad-cli/node_modules/@bradygaster/squad-sdk` directory exists (from a prior `npm install` against the published registry), step 5 will fail with TypeScript errors about missing exports. Workaround: `rm -rf packages/squad-cli/node_modules/@bradygaster/squad-sdk` before building.
-
----
-
-### TC-02 — Init in a User Project
-
-**Goal:** Verify `squad init` creates the correct structure in the user's project and does not touch the Squad source repo.
-
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | `mkdir my-project && cd my-project && git init` | Clean git repo |
-| 2 | Run `node /path/to/squad/packages/squad-cli/dist/cli-entry.js init` | Prints "Squad initialized." |
-| 3 | Verify `.squad/` created | `.squad/team.md`, `.squad/routing.md`, `.squad/decisions.md` all present |
-| 4 | Verify `.github/agents/squad.agent.md` created | File present |
-| 5 | Verify `.gitattributes` created | Contains `merge=union` entries |
-| 6 | Check Squad source directory | Squad source `.squad/` unchanged |
+**Pass criteria:**
+- Build exits 0
+- Version string printed matches `package.json` version
+- `packages/squad-sdk/dist/index.d.ts` exists
+- `packages/squad-cli/dist/cli-entry.js` exists
 
 ---
 
-### TC-03 — Doctor Accuracy
+### TC-02: Prebuild Idempotency
 
-**Goal:** Verify `squad doctor` reports correctly.
+**Goal:** Verify that running `npm run build` twice in a row succeeds.
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Run `doctor` in the squad source repo | 11 checks pass; 0 failures |
-| 2 | Run `doctor` in a freshly-initialised user project | Core checks pass; should NOT report "squad.js bundle — not found" |
-| 3 | Delete `.squad/team.md`; run `doctor` | Failure reported for missing team.md |
-| 4 | Create `.squad/casting/registry.json` with invalid JSON; run `doctor` | Failure reported for invalid JSON |
+**Steps:**
+1. Run `npm run build` (first run)
+2. Run `npm run build` (second run, no manual cleaning)
+3. Compare `--version` output
 
-**Known issue (Bug):** `doctor` always fails the "squad.js bundle" check when run outside the Squad source repo because the check hardcodes `CWD/packages/squad-cli/dist/squad.js` as the bundle path.
-
----
-
-### TC-04 — Workstation Tool: Path Traversal
-
-**Goal:** Verify agents cannot escape the `rootDir` boundary.
-
-| Step | Input Path | Expected Outcome |
-|------|-----------|-----------------|
-| 1 | `../../etc/passwd` | `EACCES` — path escapes rootDir |
-| 2 | `/absolute/path/outside/root` | `EACCES` — absolute path outside rootDir |
-| 3 | Symlink pointing outside rootDir | `EACCES` — symlink resolved, escapes rootDir |
-| 4 | `../valid-subdir` that resolves within rootDir | Succeeds |
-| 5 | `./normal-file.txt` | Succeeds |
-| 6 | Non-existent but valid path | Path accepted, ENOENT returned for file not found |
+**Pass criteria:**
+- Second build exits 0
+- Version increments by 1 (prebuild bumps build number)
+- No TypeScript declaration errors
 
 ---
 
-### TC-05 — Workstation Tool: Environment Sanitisation
+### TC-03: squad init in a Fresh User Project
 
-**Goal:** Verify sensitive env vars are stripped before shell commands.
+**Goal:** Verify `squad init` creates all required files in the target project.
 
-| Step | Env Var Set | Command | Expected |
-|------|-------------|---------|---------|
-| 1 | `MY_API_KEY=secret` | `printenv MY_API_KEY` | Empty / not set |
-| 2 | `ACCESS_TOKEN=abc` | `printenv ACCESS_TOKEN` | Empty / not set |
-| 3 | `MY_PASSWORD=pw` | `printenv MY_PASSWORD` | Empty / not set |
-| 4 | `NODE_OPTIONS=--require hack` | `printenv NODE_OPTIONS` | Empty / not set |
-| 5 | `LD_PRELOAD=/evil.so` | `printenv LD_PRELOAD` | Empty / not set |
-| 6 | `NORMAL_VAR=hello` | `printenv NORMAL_VAR` | `hello` — not stripped |
+**Steps:**
+1. Create a temp directory outside the Squad source repo
+2. `git init`
+3. `node /path/to/squad/packages/squad-cli/dist/cli-entry.js init`
 
----
-
-### TC-06 — Workstation Tool: Timeout Enforcement
-
-**Goal:** Verify agent-supplied timeouts are clamped to host ceiling.
-
-| Step | Host Ceiling | Agent Requests | Expected Actual Timeout |
-|------|-------------|---------------|------------------------|
-| 1 | 5000 ms | 999999 ms | 5000 ms (clamped) |
-| 2 | 5000 ms | 0 ms | 5000 ms (zero → ceiling) |
-| 3 | 5000 ms | -1 ms | 5000 ms (negative → ceiling) |
-| 4 | 5000 ms | 2000 ms | 2000 ms (within ceiling) |
-| 5 | 5000 ms | Not specified | 5000 ms (default to ceiling) |
+**Pass criteria:**
+- Exit code 0
+- `.squad/` directory with subdirs: `agents/`, `casting/`, `decisions/`, `identity/`, `log/`, `orchestration-log/`, `plugins/`, `skills/`, `templates/`
+- `.squad/team.md` contains `## Members` header
+- `.squad/routing.md` exists
+- `.squad/config.json` is valid JSON
+- `.github/agents/squad.agent.md` exists
+- `.github/workflows/squad-*.yml` (4 files)
+- `.gitattributes` contains `merge=union`
 
 ---
 
-### TC-07 — Workstation Tool: Write Limits
+### TC-04: squad init Isolation
 
-**Goal:** Verify the 10 MB write cap is enforced.
+**Goal:** Verify `squad init` writes ONLY within the target project directory.
 
-| Step | Content Size | Expected |
-|------|-------------|---------|
-| 1 | 9.9 MB | Write succeeds |
-| 2 | 10 MB + 1 byte | `ETOOLARGE` error |
-| 3 | Binary content (null bytes) | Read fails with `EBINARY` |
+**Steps:**
+1. Record parent directory contents before init
+2. Run `squad init`
+3. Verify parent directory is unchanged
 
----
-
-### TC-08 — Workstation Tool: Output Truncation
-
-**Goal:** Verify stdout/stderr is capped at 100 KB.
-
-| Step | Command | Expected |
-|------|---------|---------|
-| 1 | Outputs exactly 100 KB | Full output returned |
-| 2 | Outputs 200 KB | Truncated at 100 KB with `[Output truncated]` notice |
+**Pass criteria:**
+- Parent directory contents identical before/after
+- Squad source repo directory unmodified
 
 ---
 
-### TC-09 — CLI Command Routing
+### TC-05: squad init Idempotency
 
-**Goal:** Verify all documented commands are routable.
+**Goal:** Verify `squad init` can be run multiple times without data corruption.
 
-Commands to test: `init`, `upgrade`, `status`, `triage`/`watch`/`loop`, `copilot`, `doctor`, `link`, `externalize`, `internalize`, `shell`, `export`, `import`, `plugin`, `upstream`, `nap`, `aspire`, `scrub-emails`, `roles`, `cost`, `cast`, `personal`, `preset`, `auth`, `config`
+**Steps:**
+1. Run `squad init`
+2. Modify `.squad/team.md`
+3. Run `squad init` again
 
-Expected: Each command returns output (or a help message), NOT "unknown command."
-
----
-
-### TC-10 — Init Idempotency
-
-**Goal:** Verify running `squad init` twice does not corrupt existing state.
-
-| Step | Action | Expected |
-|------|--------|---------|
-| 1 | `squad init` | Creates all files |
-| 2 | Modify `.squad/team.md` — add a custom line | Custom line present |
-| 3 | `squad init` again | Prints "Squad initialized." No error |
-| 4 | Check `.squad/team.md` | Custom line preserved (init is non-destructive) |
+**Pass criteria:**
+- Second run exits 0
+- Modified `team.md` content preserved
+- No duplicate entries
 
 ---
 
-### TC-11 — Export / Import Round-Trip
+### TC-06: squad doctor After Init (No Gemini Key)
 
-**Goal:** Verify squad state survives export/import.
+**Goal:** Verify doctor accuracy immediately after init, without API key.
 
-| Step | Action | Expected |
-|------|--------|---------|
-| 1 | `squad init` | Creates state |
-| 2 | `squad export > snapshot.json` | File written |
-| 3 | Delete `.squad/` | State removed |
-| 4 | `squad import snapshot.json` | State restored |
-| 5 | `squad doctor` | Passes |
+**Steps:**
+1. Unset `GEMINI_API_KEY`
+2. Run `squad doctor`
 
----
-
-### TC-12 — Existing Test Suite
-
-**Goal:** Run `npm test` and document pass/fail.
-
-Expected baseline: All tests pass. Catalogue any failures for follow-up.
+**Pass criteria:**
+- All structural checks pass
+- Gemini key check fails with actionable error
+- `squad.js bundle` failure is the only other failure (known false positive)
 
 ---
 
-## 4. Test Environment
+### TC-07: squad doctor After Init (With Gemini Key)
 
-- Node.js ≥22.5.0 (tested on v24.12.0)
-- npm ≥10.0.0 (tested on v11.6.2)
-- Git installed and on PATH
-- Windows 11 (bash via Git Bash / WSL)
-- Gemini API key set as `GEMINI_API_KEY` (used by doctor check)
-- NO active GitHub Copilot subscription required for most tests
+**Goal:** Verify with API key, doctor reports exactly one failure (bundle).
+
+**Steps:**
+1. Set `GEMINI_API_KEY`
+2. Run `squad doctor`
+
+**Pass criteria:**
+- 10 checks pass, 1 fails (bundle)
+- Summary: "10 passed, 1 failed"
 
 ---
 
-## 5. Pass/Fail Criteria
+### TC-08: Gemini Replatforming — No Copilot SDK Dependency
 
-| Category | Pass Criteria |
-|----------|--------------|
-| Build | `npm run build` exits 0; `cli-entry.js` exists |
-| Init | `.squad/` created in CWD; squad source untouched |
-| Security | All path traversal attempts blocked; sensitive env vars absent from child processes |
-| Doctor | ≤0 false positives in a freshly-initialised project |
-| Test suite | 0 failing tests |
-| Commands | 0 "unknown command" responses for documented commands |
+**Goal:** Zero `@github/copilot-sdk` references in source.
+
+**Steps:**
+1. Search `packages/*/src/**/*.ts` for `@github/copilot-sdk` imports
+2. Search all `package.json` for `@github/copilot-sdk` dependencies
+3. Verify dist is clean after fresh `npm run build`
+
+**Pass criteria:**
+- Zero npm imports of `@github/copilot-sdk` anywhere in source or package.json
+
+---
+
+### TC-09: Gemini Client Wiring
+
+**Goal:** Verify GeminiClient is the sole LLM runtime.
+
+**Steps:**
+1. Verify `adapter/client.ts` imports `GeminiClient`
+2. Verify `gemini-client.ts` targets `generativelanguage.googleapis.com`
+3. Verify all 6 models in catalog have `provider: 'google'`
+
+**Pass criteria:**
+- GeminiClient wired as sole backend
+- SSE streaming implemented
+- All models are Gemini family
+
+---
+
+### TC-10: Airgap Compliance — Package Namespace
+
+**Goal:** Zero `@bradygaster/` npm package imports.
+
+**Steps:**
+1. Search all `package.json` for `@bradygaster/` in dependencies
+2. Search all `.ts` source for `import.*@bradygaster/`
+3. Verify `node_modules/@deduvafork/squad-sdk` is a symlink
+
+**Pass criteria:**
+- Zero `@bradygaster/` package dependencies
+- `node_modules/@deduvafork/squad-sdk` is symlink to workspace
+
+---
+
+### TC-11: Airgap Compliance — Runtime bradygaster URLs
+
+**Goal:** Identify any runtime-executed code that constructs URLs to bradygaster.
+
+**Steps:**
+1. Search source for `bradygaster` string
+2. Categorize: attribution comment vs runtime-executed URL
+
+**Pass criteria:**
+- Zero runtime-executed feature URLs pointing to bradygaster/squad
+- Comments/JSDoc attribution acceptable
+
+---
+
+### TC-12: Test Suite Baseline
+
+**Goal:** Establish passing/failing baseline.
+
+**Steps:**
+1. Run `npm test`
+2. Record summary line
+
+**Pass criteria:**
+- Total: 6,102 tests
+- Failing: ≤86 (pre-existing baseline)
+- No new failures from package rename
+
+---
+
+### TC-13: squad upgrade (Template Refresh)
+
+**Goal:** Verify upgrade refreshes templates, preserves team state.
+
+**Steps:**
+1. Add a custom note to `.squad/team.md`
+2. Run `squad upgrade`
+
+**Pass criteria:**
+- Custom `team.md` content preserved
+- Workflow files refreshed
+- `.squad/agents/` untouched
+
+---
+
+### TC-14: squad export / import Round-Trip
+
+**Goal:** Verify squad state survives export→delete→import.
+
+**Steps:**
+1. `squad export > snapshot.json`
+2. Delete `.squad/`
+3. `squad import snapshot.json`
+4. `squad doctor`
+
+**Pass criteria:**
+- Doctor shows same pass/fail pattern post-import
+
+---
+
+### TC-15: Workstation Tool — Path Traversal Blocking
+
+**Goal:** Verify runtime path traversal protection.
+
+**Steps:**
+1. Run `test/workstation-tools.test.ts`
+
+**Pass criteria:**
+- `../../etc/passwd` blocked with EACCES
+- Symlinks escaping rootDir blocked
+
+---
+
+## Test Environment
+
+| Item | Value |
+|------|-------|
+| OS | Windows 11 Home 10.0.26200 |
+| Node.js | v24.12.0 |
+| npm | 11.x |
+| Squad version | 0.9.4-build.6 |
+| Shell | bash (Git Bash) |
+| Gemini API key | Set via `GEMINI_API_KEY` |

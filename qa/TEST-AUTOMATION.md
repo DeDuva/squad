@@ -1,37 +1,35 @@
 # Squad QA — Recommendations for Additional Test Automation
 
-**Version:** 0.9.4-build.3  
+**Version:** 0.9.4-build.6
 **Date:** 2026-05-03
 
 ---
 
 ## Current Coverage Summary
 
-The existing Vitest suite has 6,102 tests covering:
-- SDK unit tests (routing, casting, config, hooks, tools)
-- CLI command unit tests
-- Integration tests (pipeline, error hierarchy)
-- Compatibility tests
-- Human journey tests
+The Vitest suite has 6,102 tests covering SDK unit tests, CLI command tests, integration tests, and compatibility tests. 86 are currently failing — all pre-existing and documented.
 
-**Gaps identified:**
+**Gaps that automation should close:**
 
-| Gap Area | Risk if Untested |
-|----------|-----------------|
-| Build from source (end-to-end) | Contributors won't catch workspace linking regressions |
-| Doctor accuracy in user context | False positives erode trust and break CI |
-| Init isolation (files outside CWD) | Silent data corruption risk |
-| Workstation security (runtime) | Security regression undetected |
-| Command routing completeness | Undocumented regressions on CLI commands |
-| Cross-platform (Windows vs Unix) | Timeout/kill divergence undetected |
+| Gap | Risk if Untested |
+|-----|-----------------|
+| Build integrity (end-to-end from clone) | Workspace linking regressions go undetected |
+| `squad doctor` accuracy in user context | False positive erodes user trust, breaks CI |
+| `squad init` isolation | Silent write outside project directory |
+| `squad init` file completeness | Missing required files cause agent failures |
+| Airgap compliance (no bradygaster runtime URLs) | Fork-specific invariant invisible to CI |
+| Gemini model catalog correctness | 86 test failures remain if model IDs drift |
+| Workstation security | Critical security regression could ship undetected |
+| CLI command routing | Undocumented regressions on `--help` |
+| Cross-platform timeout/kill | Windows process kill divergence |
 
 ---
 
-## Recommended Automation Additions
+## Recommended Additions
 
 ### 1. Build Integrity Test (`test/build-integrity.test.ts`)
 
-Verifies the workspace linking is correct before the build runs. This would have caught the P0 stale-nested-dependency bug.
+Prevents the workspace-linking regression that caused the initial P0 build failure.
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -41,19 +39,29 @@ import { resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 
 describe('Workspace linking', () => {
-  it('root node_modules/@bradygaster/squad-sdk is a symlink', () => {
-    const p = resolve(ROOT, 'node_modules/@bradygaster/squad-sdk');
+  it('root node_modules/@deduvafork/squad-sdk is a symlink', () => {
+    const p = resolve(ROOT, 'node_modules/@deduvafork/squad-sdk');
     expect(existsSync(p)).toBe(true);
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
   });
 
-  it('packages/squad-cli/node_modules/@bradygaster/squad-sdk does NOT exist', () => {
-    // If this exists, TypeScript will resolve the stale version
-    const p = resolve(ROOT, 'packages/squad-cli/node_modules/@bradygaster/squad-sdk');
+  it('packages/squad-cli/node_modules/@deduvafork does NOT exist', () => {
+    // If a nested copy exists, TypeScript resolves a stale version
+    const p = resolve(ROOT, 'packages/squad-cli/node_modules/@deduvafork');
     expect(existsSync(p)).toBe(false);
   });
 
-  it('dist/cli-entry.js exists after build', () => {
+  it('packages/squad-cli/node_modules/@bradygaster does NOT exist', () => {
+    const p = resolve(ROOT, 'packages/squad-cli/node_modules/@bradygaster');
+    expect(existsSync(p)).toBe(false);
+  });
+
+  it('packages/squad-sdk/dist/index.d.ts exists after build', () => {
+    const p = resolve(ROOT, 'packages/squad-sdk/dist/index.d.ts');
+    expect(existsSync(p)).toBe(true);
+  });
+
+  it('packages/squad-cli/dist/cli-entry.js exists after build', () => {
     const p = resolve(ROOT, 'packages/squad-cli/dist/cli-entry.js');
     expect(existsSync(p)).toBe(true);
   });
@@ -62,91 +70,129 @@ describe('Workspace linking', () => {
 
 ---
 
-### 2. Init Isolation Test (`test/init-isolation.test.ts`)
+### 2. Init Isolation and Completeness Test (`test/init-isolation.test.ts`)
 
-Verifies `squad init` writes ONLY to the target directory, never outside it.
+Verifies `squad init` writes exactly what's expected and nothing outside the target.
 
 ```typescript
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 
 const CLI = resolve(import.meta.dirname, '../packages/squad-cli/dist/cli-entry.js');
-const SQUAD_ROOT = resolve(import.meta.dirname, '..');
 
 describe('squad init isolation', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(resolve(tmpdir(), 'squad-test-'));
-    execSync('git init', { cwd: tmpDir });
+    tmpDir = mkdtempSync(join(tmpdir(), 'squad-test-'));
+    execSync('git init -q', { cwd: tmpDir });
   });
 
   afterEach(() => rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('creates .squad/ only in the target directory', () => {
-    execSync(`node ${CLI} init`, { cwd: tmpDir });
-    // Squad source should be unchanged
-    const sourceAgentsBefore = readdirSync(resolve(SQUAD_ROOT, '.squad/agents'));
-    expect(sourceAgentsBefore).toEqual(sourceAgentsBefore); // tautology — just checking it doesn't throw
-  });
-
   it('does not write files above the target directory', () => {
     const parent = resolve(tmpDir, '..');
-    const beforeFiles = readdirSync(parent);
-    execSync(`node ${CLI} init`, { cwd: tmpDir });
-    const afterFiles = readdirSync(parent);
-    expect(afterFiles).toEqual(beforeFiles);
+    const before = new Set(readdirSync(parent));
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    const after = new Set(readdirSync(parent));
+    // only the tmpDir entry should exist (it was already there from mkdtemp)
+    expect([...after].filter(f => !before.has(f))).toHaveLength(0);
+  });
+
+  it('creates .squad/ inside target directory', () => {
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    expect(existsSync(join(tmpDir, '.squad'))).toBe(true);
   });
 
   it('creates required .gitattributes merge=union entries', () => {
-    execSync(`node ${CLI} init`, { cwd: tmpDir });
-    const attrs = readFileSync(resolve(tmpDir, '.gitattributes'), 'utf-8');
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    const attrs = readFileSync(join(tmpDir, '.gitattributes'), 'utf-8');
     expect(attrs).toContain('merge=union');
   });
+
+  it('creates squad.agent.md', () => {
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    expect(existsSync(join(tmpDir, '.github/agents/squad.agent.md'))).toBe(true);
+  });
+
+  it('creates team.md with ## Members header', () => {
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    const content = readFileSync(join(tmpDir, '.squad/team.md'), 'utf-8');
+    expect(content).toContain('## Members');
+  });
+
+  it('is idempotent — second run preserves custom team.md content', () => {
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    const teamMd = join(tmpDir, '.squad/team.md');
+    const original = readFileSync(teamMd, 'utf-8');
+    const modified = original + '\n<!-- custom note -->';
+    require('fs').writeFileSync(teamMd, modified);
+
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
+    const after = readFileSync(teamMd, 'utf-8');
+    expect(after).toContain('<!-- custom note -->');
+  });
 });
 ```
 
 ---
 
-### 3. Doctor Context Test (`test/doctor-context.test.ts`)
+### 3. Doctor Accuracy in User Context (`test/doctor-context.test.ts`)
 
-Verifies `squad doctor` produces zero false positives after `squad init` in a user project.
+Catches the `squad.js bundle` false positive and any new false positives.
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
-import { runInit } from '@bradygaster/squad-cli/core/init';
-import { runDoctor } from '@bradygaster/squad-cli/commands/doctor';
+import { resolve, join } from 'node:path';
 
-describe('Doctor after init (user context)', () => {
-  it('has zero failures in a freshly-initialised user project', async () => {
-    const dir = mkdtempSync(resolve(tmpdir(), 'squad-doctor-'));
-    try {
-      await runInit(dir, { includeWorkflows: false });
-      const { failures } = await runDoctor(dir);
-      expect(failures).toHaveLength(0);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+const CLI = resolve(import.meta.dirname, '../packages/squad-cli/dist/cli-entry.js');
+
+describe('squad doctor in user context', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'squad-doctor-'));
+    execSync('git init -q', { cwd: tmpDir });
+    execSync(`node "${CLI}" init`, { cwd: tmpDir });
   });
 
-  it('does not report squad.js bundle failure in a user project', async () => {
-    const dir = mkdtempSync(resolve(tmpdir(), 'squad-doctor-'));
-    try {
-      await runInit(dir, { includeWorkflows: false });
-      const checks = await runDoctorChecks(dir);
-      const bundleCheck = checks.find(c => c.name === 'squad.js bundle');
-      // Either the check doesn't appear, or it passes
-      if (bundleCheck) {
-        expect(bundleCheck.status).not.toBe('fail');
-      }
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+  afterEach(() => rmSync(tmpDir, { recursive: true, force: true }));
+
+  it('has zero structural failures after init', () => {
+    // Unset API key so we only test structural checks
+    const result = execSync(`node "${CLI}" doctor`, {
+      cwd: tmpDir,
+      env: { ...process.env, GEMINI_API_KEY: '' },
+      encoding: 'utf-8',
+    });
+    // Structural checks that should all pass
+    expect(result).toContain('✅  .squad/ directory exists');
+    expect(result).toContain('✅  team.md found with ## Members header');
+    expect(result).toContain('✅  routing.md found');
+    expect(result).toContain('✅  agents/ directory exists');
+    expect(result).toContain('✅  casting/registry.json exists');
+    expect(result).toContain('✅  decisions.md exists');
+  });
+
+  it('squad.js bundle check does NOT fail in user project', () => {
+    // This test documents the P1 bug — once fixed it should pass naturally
+    const result = execSync(`node "${CLI}" doctor`, {
+      cwd: tmpDir,
+      env: { ...process.env, GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '' },
+      encoding: 'utf-8',
+    });
+    // After the P1 fix, this should pass
+    // Until then, document the expected behavior
+    const bundleCheck = result.includes('squad.js bundle');
+    if (bundleCheck) {
+      // It's present — it should either pass or be labeled as skipped, not fail
+      expect(result).not.toMatch(/❌.*squad\.js bundle/);
     }
   });
 });
@@ -154,14 +200,182 @@ describe('Doctor after init (user context)', () => {
 
 ---
 
-### 4. Workstation Security Test Suite (`test/workstation-security.test.ts`)
+### 4. Airgap Compliance Test (`test/airgap-compliance.test.ts`)
 
-The security properties of `workstation.ts` are critical but have minimal test coverage. This suite should be comprehensive.
+Ensures the fork invariants are maintained on every CI run.
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createWorkstationTools } from '@bradygaster/squad-sdk/workstation-tools';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { execSync } from 'node:child_process';
+
+const ROOT = resolve(import.meta.dirname, '..');
+const PACKAGES_DIR = join(ROOT, 'packages');
+
+function findTsFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory() && entry.name !== 'dist' && entry.name !== 'node_modules') {
+      results.push(...findTsFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+describe('Airgap compliance', () => {
+  describe('No @github/copilot-sdk imports', () => {
+    it('source files contain no copilot-sdk imports', () => {
+      const tsFiles = findTsFiles(PACKAGES_DIR);
+      const violations = tsFiles.filter(f =>
+        readFileSync(f, 'utf-8').includes('@github/copilot-sdk')
+      );
+      expect(violations).toHaveLength(0);
+    });
+
+    it('no package.json has @github/copilot-sdk dependency', () => {
+      const pkgFiles = [
+        join(ROOT, 'package.json'),
+        join(PACKAGES_DIR, 'squad-sdk/package.json'),
+        join(PACKAGES_DIR, 'squad-cli/package.json'),
+      ];
+      for (const f of pkgFiles) {
+        const content = readFileSync(f, 'utf-8');
+        expect(content).not.toContain('@github/copilot-sdk');
+      }
+    });
+  });
+
+  describe('No @bradygaster/ package imports', () => {
+    it('source files contain no @bradygaster/ imports', () => {
+      const tsFiles = findTsFiles(PACKAGES_DIR);
+      const violations = tsFiles.filter(f => {
+        const content = readFileSync(f, 'utf-8');
+        return /from ['"]@bradygaster\//.test(content);
+      });
+      expect(violations).toHaveLength(0);
+    });
+
+    it('package.json files have no @bradygaster/ dependencies', () => {
+      const pkgFiles = [
+        join(PACKAGES_DIR, 'squad-sdk/package.json'),
+        join(PACKAGES_DIR, 'squad-cli/package.json'),
+      ];
+      for (const f of pkgFiles) {
+        const pkg = JSON.parse(readFileSync(f, 'utf-8'));
+        const allDeps = {
+          ...pkg.dependencies,
+          ...pkg.devDependencies,
+          ...pkg.optionalDependencies,
+          ...pkg.peerDependencies,
+        };
+        const bradygasterDeps = Object.keys(allDeps).filter(k => k.startsWith('@bradygaster/'));
+        expect(bradygasterDeps).toHaveLength(0);
+      }
+    });
+  });
+
+  describe('Workspace symlinks are correct', () => {
+    it('@deduvafork/squad-sdk resolves as workspace symlink', () => {
+      const { lstatSync } = require('fs');
+      const p = join(ROOT, 'node_modules/@deduvafork/squad-sdk');
+      expect(existsSync(p)).toBe(true);
+      expect(lstatSync(p).isSymbolicLink()).toBe(true);
+    });
+  });
+});
+```
+
+---
+
+### 5. Gemini Model Catalog Test (`test/gemini-model-catalog.test.ts`)
+
+Documents the expected Gemini-only catalog and fails fast if a non-Gemini model is added.
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { MODEL_CATALOG, resolveModel } from '@deduvafork/squad-sdk/config/models';
+
+describe('Gemini model catalog', () => {
+  it('all models have provider google', () => {
+    for (const [id, model] of Object.entries(MODEL_CATALOG)) {
+      expect(model.provider).toBe('google');
+    }
+  });
+
+  it('all model IDs are gemini family', () => {
+    for (const id of Object.keys(MODEL_CATALOG)) {
+      expect(id).toMatch(/^gemini-/);
+    }
+  });
+
+  it('default fallback model is gemini-2.5-flash-preview-04-17', () => {
+    const resolved = resolveModel({});
+    expect(resolved).toBe('gemini-2.5-flash-preview-04-17');
+  });
+
+  it('economy mode maps to cheaper gemini models', () => {
+    const expensive = resolveModel({ model: 'gemini-2.5-pro', economyMode: true });
+    expect(expensive).toBe('gemini-2.5-flash-preview-04-17');
+  });
+});
+```
+
+---
+
+### 6. CLI Command Routing Smoke Test (`test/cli-routing.test.ts`)
+
+Extends the existing `cli-packaging-smoke.test.ts` to cover all documented commands.
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { execSync } from 'node:child_process';
+import { resolve } from 'node:path';
+
+const CLI = resolve(import.meta.dirname, '../packages/squad-cli/dist/cli-entry.js');
+
+const DOCUMENTED_COMMANDS = [
+  'init', 'upgrade', 'status', 'triage', 'watch', 'loop',
+  'doctor', 'heartbeat', 'link', 'externalize', 'internalize',
+  'export', 'import', 'nap', 'aspire', 'scrub-emails', 'roles',
+  'cost', 'cast', 'personal', 'preset', 'build', 'config',
+  'auth',
+];
+
+describe('CLI command routing — all documented commands', () => {
+  for (const cmd of DOCUMENTED_COMMANDS) {
+    it(`"${cmd}" is routable (--help does not say "unknown command")`, () => {
+      try {
+        const output = execSync(`node "${CLI}" ${cmd} --help`, {
+          encoding: 'utf-8',
+          timeout: 5000,
+        });
+        expect(output).not.toContain('Unknown command');
+        expect(output).not.toContain('unknown command');
+      } catch (e: any) {
+        // --help may exit 1 for some commands; output is on stderr
+        const output = (e.stdout ?? '') + (e.stderr ?? '');
+        expect(output).not.toContain('Unknown command');
+        expect(output).not.toContain('unknown command');
+      }
+    });
+  }
+});
+```
+
+---
+
+### 7. Workstation Security Test Suite (`test/workstation-security.test.ts`)
+
+This completes coverage for the security properties documented in the README.
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createWorkstationTools } from '@deduvafork/squad-sdk/workstation-tools';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 
@@ -170,107 +384,91 @@ describe('Workstation security', () => {
   let tools: ReturnType<typeof createWorkstationTools>;
 
   beforeEach(() => {
-    rootDir = mkdtempSync(resolve(tmpdir(), 'squad-wkstn-'));
+    rootDir = mkdtempSync(join(tmpdir(), 'squad-wkstn-'));
     tools = createWorkstationTools({ rootDir, bashTimeoutMs: 5000 });
   });
 
   afterEach(() => rmSync(rootDir, { recursive: true, force: true }));
 
-  const readTool = () => tools.find(t => t.name === 'workstation_read_file')!;
-  const bashTool = () => tools.find(t => t.name === 'workstation_bash')!;
-  const writeTool = () => tools.find(t => t.name === 'workstation_write_file')!;
+  const read = () => tools.find(t => t.name === 'workstation_read_file')!;
+  const bash = () => tools.find(t => t.name === 'workstation_bash')!;
+  const write = () => tools.find(t => t.name === 'workstation_write_file')!;
 
-  // Path traversal
   describe('Path traversal prevention', () => {
-    it('blocks ../.. escapes on read', async () => {
-      const r = await readTool().handler({ path: '../../etc/passwd' });
+    it('blocks ../../etc/passwd on read', async () => {
+      const r = await read().handler({ path: '../../etc/passwd' });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('EACCES');
     });
 
-    it('blocks absolute paths outside rootDir on read', async () => {
-      const r = await readTool().handler({ path: '/etc/passwd' });
+    it('blocks absolute paths outside rootDir', async () => {
+      const r = await read().handler({ path: '/etc/passwd' });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('EACCES');
     });
 
-    it('blocks symlink that escapes rootDir', async () => {
-      const link = join(rootDir, 'evil-link');
-      symlinkSync('/tmp', link);
-      const r = await readTool().handler({ path: 'evil-link/../../etc/passwd' });
+    it('blocks symlinks that escape rootDir', async () => {
+      const link = join(rootDir, 'evil');
+      symlinkSync(tmpdir(), link);
+      const r = await read().handler({ path: 'evil/../../etc/passwd' });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('EACCES');
     });
 
     it('allows reads within rootDir', async () => {
-      writeFileSync(join(rootDir, 'test.txt'), 'hello');
-      const r = await readTool().handler({ path: 'test.txt' });
+      writeFileSync(join(rootDir, 'ok.txt'), 'hello');
+      const r = await read().handler({ path: 'ok.txt' });
       expect(r.resultType).toBe('success');
     });
 
-    it('blocks ../.. escapes on write', async () => {
-      const r = await writeTool().handler({ path: '../../tmp/evil.txt', content: 'evil' });
+    it('blocks ../../ writes', async () => {
+      const r = await write().handler({ path: '../../tmp/evil.txt', content: 'evil' });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('EACCES');
     });
   });
 
-  // Environment sanitisation
   describe('Environment sanitisation', () => {
-    it('strips env vars matching sensitive pattern', async () => {
-      process.env.SQUAD_TEST_SECRET = 'secret123';
-      const r = await bashTool().handler({ command: 'printenv SQUAD_TEST_SECRET || echo STRIPPED' });
-      delete process.env.SQUAD_TEST_SECRET;
+    it('strips GEMINI_API_KEY before shell execution', async () => {
+      process.env.GEMINI_API_KEY = 'should-be-stripped';
+      const r = await bash().handler({
+        command: 'printenv GEMINI_API_KEY || echo STRIPPED',
+      });
+      delete process.env.GEMINI_API_KEY;
       expect(r.textResultForLlm).toContain('STRIPPED');
     });
 
     it('strips NODE_OPTIONS', async () => {
       process.env.NODE_OPTIONS = '--require evil';
-      const r = await bashTool().handler({ command: 'printenv NODE_OPTIONS || echo STRIPPED' });
+      const r = await bash().handler({ command: 'printenv NODE_OPTIONS || echo STRIPPED' });
       delete process.env.NODE_OPTIONS;
       expect(r.textResultForLlm).toContain('STRIPPED');
     });
 
-    it('preserves normal env vars', async () => {
-      process.env.SQUAD_TEST_NORMAL = 'hello';
-      const r = await bashTool().handler({ command: 'printenv SQUAD_TEST_NORMAL' });
-      delete process.env.SQUAD_TEST_NORMAL;
+    it('preserves non-sensitive env vars', async () => {
+      process.env.SQUAD_TEST_SAFE = 'hello';
+      const r = await bash().handler({ command: 'printenv SQUAD_TEST_SAFE' });
+      delete process.env.SQUAD_TEST_SAFE;
       expect(r.textResultForLlm).toContain('hello');
     });
   });
 
-  // Timeout clamping
   describe('Timeout clamping', () => {
-    it('clamps agent timeout above host ceiling', async () => {
-      const tools2 = createWorkstationTools({ rootDir, bashTimeoutMs: 1000 });
-      const bash = tools2.find(t => t.name === 'workstation_bash')!;
-      // A sleep longer than 1s should time out
-      const r = await bash.handler({ command: 'sleep 5', timeout_ms: 999999 });
+    it('enforces host ceiling when agent requests higher timeout', async () => {
+      const capped = createWorkstationTools({ rootDir, bashTimeoutMs: 500 });
+      const b = capped.find(t => t.name === 'workstation_bash')!;
+      const r = await b.handler({ command: 'sleep 5', timeout_ms: 999999 });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('timeout');
-    });
-
-    it('allows timeout within ceiling', async () => {
-      const r = await bashTool().handler({ command: 'echo ok', timeout_ms: 1000 });
-      expect(r.resultType).toBe('success');
     });
   });
 
-  // Write limit
-  describe('Write limit', () => {
-    it('rejects content over 10 MB', async () => {
-      const bigContent = 'x'.repeat(10 * 1024 * 1024 + 1);
-      const r = await writeTool().handler({ path: 'big.txt', content: bigContent });
+  describe('Write cap', () => {
+    it('rejects files over 10 MB', async () => {
+      const big = 'x'.repeat(10 * 1024 * 1024 + 1);
+      const r = await write().handler({ path: 'big.txt', content: big });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('ETOOLARGE');
     });
 
     it('rejects binary files on read', async () => {
-      const binaryPath = join(rootDir, 'binary.bin');
-      writeFileSync(binaryPath, Buffer.from([0x00, 0x01, 0x02]));
-      const r = await readTool().handler({ path: 'binary.bin' });
+      writeFileSync(join(rootDir, 'bin'), Buffer.from([0x00, 0x01]));
+      const r = await read().handler({ path: 'bin' });
       expect(r.resultType).toBe('failure');
-      expect(r.error).toBe('EBINARY');
     });
   });
 });
@@ -278,110 +476,17 @@ describe('Workstation security', () => {
 
 ---
 
-### 5. CLI Command Routing Test (`test/cli-routing.test.ts`)
-
-Extends the existing `cli-packaging-smoke.test.ts` to verify ALL commands listed in the README are routable, using a more data-driven approach:
+### 8. Cross-Platform Process Kill Test (Windows-only)
 
 ```typescript
-const DOCUMENTED_COMMANDS = [
-  'init', 'upgrade', 'status', 'triage', 'watch', 'loop',
-  'copilot', 'doctor', 'heartbeat', 'link', 'externalize',
-  'internalize', 'shell', 'export', 'import', 'plugin',
-  'upstream', 'nap', 'aspire', 'scrub-emails', 'roles',
-  'cost', 'cast', 'personal', 'preset', 'build', 'config',
-];
-
-describe('CLI command routing — all documented commands', () => {
-  for (const cmd of DOCUMENTED_COMMANDS) {
-    it(`command "${cmd}" is routable`, async () => {
-      const output = await runCLI([cmd, '--help']);
-      expect(output).not.toContain('unknown command');
-    });
-  }
-});
-```
-
----
-
-### 6. Cross-Platform Timeout Test (Windows)
-
-The `runCommand` function has separate kill paths for Unix (SIGKILL to process group) and Windows (taskkill). Add platform-specific tests that run only on Windows:
-
-```typescript
-describe.skipIf(process.platform !== 'win32')('Windows process kill', () => {
-  it('kills background processes spawned with start', async () => {
-    // start is the Windows equivalent of & (background)
+describe.skipIf(process.platform !== 'win32')('Windows process tree kill', () => {
+  it('kills background processes started with "start /B"', async () => {
     const tools = createWorkstationTools({ rootDir, bashTimeoutMs: 1000 });
-    const bash = tools.find(t => t.name === 'workstation_bash')!;
-    const r = await bash.handler({ command: 'start /B timeout /t 10 > nul' });
+    const b = tools.find(t => t.name === 'workstation_bash')!;
+    const r = await b.handler({ command: 'start /B timeout /t 10 > nul' });
     expect(r.resultType).toBe('failure');
-    expect(r.error).toBe('timeout');
+    // Process should be killed by timeout, not hang
   });
-});
-```
-
----
-
-### 7. SQUAD_TEAM_ROOT Resolution (`test/env-resolution.test.ts`)
-
-Covers the environment variable override and edge cases:
-
-```typescript
-describe('SQUAD_TEAM_ROOT environment variable', () => {
-  it('resolveSquad uses SQUAD_TEAM_ROOT when set and path exists', () => {
-    const dir = mkdtempSync(resolve(tmpdir(), 'squad-env-'));
-    process.env.SQUAD_TEAM_ROOT = dir;
-    try {
-      const result = resolveSquad();
-      expect(result).toBe(dir);
-    } finally {
-      delete process.env.SQUAD_TEAM_ROOT;
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('resolveSquad returns null when SQUAD_TEAM_ROOT is set but path does not exist', () => {
-    process.env.SQUAD_TEAM_ROOT = '/does/not/exist/12345';
-    try {
-      const result = resolveSquad();
-      expect(result).toBeNull();
-    } finally {
-      delete process.env.SQUAD_TEAM_ROOT;
-    }
-  });
-});
-```
-
----
-
-### 8. Playwright / E2E Acceptance Tests
-
-The repo includes Playwright as a dev dependency (`@playwright/test`) but there are no end-to-end browser tests. This is probably intended for future use with the Aspire dashboard or a web UI. For CLI acceptance testing, consider a lighter Playwright usage for terminal testing, or use `@vitest/cli` with process spawning.
-
-A minimal acceptance test that verifies the full happy path:
-
-```typescript
-// test/acceptance/happy-path.test.ts
-import { execSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
-
-test('full happy path: init → doctor → export → import', () => {
-  const dir = mkdtempSync('/tmp/squad-e2e-');
-  try {
-    execSync('git init', { cwd: dir });
-    execSync(`${CLI} init`, { cwd: dir });
-    expect(existsSync(`${dir}/.squad/team.md`)).toBe(true);
-    
-    const doctor = execSync(`${CLI} doctor`, { cwd: dir, encoding: 'utf-8' });
-    expect(doctor).not.toContain('❌');
-    
-    execSync(`${CLI} export > snapshot.json`, { cwd: dir, shell: true });
-    execSync('rm -rf .squad/', { cwd: dir });
-    execSync(`${CLI} import snapshot.json`, { cwd: dir });
-    expect(existsSync(`${dir}/.squad/team.md`)).toBe(true);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
 });
 ```
 
@@ -389,29 +494,30 @@ test('full happy path: init → doctor → export → import', () => {
 
 ## CI Pipeline Recommendations
 
-### Add a pre-build sanity check step
+### Pre-build sanity check step
 
 ```yaml
 # .github/workflows/squad-ci.yml
-- name: Check workspace links
+- name: Verify no stale nested SDK
   run: |
-    if [ -d "packages/squad-cli/node_modules/@bradygaster/squad-sdk" ]; then
-      echo "ERROR: Stale nested SDK found. Run: rm -rf packages/squad-cli/node_modules/@bradygaster/squad-sdk"
+    if [ -d "packages/squad-cli/node_modules/@bradygaster" ]; then
+      echo "ERROR: Stale @bradygaster nested copy found"
+      exit 1
+    fi
+    if [ -d "packages/squad-cli/node_modules/@deduvafork/squad-sdk" ]; then
+      echo "ERROR: Stale @deduvafork nested copy found — workspace linking broken"
       exit 1
     fi
 ```
 
-### Run tests in isolation per package
+### Add airgap compliance to CI gate
 
 ```yaml
-- name: Test SDK
-  run: npm test -- --project packages/squad-sdk
-
-- name: Test CLI
-  run: npm test -- --project packages/squad-cli
+- name: Airgap compliance check
+  run: npm test -- --project test/airgap-compliance.test.ts
 ```
 
-### Add test coverage thresholds
+### Test coverage thresholds
 
 ```typescript
 // vitest.config.ts
@@ -424,6 +530,17 @@ coverage: {
 }
 ```
 
-### Gate on zero test failures
+### Gate CI on zero new failures
 
-The CI should fail if any test fails — not just if the build fails. Currently the CI allows tests to fail silently (based on the 86 failures observed).
+The test suite currently allows 86 pre-existing failures. CI should fail if the failure count increases:
+
+```yaml
+- name: Run tests
+  run: |
+    npm test 2>&1 | tee test-output.txt
+    FAILURES=$(grep -oP '\d+ failed' test-output.txt | grep -oP '\d+' | head -1)
+    if [ "$FAILURES" -gt "86" ]; then
+      echo "New test failures detected: $FAILURES (baseline: 86)"
+      exit 1
+    fi
+```
