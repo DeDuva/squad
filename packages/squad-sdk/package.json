@@ -1,6 +1,6 @@
 {
   "name": "@bradygaster/squad-sdk",
-  "version": "0.9.1-build.6",
+  "version": "0.9.1-build.8",
   "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
