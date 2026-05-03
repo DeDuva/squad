@@ -8,7 +8,16 @@ await build({
   format: 'esm',
   outfile: 'dist/squad.js',
   external: ['node-pty', 'sql.js', '@opentelemetry/sdk-node', 'ws'],
-  banner: { js: '#!/usr/bin/env node' },
+  banner: {
+    js: [
+      '#!/usr/bin/env node',
+      // CJS interop: give bundled packages a real require() so they can load
+      // Node built-ins (assert, events, fs, …) without hitting esbuild's stub
+      // that throws "Dynamic require of X is not supported".
+      "import { createRequire as __cjsRequire } from 'module';",
+      'const require = __cjsRequire(import.meta.url);',
+    ].join('\n'),
+  },
   minify: false,
   plugins: [
     {
