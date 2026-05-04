@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-cli",
-  "version": "0.9.4-build.6",
+  "version": "0.9.4-build.11",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {
@@ -15,6 +15,10 @@
     "./upgrade": {
       "types": "./dist/cli/upgrade.d.ts",
       "import": "./dist/cli/upgrade.js"
+    },
+    "./copilot-install": {
+      "types": "./dist/cli/copilot-install.d.ts",
+      "import": "./dist/cli/copilot-install.js"
     },
     "./shell/sessions": {
       "types": "./dist/cli/shell/sessions.d.ts",

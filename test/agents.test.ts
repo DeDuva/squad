@@ -157,30 +157,30 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       expect(result.tier).toBe('standard');
     });
 
-    it('should infer premium tier for opus models', () => {
+    it('should infer premium tier for pro models', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'claude-opus-4.6',
+        userOverride: 'gemini-2.5-pro-preview-05-06',
         taskType: 'visual',
       };
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-opus-4.6');
+      expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
       expect(result.tier).toBe('premium');
-      expect(result.fallbackChain).toContain('claude-opus-4.6-fast');
+      expect(result.fallbackChain).toContain('gemini-2.5-pro');
     });
 
-    it('should infer fast tier for haiku models', () => {
+    it('should infer fast tier for flash-lite models', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'claude-haiku-4.5',
+        userOverride: 'gemini-2.0-flash',
         taskType: 'docs',
       };
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-haiku-4.5');
+      expect(result.model).toBe('gemini-2.0-flash');
       expect(result.tier).toBe('fast');
-      expect(result.fallbackChain).toContain('gpt-5.1-codex-mini');
+      expect(result.fallbackChain).toContain('gemini-2.0-flash-lite');
     });
   });
 
@@ -208,7 +208,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       expect(result.source).not.toBe('charter');
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('claude-sonnet-4.6');
+      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
     });
 
     it('should prefer user override over charter', () => {
@@ -233,7 +233,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-sonnet-4.6');
+      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -245,7 +245,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-sonnet-4.6');
+      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -257,7 +257,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-opus-4.6');
+      expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
       expect(result.tier).toBe('premium');
       expect(result.source).toBe('task-auto');
     });
@@ -269,7 +269,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-haiku-4.5');
+      expect(result.model).toBe('gemini-2.0-flash');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -281,7 +281,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-haiku-4.5');
+      expect(result.model).toBe('gemini-2.0-flash');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -293,7 +293,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-haiku-4.5');
+      expect(result.model).toBe('gemini-2.0-flash');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -309,8 +309,8 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       // Should fall through to task-auto first
       const result = resolveModel(options);
-      
-      expect(result.model).toBe('claude-haiku-4.5');
+
+      expect(result.model).toBe('gemini-2.0-flash');
       expect(result.tier).toBe('fast');
     });
   });
@@ -318,17 +318,16 @@ describe('Per-Agent Model Selection (M1-9)', () => {
   describe('Fallback Chains', () => {
     it('should provide premium fallback chain', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'claude-opus-4.6',
+        userOverride: 'gemini-2.5-pro-preview-05-06',
         taskType: 'visual',
       };
 
       const result = resolveModel(options);
 
       expect(result.fallbackChain).toEqual([
-        'claude-opus-4.6',
-        'claude-opus-4.6-fast',
-        'claude-opus-4.5',
-        'claude-sonnet-4.6',
+        'gemini-2.5-pro-preview-05-06',
+        'gemini-2.5-pro',
+        'gemini-2.5-flash-preview-04-17',
       ]);
     });
 
@@ -340,12 +339,9 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       const result = resolveModel(options);
 
       expect(result.fallbackChain).toEqual([
-        'claude-sonnet-4.6',
-        'gpt-5.4',
-        'claude-sonnet-4.5',
-        'gpt-5.3-codex',
-        'claude-sonnet-4',
-        'gpt-5.2',
+        'gemini-2.5-flash-preview-04-17',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
       ]);
     });
 
@@ -357,10 +353,8 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       const result = resolveModel(options);
 
       expect(result.fallbackChain).toEqual([
-        'claude-haiku-4.5',
-        'gpt-5.1-codex-mini',
-        'gpt-4.1',
-        'gpt-5-mini',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
       ]);
     });
   });
@@ -420,7 +414,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       const result = resolveModel(options);
 
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('claude-sonnet-4.6');
+      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
     });
 
     it('should include agentRole in context without affecting resolution', () => {
@@ -431,7 +425,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('claude-sonnet-4.6');
+      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
       expect(result.source).toBe('task-auto');
     });
   });

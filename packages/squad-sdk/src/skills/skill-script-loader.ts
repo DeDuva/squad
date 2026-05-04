@@ -124,9 +124,9 @@ export function resolveSkillPath(
     return resolved;
   }
 
-  // 2. With teamRoot: resolve .squad/ paths from projectRoot, legacy .squad/ paths from teamRoot
+  // 2. With teamRoot: legacy .copilot/ paths from projectRoot; .squad/ strips prefix then teamRoot
   if (teamRoot) {
-    if (skillPath.startsWith('.squad/')) {
+    if (skillPath.startsWith('.copilot/')) {
       const resolved = path.resolve(projectRoot, skillPath);
       const real = realOrLogical(resolved);
       if (!isContained(real, projectRoot)) throw new Error(`Path escapes containment: ${skillPath} resolves outside project root`);

@@ -60,7 +60,10 @@ function buildAgentCommand(
   if (context.copilotFlags) {
     args.push(...context.copilotFlags.trim().split(/\s+/));
   }
-  return { cmd: 'copilot', args };
+  throw new Error(
+    'squad triage --execute requires --agent-cmd. No default runner is configured.\n' +
+    'Example: --agent-cmd "gh copilot" --copilot-flags "--yolo --autopilot --agent squad"',
+  );
 }
 
 /** Labels that indicate an issue should not be auto-executed. */

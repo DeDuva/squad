@@ -15,7 +15,7 @@ import { MigrationRegistry } from '@deduvafork/squad-sdk/config';
 // ============================================================================
 
 /** Release channel for updates. */
-export type ReleaseChannel = 'stable' | 'preview' | 'insider';
+export type ReleaseChannel = 'stable' | 'latest' | 'preview' | 'insider';
 
 /** Information about an available update. */
 export interface UpdateInfo {
@@ -210,7 +210,7 @@ export async function checkForUpdate(
 
   return {
     newVersion: latest,
-    releaseUrl: `https://github.com/bradygaster/squad/releases/tag/v${latest}`,
+    releaseUrl: `https://github.com/DeDuva/squad/releases/tag/v${latest}`,
     changelog: `Update from ${currentVersion} to ${latest}`,
   };
 }

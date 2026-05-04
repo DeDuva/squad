@@ -295,6 +295,7 @@ describe('Watch Capabilities', () => {
       it('dispatches agent for eligible issues', async () => {
         const cap = new ExecuteCapability();
         const ctx = makeContext({
+          agentCmd: 'test-agent',
           adapter: mockAdapter([
             { id: 1, title: 'Fix bug', tags: ['squad:eecom'] },
           ]),
@@ -325,6 +326,7 @@ describe('Watch Capabilities', () => {
         });
         const cap = new ExecuteCapability();
         const ctx = makeContext({
+          agentCmd: 'test-agent',
           adapter: mockAdapter([{ id: 1, title: 'Fix', tags: ['squad'] }]),
         });
         const result = await cap.execute(ctx);
@@ -340,6 +342,7 @@ describe('Watch Capabilities', () => {
         });
         const cap = new ExecuteCapability();
         const ctx = makeContext({
+          agentCmd: 'test-agent',
           adapter: mockAdapter([{ id: 1, title: 'Fix', tags: ['squad'] }]),
         });
         const result = await cap.execute(ctx);
