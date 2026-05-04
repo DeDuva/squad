@@ -452,9 +452,19 @@ export class LocalPollingProvider implements ScheduleProvider {
         try {
           const { execFileSync } = await import('node:child_process');
           validateTaskRef(entry.task.ref);
-          const argv = entry.task.ref.trim().split(/\s+/);
-          const command = argv[0]!;
-          const args = argv.slice(1);
+          const raw = entry.task.ref.trim();
+          // Handle quoted command path (e.g. paths with spaces on Windows)
+          let command: string;
+          let args: string[];
+          if (raw.startsWith('"')) {
+            const end = raw.indexOf('"', 1);
+            command = end === -1 ? raw.slice(1) : raw.slice(1, end);
+            args = end === -1 ? [] : raw.slice(end + 1).trim().split(/\s+/).filter(Boolean);
+          } else {
+            const argv = raw.split(/\s+/);
+            command = argv[0]!;
+            args = argv.slice(1);
+          }
           const output = execFileSync(command, args, {
             encoding: 'utf8',
             timeout: 60_000,

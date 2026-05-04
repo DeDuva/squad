@@ -59,7 +59,8 @@ describe('Integration: Tool → Hook Pipeline', () => {
 
   beforeEach(() => {
     testRoot = path.join('.', '.test-integration-' + randomUUID());
-    registry = new ToolRegistry(testRoot);
+    const mockSessionFactory = vi.fn().mockResolvedValue({ sessionId: 'mock-session' });
+    registry = new ToolRegistry(testRoot, undefined, undefined, undefined, mockSessionFactory);
   });
 
   afterEach(() => {
@@ -424,13 +425,13 @@ describe('Integration: Charter → Model → Session Pipeline', () => {
 
     it('should provide fallback chains for each tier', () => {
       const premiumResult = resolveModel({
-        charterPreference: 'claude-opus-4.6',
+        charterPreference: 'gemini-2.5-pro-preview-05-06',
         taskType: 'prompt',
       });
 
       expect(premiumResult.tier).toBe('premium');
       expect(premiumResult.fallbackChain.length).toBeGreaterThan(1);
-      expect(premiumResult.fallbackChain[0]).toBe('claude-opus-4.6');
+      expect(premiumResult.fallbackChain[0]).toBe('gemini-2.5-pro-preview-05-06');
     });
   });
 });

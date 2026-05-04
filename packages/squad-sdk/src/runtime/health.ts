@@ -89,13 +89,16 @@ export class HealthMonitor {
       }
       
       // Attempt ping
-      const pingPromise = this.client.ping();
+      const pingPromise = this.client.ping('health-check');
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Health check timeout')), this.timeout)
       );
 
-      await Promise.race([pingPromise, timeoutPromise]);
+      const pingResult = await Promise.race([pingPromise, timeoutPromise]);
       result.responseTimeMs = Date.now() - startTime;
+      if (pingResult && typeof (pingResult as { protocolVersion?: number }).protocolVersion === 'number') {
+        result.protocolVersion = (pingResult as { protocolVersion: number }).protocolVersion;
+      }
       
       // Validate response time
       if (result.responseTimeMs > this.timeout * 0.8) {
@@ -129,7 +132,7 @@ export class HealthMonitor {
     let status: 'healthy' | 'degraded' | 'unhealthy';
     if (connected && connectionState === 'connected') {
       status = 'healthy';
-    } else if (connectionState === 'connecting') {
+    } else if (connectionState === 'connecting' || connectionState === 'reconnecting') {
       status = 'degraded';
     } else {
       status = 'unhealthy';

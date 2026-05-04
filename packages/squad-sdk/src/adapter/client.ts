@@ -32,7 +32,7 @@ const tracer = trace.getTracer('squad-sdk');
 /**
  * Connection state for SquadClient.
  */
-export type SquadConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type SquadConnectionState = 'disconnected' | 'connecting' | 'reconnecting' | 'connected' | 'error';
 
 /**
  * Options for creating a SquadClient.
@@ -249,8 +249,8 @@ export class SquadClient {
     return { version: 'gemini', protocolVersion: 1 };
   }
 
-  async ping(): Promise<{ message: string; timestamp: number }> {
-    return { message: 'pong', timestamp: Date.now() };
+  async ping(msg?: string): Promise<{ message: string; timestamp: number; protocolVersion: number }> {
+    return { message: msg ?? 'pong', timestamp: Date.now(), protocolVersion: 1 };
   }
 
   // Gemini models come from local catalog; live listing not needed for airlock

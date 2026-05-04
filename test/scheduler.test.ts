@@ -413,8 +413,12 @@ describe('Scheduler: Task Execution', () => {
 describe('Scheduler: LocalPollingProvider', () => {
   it('should execute script tasks', async () => {
     const provider = new LocalPollingProvider();
+    // Quote execPath so spaces in the path (e.g. "C:\Program Files\...") are handled
+    const execRef = process.execPath.includes(' ')
+      ? `"${process.execPath}"`
+      : process.execPath;
     const entry = validEntry({
-      task: { type: 'script', ref: `${process.execPath} -e console.log('hello-from-scheduler')` },
+      task: { type: 'script', ref: `${execRef} -e console.log('hello-from-scheduler')` },
     });
     const result = await provider.execute(entry);
     expect(result.success).toBe(true);

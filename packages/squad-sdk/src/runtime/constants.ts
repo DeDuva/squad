@@ -11,40 +11,34 @@
 
 export const MODELS = {
   /** Default model for config files and new projects (env-overridable) */
-  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? 'claude-sonnet-4.6',
+  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? 'gemini-2.5-flash-preview-04-17',
 
-  /** Default model for model-selector Layer 4 — cost-first */
-  SELECTOR_DEFAULT: 'claude-haiku-4.5',
+  /** Default model for model-selector Layer 4 */
+  SELECTOR_DEFAULT: 'gemini-2.5-flash-preview-04-17',
 
   /** Default tier for the model-selector Layer 4 fallback */
-  SELECTOR_DEFAULT_TIER: 'fast',
+  SELECTOR_DEFAULT_TIER: 'standard',
 
   /** Fallback chains by tier — ordered by preference */
   FALLBACK_CHAINS: {
     premium: [
-      'claude-opus-4.6',
-      'claude-opus-4.6-fast',
-      'claude-opus-4.5',
-      'claude-sonnet-4.6',
+      'gemini-2.5-pro-preview-05-06',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash-preview-04-17',
     ],
     standard: [
-      'claude-sonnet-4.6',
-      'gpt-5.4',
-      'claude-sonnet-4.5',
-      'gpt-5.3-codex',
-      'claude-sonnet-4',
-      'gpt-5.2',
+      'gemini-2.5-flash-preview-04-17',
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
     ],
     fast: [
-      'claude-haiku-4.5',
-      'gpt-5.1-codex-mini',
-      'gpt-4.1',
-      'gpt-5-mini',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
     ],
   },
 
   /** Nuclear fallback model when all chains are exhausted */
-  NUCLEAR_FALLBACK: 'claude-haiku-4.5',
+  NUCLEAR_FALLBACK: 'gemini-2.0-flash',
 
   /** Maximum retries before nuclear fallback engages */
   NUCLEAR_MAX_RETRIES: 3,

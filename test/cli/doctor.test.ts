@@ -232,14 +232,15 @@ describe('squad doctor', () => {
     expect(geminiCheck?.message).toContain('valid');
   });
 
-  it('squad.js bundle check fails when bundle is not built', async () => {
+  it('squad.js bundle check is skipped in user projects (not a source checkout)', async () => {
     await scaffold(TEST_ROOT);
 
     const checks = await runDoctor(TEST_ROOT);
     const bundleCheck = checks.find((c: DoctorCheck) => c.name === 'squad.js bundle');
     expect(bundleCheck).toBeDefined();
-    expect(bundleCheck?.status).toBe('fail');
-    expect(bundleCheck?.message).toContain('npm run build');
+    // In a user project (no packages/squad-cli/package.json), the check is skipped
+    expect(bundleCheck?.status).toBe('pass');
+    expect(bundleCheck?.message).toContain('skipped');
   });
 
   it('absolute teamRoot warning includes "Edit .squad/config.json"', async () => {

@@ -156,9 +156,9 @@ describe('initSquadTelemetry — auto-wiring', () => {
 
 describe('estimateCost()', () => {
   it('returns correct cost for a known model', () => {
-    const cost = estimateCost('claude-sonnet-4.5', 1000, 500);
-    // pricing: input $0.000003/token, output $0.000015/token
-    expect(cost).toBeCloseTo(0.003 + 0.0075, 6);
+    // gemini-2.5-flash-preview-04-17: input $0.00000015/token, output $0.0000006/token
+    const cost = estimateCost('gemini-2.5-flash-preview-04-17', 1000, 500);
+    expect(cost).toBeCloseTo(1000 * 0.00000015 + 500 * 0.0000006, 9);
   });
 
   it('returns 0 for an unknown model', () => {
@@ -167,20 +167,20 @@ describe('estimateCost()', () => {
   });
 
   it('returns 0 for zero tokens', () => {
-    const cost = estimateCost('claude-sonnet-4.5', 0, 0);
+    const cost = estimateCost('gemini-2.5-flash-preview-04-17', 0, 0);
     expect(cost).toBe(0);
   });
 
   it('works for fast-tier models', () => {
-    const cost = estimateCost('claude-haiku-4.5', 10000, 5000);
-    // pricing: input $0.0000008/token, output $0.000004/token
-    expect(cost).toBeCloseTo(0.008 + 0.02, 6);
+    // gemini-2.0-flash: input $0.0000001/token, output $0.0000004/token
+    const cost = estimateCost('gemini-2.0-flash', 10000, 5000);
+    expect(cost).toBeCloseTo(10000 * 0.0000001 + 5000 * 0.0000004, 9);
   });
 
   it('works for premium-tier models', () => {
-    const cost = estimateCost('claude-opus-4.6', 1000, 500);
-    // pricing: input $0.000015/token, output $0.000075/token
-    expect(cost).toBeCloseTo(0.015 + 0.0375, 6);
+    // gemini-2.5-pro-preview-05-06: input $0.00000125/token, output $0.00001/token
+    const cost = estimateCost('gemini-2.5-pro-preview-05-06', 1000, 500);
+    expect(cost).toBeCloseTo(1000 * 0.00000125 + 500 * 0.00001, 9);
   });
 });
 
@@ -199,8 +199,8 @@ describe('MODEL_CATALOG pricing', () => {
   });
 
   it('premium models cost more per token than fast models', () => {
-    const premium = MODEL_CATALOG.find(m => m.id === 'claude-opus-4.6')!;
-    const fast = MODEL_CATALOG.find(m => m.id === 'claude-haiku-4.5')!;
+    const premium = MODEL_CATALOG.find(m => m.id === 'gemini-2.5-pro-preview-05-06')!;
+    const fast = MODEL_CATALOG.find(m => m.id === 'gemini-2.0-flash')!;
     expect(premium.pricing!.inputPerToken).toBeGreaterThan(fast.pricing!.inputPerToken);
     expect(premium.pricing!.outputPerToken).toBeGreaterThan(fast.pricing!.outputPerToken);
   });

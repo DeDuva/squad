@@ -339,8 +339,13 @@ async function checkGeminiAuth(): Promise<DoctorCheck> {
 
 /**
  * Check that the local esbuild bundle exists and is runnable.
+ * Only applies inside the Squad source checkout; skipped in user projects.
  */
 function checkBundle(cwd: string): DoctorCheck {
+  const isSrcCheckout = fileExists(path.join(cwd, 'packages', 'squad-cli', 'package.json'));
+  if (!isSrcCheckout) {
+    return { name: 'squad.js bundle', status: 'pass', message: 'skipped (not a squad source checkout)' };
+  }
   const bundlePath = path.join(cwd, 'packages', 'squad-cli', 'dist', 'squad.js');
   if (!fileExists(bundlePath)) {
     return {

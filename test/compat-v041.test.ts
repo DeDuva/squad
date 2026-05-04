@@ -235,7 +235,7 @@ describe('Compat v0.4.1: Config Path Equivalence', () => {
 
   it('DEFAULT_CONFIG has expected shape', () => {
     expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-    expect(DEFAULT_CONFIG.models.defaultModel).toBe('claude-sonnet-4.6');
+    expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-2.5-flash-preview-04-17');
     expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
     expect(DEFAULT_CONFIG.routing.rules.length).toBeGreaterThanOrEqual(1);
     expect(DEFAULT_CONFIG.casting?.allowlistUniverses).toBeDefined();
@@ -454,38 +454,36 @@ describe('Compat v0.4.1: Event Bus Shape', () => {
 
 describe('Compat v0.4.1: Model Catalog', () => {
   it('catalog contains expected premium models', () => {
-    expect(isModelAvailable('claude-opus-4.6')).toBe(true);
-    expect(isModelAvailable('claude-opus-4.5')).toBe(true);
+    expect(isModelAvailable('gemini-2.5-pro-preview-05-06')).toBe(true);
+    expect(isModelAvailable('gemini-2.5-pro')).toBe(true);
   });
 
   it('catalog contains expected standard models', () => {
-    expect(isModelAvailable('claude-sonnet-4.5')).toBe(true);
-    expect(isModelAvailable('claude-sonnet-4')).toBe(true);
-    expect(isModelAvailable('gpt-5.2-codex')).toBe(true);
+    expect(isModelAvailable('gemini-2.5-flash-preview-04-17')).toBe(true);
+    expect(isModelAvailable('gemini-2.5-flash')).toBe(true);
   });
 
   it('catalog contains expected fast models', () => {
-    expect(isModelAvailable('claude-haiku-4.5')).toBe(true);
-    expect(isModelAvailable('gpt-5.1-codex-mini')).toBe(true);
-    expect(isModelAvailable('gpt-4.1')).toBe(true);
+    expect(isModelAvailable('gemini-2.0-flash')).toBe(true);
+    expect(isModelAvailable('gemini-2.0-flash-lite')).toBe(true);
   });
 
-  it('premium fallback chain starts with opus', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('claude-opus-4.6');
+  it('premium fallback chain starts with gemini pro', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-2.5-pro-preview-05-06');
   });
 
-  it('standard fallback chain starts with sonnet', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('claude-sonnet-4.6');
+  it('standard fallback chain starts with gemini flash', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-2.5-flash-preview-04-17');
   });
 
-  it('fast fallback chain starts with haiku', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('claude-haiku-4.5');
+  it('fast fallback chain starts with gemini 2.0 flash', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-2.0-flash');
   });
 
   it('getModelInfo returns correct tier for known models', () => {
-    expect(getModelInfo('claude-opus-4.6')!.tier).toBe('premium');
-    expect(getModelInfo('claude-sonnet-4.5')!.tier).toBe('standard');
-    expect(getModelInfo('claude-haiku-4.5')!.tier).toBe('fast');
+    expect(getModelInfo('gemini-2.5-pro-preview-05-06')!.tier).toBe('premium');
+    expect(getModelInfo('gemini-2.5-flash-preview-04-17')!.tier).toBe('standard');
+    expect(getModelInfo('gemini-2.0-flash')!.tier).toBe('fast');
   });
 });
 
