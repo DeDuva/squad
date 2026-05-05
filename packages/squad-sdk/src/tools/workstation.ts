@@ -688,7 +688,10 @@ export function createWorkstationTools(options: WorkstationToolsOptions = {}): S
         await listEntries(safePath, '', results, visited);
 
         let text = results
-          .map(e => `${e.type.startsWith('directory') ? 'd' : 'f'}  ${e.name}${e.size !== undefined ? `  (${e.size} bytes)` : ''}`)
+          .map(e => {
+            const prefix = e.type === 'directory' ? 'd' : e.type === 'file' ? 'f' : e.type;
+            return `${prefix}  ${e.name}${e.size !== undefined ? `  (${e.size} bytes)` : ''}`;
+          })
           .join('\n');
 
         if (results.length >= MAX_LIST_ENTRIES) {
