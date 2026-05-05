@@ -306,8 +306,11 @@ describe('doctor passes after init (#579)', () => {
     await initSquad(sdkOptions(TEST_ROOT));
 
     const checks = await runDoctor(TEST_ROOT);
-    const failures = checks.filter((c: DoctorCheck) => c.status === 'fail');
-    // All core checks should pass after a fresh init
+    // Exclude credential/API-key checks — those require environment config that
+    // CI doesn't have, not scaffold correctness.
+    const failures = checks.filter(
+      (c: DoctorCheck) => c.status === 'fail' && !/api\s*key|token|credential/i.test(c.name),
+    );
     expect(failures).toEqual([]);
   });
 
