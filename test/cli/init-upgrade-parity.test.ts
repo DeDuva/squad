@@ -5,7 +5,7 @@
  * When casting was added to init, upgrade was not updated -- these tests
  * guard against that class of drift.
  *
- * @see https://github.com/bradygaster/squad/issues/822
+ * @see https://github.com/DeDuva/squad/issues/822
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

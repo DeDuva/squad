@@ -20,7 +20,7 @@ Team leads managing AI spend. Engineering managers who need cost visibility. Any
 
 **Initialize cost tracker and tier system:**
 ```typescript
-import { selectResponseTier, getTier, MODELS, CostTracker } from '@bradygaster/squad-sdk';
+import { selectResponseTier, getTier, MODELS, CostTracker } from '@deduvafork/squad-sdk';
 
 const costTracker = new CostTracker();
 const budget = 100.00; // USD

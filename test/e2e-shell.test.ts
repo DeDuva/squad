@@ -4,7 +4,7 @@
  * Renders the full App component with mocked registry/renderer/SDK,
  * then drives it via stdin like a real user would.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/433
+ * @see https://github.com/DeDuva/squad/issues/433
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

@@ -186,27 +186,23 @@ describe('CLI: rc command', () => {
     });
   });
 
-  describe('Copilot ACP path resolution', () => {
-    it('validates Windows path pattern exists', () => {
+  describe('Agent passthrough path resolution', () => {
+    it('validates agentCmd option field exists', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
-      // Verify Windows-specific path
-      expect(rcSource).toContain('ProgramData');
-      expect(rcSource).toContain('copilot.exe');
+
+      expect(rcSource).toContain('agentCmd?');
     });
 
-    it('validates fallback to PATH exists', () => {
+    it('validates agent spawning is conditional on agentCmd', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
-      // Verify fallback to 'copilot' command (updated implementation uses conditional)
-      expect(rcSource).toContain('copilotCmd = \'copilot\'');
-      expect(rcSource).toContain('if (storage.existsSync(winPath))');
+
+      expect(rcSource).toContain('options.agentCmd');
     });
   });
 
@@ -318,25 +314,24 @@ describe('CLI: rc command', () => {
       expect(rcSource).toContain('destroyTunnel()');
     });
 
-    it('validates copilot process is killed on cleanup', () => {
+    it('validates agent process is killed on cleanup', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
-      expect(rcSource).toContain('copilotProc?.kill()');
+
+      expect(rcSource).toContain('agentProc?.kill()');
     });
   });
 
-  describe('Copilot passthrough integration', () => {
-    it('validates copilot spawn with --acp flag', () => {
+  describe('Agent passthrough integration', () => {
+    it('validates agent spawn uses agentBin', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
-      expect(rcSource).toContain('--acp');
-      expect(rcSource).toContain('spawnChild(copilotCmd');
+
+      expect(rcSource).toContain('spawnChild(agentBin');
     });
 
     it('validates stdio piping configuration', () => {
@@ -344,18 +339,18 @@ describe('CLI: rc command', () => {
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
+
       expect(rcSource).toContain('stdio: [\'pipe\', \'pipe\', \'pipe\']');
     });
 
-    it('validates readline interface for copilot stdout', () => {
+    it('validates readline interface for agent stdout', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
+
       expect(rcSource).toContain('createInterface');
-      expect(rcSource).toContain('copilotProc.stdout');
+      expect(rcSource).toContain('agentProc.stdout');
     });
 
     it('validates passthrough bidirectional flow', () => {
@@ -363,19 +358,19 @@ describe('CLI: rc command', () => {
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
+
       expect(rcSource).toContain('passthroughFromAgent');
       expect(rcSource).toContain('setPassthrough');
     });
 
-    it('validates copilot error handling', () => {
+    it('validates agent error handling', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
-      
-      expect(rcSource).toContain('copilotProc.on(\'error\'');
-      expect(rcSource).toContain('copilotProc.on(\'exit\'');
+
+      expect(rcSource).toContain('agentProc.on(\'error\'');
+      expect(rcSource).toContain('agentProc.on(\'exit\'');
     });
   });
 

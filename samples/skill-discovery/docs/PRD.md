@@ -73,7 +73,7 @@ import {
   SkillRegistry, 
   loadSkillsFromDirectory,
   parseSkillFile 
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 

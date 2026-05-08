@@ -1,6 +1,6 @@
-# @bradygaster/squad-cli
+# @deduvafork/squad-cli
 
-The programmable multi-agent CLI for GitHub Copilot. Build an AI team, assign roles, and let them work your repo—automating issue triage, code review, documentation, and more through orchestrated AI agents.
+The programmable multi-agent CLI powered by Gemini. Build an AI team, assign roles, and let them work your repo—automating issue triage, code review, documentation, and more through orchestrated AI agents.
 
 > ⚠️ **Experimental** — Squad is alpha software. APIs, commands, and behavior may change between releases.
 
@@ -8,24 +8,31 @@ The programmable multi-agent CLI for GitHub Copilot. Build an AI team, assign ro
 
 ### Prerequisites
 
-- **Node.js ≥ 20** — Squad requires modern JavaScript runtime features
-- **GitHub Copilot** — provides the AI backend for agent orchestration and code analysis
+- **Node.js ≥ 22.5.0** — Squad requires modern JavaScript runtime features
+- **Gemini API key** — set as `GEMINI_API_KEY` in your environment; get one at [aistudio.google.com](https://aistudio.google.com/app/apikey)
 - **GitHub CLI** (`gh`) — required for issue/PR operations and the work loop
+
+### Install from source (airgap mode)
+
+```bash
+git clone https://github.com/DeDuva/squad.git
+cd squad
+npm install
+npm run build
+npm link -w packages/squad-cli
+```
 
 ### Install from npm
 
 ```bash
 # Global (recommended)
-npm install -g @bradygaster/squad-cli@latest
+npm install -g @deduvafork/squad-cli@latest
 
 # Project-local
-npm install --save-dev @bradygaster/squad-cli
+npm install --save-dev @deduvafork/squad-cli
 
 # One-shot (no install)
-npx @bradygaster/squad-cli
-
-# Insider channel (pre-release builds)
-npm install -g @bradygaster/squad-cli@insider
+npx @deduvafork/squad-cli
 ```
 
 ### Verify Installation
@@ -77,9 +84,7 @@ For detailed documentation on each command, see the [CLI Reference](https://docs
 | Command | Purpose |
 |---------|---------|
 | `squad hire --name <name> --role <role>` | Add a new agent to your team |
-| `squad copilot` | Add the @copilot coding agent |
-| `squad copilot --off` | Remove @copilot from the team |
-| `squad copilot --auto-assign` | Enable auto-assignment for @copilot |
+| `squad triage --execute --agent-cmd <cmd>` | Auto-execute issues with a custom agent runner |
 
 ### Work & Automation
 
@@ -223,7 +228,7 @@ When you run `squad init`, Squad creates a `.squad/` directory with this structu
 
 ## Built-in Skills
 
-When you run `squad init`, Squad installs **8 curated skills** into `.copilot/skills/`. These skills teach your agents best practices and conventions:
+When you run `squad init`, Squad installs curated skills into `.squad/skills/`. These skills teach your agents best practices and conventions:
 
 | Skill | Purpose |
 |-------|---------|
@@ -236,19 +241,19 @@ When you run `squad init`, Squad installs **8 curated skills** into `.copilot/sk
 | `test-discipline` | Test-first discipline and coverage expectations |
 | `agent-collaboration` | Multi-agent collaboration and handoff patterns |
 
-Each skill is a `SKILL.md` file inside `.copilot/skills/<skill-name>/`.
+Each skill is a `SKILL.md` file inside `.squad/skills/<skill-name>/`.
 
 ### Skill lifecycle
 
-- **`squad init`** — Installs the 8 manifest skills on first run. If `.copilot/skills/` already has content, init skips skill installation (idempotent).
+- **`squad init`** — Installs manifest skills on first run. If `.squad/skills/` already has content, init skips skill installation (idempotent).
 - **`squad upgrade`** — Refreshes manifest skills to their latest versions. Skills marked `overwriteOnUpgrade: true` (all built-in skills) are always updated to pick up fixes and improvements.
 
 ### Adding custom skills
 
-You can add your own skills by creating a new directory under `.copilot/skills/`:
+You can add your own skills by creating a new directory under `.squad/skills/`:
 
 ```
-.copilot/skills/my-custom-skill/
+.squad/skills/my-custom-skill/
 └── SKILL.md
 ```
 
@@ -275,7 +280,7 @@ Squad looks for `.squad/config.json` to customize behavior:
 | Variable | Purpose | Example |
 |----------|---------|---------|
 | `SQUAD_CLIENT` | Detected platform | `cli`, `vscode` |
-| `COPILOT_TOKEN` | Copilot auth token (SDK usage) | `gho_...` |
+| `GEMINI_API_KEY` | Gemini API key for agent inference | `AIza...` |
 
 ### Squad Resolution Order
 
@@ -331,7 +336,13 @@ Run `squad init` to create it.
 
 **Authentication errors**
 
-Ensure GitHub Copilot is installed and you're authenticated. Check your token:
+Ensure your `GEMINI_API_KEY` is set:
+
+```bash
+echo $GEMINI_API_KEY
+```
+
+For GitHub issue/PR operations, also ensure gh is authenticated:
 
 ```bash
 gh auth status
@@ -339,7 +350,7 @@ gh auth status
 
 **Node.js version mismatch**
 
-Squad requires Node.js ≥ 20. Check your version:
+Squad requires Node.js ≥ 22.5.0. Check your version:
 
 ```bash
 node --version
@@ -347,16 +358,16 @@ node --version
 
 **ESM import errors**
 
-Squad is an ESM-only module. If you see import errors, ensure your Node.js version is 20+.
+Squad is an ESM-only module. If you see import errors, ensure your Node.js version is 22.5.0+.
 
 ## Links
 
 - **Documentation:** [docs.squad.ai](https://docs.squad.ai)
 - **CLI Reference:** [docs.squad.ai/reference/cli](https://docs.squad.ai/reference/cli) — detailed command docs
-- **SDK:** [@bradygaster/squad-sdk](https://www.npmjs.com/package/@bradygaster/squad-sdk) — programmatic API
-- **GitHub:** [github.com/bradygaster/squad](https://github.com/bradygaster/squad)
-- **Issues:** [github.com/bradygaster/squad/issues](https://github.com/bradygaster/squad/issues)
+- **SDK:** [@deduvafork/squad-sdk](https://www.npmjs.com/package/@deduvafork/squad-sdk) — programmatic API
+- **GitHub:** [github.com/DeDuva/squad](https://github.com/DeDuva/squad)
+- **Issues:** [github.com/DeDuva/squad/issues](https://github.com/DeDuva/squad/issues)
 
 ## License
 
-MIT. See [LICENSE](https://github.com/bradygaster/squad/blob/main/LICENSE) in the repository root.
+MIT. See [LICENSE](https://github.com/DeDuva/squad/blob/main/LICENSE) in the repository root.

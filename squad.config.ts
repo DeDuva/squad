@@ -4,7 +4,7 @@ import {
   defineAgent,
   defineRouting,
   defineCasting,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 /**
  * Squad Configuration — squad-sdk
@@ -17,12 +17,12 @@ export default defineSquad({
 
   team: defineTeam({
     name: 'squad-sdk',
-    description: 'The programmable multi-agent runtime for GitHub Copilot.',
+    description: 'The programmable multi-agent runtime powered by Gemini (airgap fork).',
     projectContext:
-      '- **Owner:** Brady\n' +
-      '- **Stack:** TypeScript (strict mode, ESM-only), Node.js ≥20, @github/copilot-sdk, Vitest, esbuild\n' +
-      '- **Description:** The programmable multi-agent runtime for GitHub Copilot — v1 replatform of Squad beta\n' +
-      '- **Distribution:** npm (`npm install -g @bradygaster/squad-cli` for CLI, `npm install @bradygaster/squad-sdk` for SDK)\n' +
+      '- **Fork:** DeDuva/squad — Gemini replatform, airgap/build-from-source mode\n' +
+      '- **Stack:** TypeScript (strict mode, ESM-only), Node.js ≥22, @google/generative-ai (Gemini), Vitest, esbuild\n' +
+      '- **Description:** Multi-agent runtime replatformed from GitHub Copilot to Gemini API — airlock mode, no binary downloads\n' +
+      '- **Distribution:** build from source (`npm run build`) or npm (`npm install -g @deduvafork/squad-cli` / `npm install @deduvafork/squad-sdk`)\n' +
       '- **Created:** 2026-02-21',
     members: [
       'keaton', 'verbal', 'fenster', 'hockney', 'mcmanus', 'kujan',
@@ -38,7 +38,7 @@ export default defineSquad({
     defineAgent({ name: 'fenster', role: 'Core Dev', description: 'Practical, thorough, makes it work then makes it right.', status: 'active' }),
     defineAgent({ name: 'hockney', role: 'Tester', description: 'If it is not tested, it does not work.', status: 'active' }),
     defineAgent({ name: 'mcmanus', role: 'DevRel', description: 'Docs, messaging, developer experience.', status: 'active' }),
-    defineAgent({ name: 'kujan', role: 'SDK Expert', description: 'The one who understands the Copilot SDK inside and out.', status: 'active' }),
+    defineAgent({ name: 'kujan', role: 'SDK Expert', description: 'The one who understands the Gemini SDK and squad-sdk adapter inside and out.', status: 'active' }),
     defineAgent({ name: 'edie', role: 'TypeScript Engineer', description: 'Precise, type-obsessed. Types are contracts. If it compiles, it works.', status: 'active' }),
     defineAgent({ name: 'kobayashi', role: 'Git & Release', description: 'Semantic versioning, releases, branch protection.', status: 'active' }),
     defineAgent({ name: 'fortier', role: 'Node.js Runtime', description: 'Streaming, event loop health, async iterators, memory profiling.', status: 'active' }),
@@ -57,10 +57,10 @@ export default defineSquad({
 
   routing: defineRouting({
     rules: [
-      { pattern: 'core-runtime', agents: ['@fenster'], description: 'CopilotClient, adapter, session pool, tools module, spawn orchestration' },
+      { pattern: 'core-runtime', agents: ['@fenster'], description: 'GeminiClient, adapter, session pool, tools module, spawn orchestration' },
       { pattern: 'prompt-architecture', agents: ['@verbal'], description: 'Agent charters, spawn templates, coordinator logic, response tier selection' },
       { pattern: 'type-system', agents: ['@edie'], description: 'Discriminated unions, generics, tsconfig, strict mode, declaration files' },
-      { pattern: 'sdk-integration', agents: ['@kujan'], description: '@github/copilot-sdk usage, CopilotSession lifecycle, event handling' },
+      { pattern: 'sdk-integration', agents: ['@kujan'], description: '@google/generative-ai usage, GeminiSession lifecycle, event handling' },
       { pattern: 'runtime-performance', agents: ['@fortier'], description: 'Streaming, event loop health, session management, async iterators' },
       { pattern: 'testing', agents: ['@hockney'], description: 'Test coverage, Vitest, edge cases, CI/CD, quality gates' },
       { pattern: 'documentation', agents: ['@mcmanus'], description: 'README, API docs, getting-started, demos, tone review' },

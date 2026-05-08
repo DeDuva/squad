@@ -312,23 +312,23 @@ describe('SDK Feature: Ralph Idle-Watch Mode (#31)', () => {
 describe('SDK Feature: Client Compatibility — Platform Detection (#47)', () => {
   describe('parseGitHubRemote', () => {
     it('parses HTTPS GitHub URL', () => {
-      const result = parseGitHubRemote('https://github.com/bradygaster/squad.git');
-      expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+      const result = parseGitHubRemote('https://github.com/DeDuva/squad.git');
+      expect(result).toEqual({ owner: 'DeDuva', repo: 'squad' });
     });
 
     it('parses HTTPS GitHub URL without .git suffix', () => {
-      const result = parseGitHubRemote('https://github.com/bradygaster/squad');
-      expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+      const result = parseGitHubRemote('https://github.com/DeDuva/squad');
+      expect(result).toEqual({ owner: 'DeDuva', repo: 'squad' });
     });
 
     it('parses SSH GitHub URL', () => {
-      const result = parseGitHubRemote('git@github.com:bradygaster/squad.git');
-      expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+      const result = parseGitHubRemote('git@github.com:DeDuva/squad.git');
+      expect(result).toEqual({ owner: 'DeDuva', repo: 'squad' });
     });
 
     it('parses SSH GitHub URL without .git suffix', () => {
-      const result = parseGitHubRemote('git@github.com:bradygaster/squad');
-      expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+      const result = parseGitHubRemote('git@github.com:DeDuva/squad');
+      expect(result).toEqual({ owner: 'DeDuva', repo: 'squad' });
     });
 
     it('returns null for non-GitHub URL', () => {

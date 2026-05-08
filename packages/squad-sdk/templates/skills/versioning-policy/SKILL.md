@@ -8,7 +8,7 @@ source: "earned (PR #640 workspace resolution incident, PR #116 prerelease leak,
 
 ## Context
 
-Squad is a monorepo with two publishable npm packages (`@bradygaster/squad-sdk` and `@bradygaster/squad-cli`) managed via npm workspaces. Version mismatches and prerelease leaks have caused production incidents — most notably PR #640, where a `-build.N` prerelease version silently broke workspace dependency resolution.
+Squad is a monorepo with two publishable npm packages (`@deduvafork/squad-sdk` and `@deduvafork/squad-cli`) managed via npm workspaces. Version mismatches and prerelease leaks have caused production incidents — most notably PR #640, where a `-build.N` prerelease version silently broke workspace dependency resolution.
 
 This skill codifies the versioning rules every agent must follow.
 
@@ -33,7 +33,7 @@ Rules:
 
 ## 3. SDK and CLI Version Sync
 
-Both `@bradygaster/squad-sdk` and `@bradygaster/squad-cli` **MUST have the same version** at all times. The root `package.json` version must also match.
+Both `@deduvafork/squad-sdk` and `@deduvafork/squad-cli` **MUST have the same version** at all times. The root `package.json` version must also match.
 
 `bump-build.mjs` enforces this by updating all three `package.json` files in lockstep (root + `packages/squad-sdk` + `packages/squad-cli`).
 
@@ -44,7 +44,7 @@ If versions diverge, workspace resolution silently breaks (see §4).
 The CLI depends on the SDK via a workspace dependency with a semver range:
 
 ```json
-"@bradygaster/squad-sdk": ">=0.9.0"
+"@deduvafork/squad-sdk": ">=0.9.0"
 ```
 
 **Critical:** Per the semver specification, `>=0.9.0` does **NOT** match `0.9.1-build.4`.

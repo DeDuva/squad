@@ -4,7 +4,7 @@
  * Validates advanced shell features an experienced user relies on:
  * slash commands, tab completion, Ctrl+C cancel/exit, @agent routing.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/396
+ * @see https://github.com/DeDuva/squad/issues/396
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

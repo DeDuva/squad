@@ -1,5 +1,5 @@
 /**
- * hook-governance — Beginner sample for @bradygaster/squad-sdk Hook Pipeline
+ * hook-governance — Beginner sample for @deduvafork/squad-sdk Hook Pipeline
  *
  * Demonstrates the four governance hooks:
  *  1. File-Write Guards    — block writes outside safe zones
@@ -11,11 +11,11 @@
 import {
   HookPipeline,
   ReviewerLockoutHook,
-} from '@bradygaster/squad-sdk/hooks';
+} from '@deduvafork/squad-sdk/hooks';
 import type {
   PreToolUseContext,
   PostToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
+} from '@deduvafork/squad-sdk/hooks';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -63,7 +63,7 @@ Aligned columns: Agent, Model, Tokens In/Out, Cost, Turns. Note that Fenster (se
 
 Open `index.ts` and highlight:
 
-1. **Lines 10–14** — imports from `@bradygaster/squad-sdk`
+1. **Lines 10–14** — imports from `@deduvafork/squad-sdk`
 2. **Lines ~130–170** — task definitions with simulated token counts
 3. **The routing call** — `selectResponseTier(task.message, config)` — one line does all the work
 4. **CostTracker.recordUsage()** — accumulates per-agent data
@@ -75,7 +75,7 @@ Open `index.ts` and highlight:
 
 | Symptom | Fix |
 |---|---|
-| `Cannot find module '@bradygaster/squad-sdk'` | Run `npm install` from repo root first, or `npm link @bradygaster/squad-sdk` |
+| `Cannot find module '@deduvafork/squad-sdk'` | Run `npm install` from repo root first, or `npm link @deduvafork/squad-sdk` |
 | TypeScript errors | Ensure `typescript >= 5.7` and Node >= 20 |
 | No color output | Terminal must support ANSI escape codes (iTerm2, Windows Terminal, VS Code) |
 

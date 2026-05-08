@@ -4,7 +4,7 @@
  * Writes `.squad/config.json` with a relative `teamRoot` path so the
  * dual-root resolver (resolveSquadPaths) can find the team identity dir.
  *
- * Remote squad mode concept by @spboyer (Shayne Boyer), PR bradygaster/squad#131.
+ * Remote squad mode concept by @spboyer (Shayne Boyer), DeDuva/squad (upstream) #131.
  *
  * @module cli/commands/link
  */
