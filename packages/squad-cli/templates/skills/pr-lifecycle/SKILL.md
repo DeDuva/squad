@@ -10,7 +10,7 @@ source: "extracted from CONTRIBUTING.md, PR_REQUIREMENTS.md, squad-ci.yml"
 
 This skill is the **canonical Copilot-agent lifecycle for the Squad repository**. It covers the full path from picking up a GitHub issue to merging a PR. Where older docs (templates, copilot-instructions, CONTRIBUTING.md) conflict with this skill, **this skill takes precedence** for Copilot agents.
 
-For advanced scenarios (worktrees, multi-repo coordination), see `.copilot/skills/git-workflow/SKILL.md`.
+For advanced scenarios (worktrees, multi-repo coordination), see `.squad/skills/git-workflow/SKILL.md`.
 
 ## Scope
 
@@ -27,7 +27,7 @@ For advanced scenarios (worktrees, multi-repo coordination), see `.copilot/skill
 - Worktree-based parallel work (see `git-workflow` skill)
 - Multi-repo coordinated PRs (see `git-workflow` skill)
 - Release process / publishing (see `.squad/skills/release-process`)
-- Reviewer lockout protocol (see `.copilot/skills/reviewer-protocol`)
+- Reviewer lockout protocol (see `.squad/skills/reviewer-protocol`)
 - Architectural or security review checklists
 
 ---
@@ -119,7 +119,7 @@ For advanced scenarios (worktrees, multi-repo coordination), see `.copilot/skill
    Or create manually at `.changeset/{descriptive-name}.md`:
    ```markdown
    ---
-   '@bradygaster/squad-cli': patch
+   '@deduvafork/squad-cli': patch
    ---
 
    Brief description of the change
@@ -138,7 +138,7 @@ For advanced scenarios (worktrees, multi-repo coordination), see `.copilot/skill
 
 2. **Create PR targeting dev:**
    ```bash
-   gh pr create --repo bradygaster/squad --base dev \
+   gh pr create --repo DeDuva/squad --base dev \
      --title "fix: brief description (#issue-number)" \
      --body "Closes #{issue-number}
 
@@ -308,7 +308,7 @@ An automated readiness check runs on every push and posts a checklist comment on
 
 2. **Who merges:**
    - Agents do **not** merge PRs themselves
-   - Maintainers (bradygaster or designated reviewers) merge via GitHub UI
+   - Maintainers (deduvafork or designated reviewers) merge via GitHub UI
    - The repo uses squash merge, so commit history is clean regardless
 
 3. **Post-merge cleanup:**
@@ -351,7 +351,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 # Push and PR
 git push -u origin squad/610-fix-broken-link
-gh pr create --repo bradygaster/squad --base dev \
+gh pr create --repo DeDuva/squad --base dev \
   --title "docs: fix broken link (#610)" \
   --body "Closes #610"
 ```
@@ -372,7 +372,7 @@ npm run build && npm test && npm run lint
 
 # Changeset (required — touches packages/squad-sdk/src/)
 npx changeset add
-# Select: @bradygaster/squad-sdk, minor, "Add profile API"
+# Select: @deduvafork/squad-sdk, minor, "Add profile API"
 
 # Stage and commit
 git add packages/squad-sdk/src/profile/index.ts packages/squad-sdk/src/index.ts .changeset/
@@ -386,7 +386,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 # Push and PR
 git push -u origin squad/42-add-profile-api
-gh pr create --repo bradygaster/squad --base dev \
+gh pr create --repo DeDuva/squad --base dev \
   --title "feat: add profile API (#42)" \
   --body "Closes #42
 

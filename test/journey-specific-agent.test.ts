@@ -9,7 +9,7 @@
  * 5. Agent response labeling
  * 6. /status shows active agent
  *
- * @see https://github.com/bradygaster/squad-pr/issues/394
+ * @see https://github.com/DeDuva/squad/issues/394
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

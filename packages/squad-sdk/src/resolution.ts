@@ -6,7 +6,7 @@
  * resolveGlobalSquadPath()  — platform-specific global config directory
  *
  * Dual-root resolution and remote mode design ported from @spboyer (Shayne Boyer)'s
- * PR bradygaster/squad#131. Original concept: resolveSquadPaths() with config.json
+ * DeDuva/squad (upstream) #131. Original concept: resolveSquadPaths() with config.json
  * pointer for team identity separation.
  *
  * @module resolution

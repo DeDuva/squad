@@ -11,7 +11,7 @@ export interface GitHubDistConfig {
 }
 
 const DEFAULT_CONFIG: GitHubDistConfig = {
-  owner: 'bradygaster',
+  owner: 'deduvafork',
   repo: 'squad',
   binaryName: 'squad',
   installCommandTemplate: 'npx @deduvafork/squad-cli',

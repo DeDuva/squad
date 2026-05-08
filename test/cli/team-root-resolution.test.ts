@@ -14,7 +14,7 @@
  *
  * @see packages/squad-cli/src/cli-entry.ts — getSquadStartDir()
  * @see packages/squad-sdk/src/resolution.ts  — resolveSquad()
- * @see https://github.com/bradygaster/squad/issues/836
+ * @see https://github.com/DeDuva/squad/issues/836
  */
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';

@@ -71,8 +71,8 @@ When an artifact is **rejected** by a Reviewer:
 ## Related Review Skills
 
 For domain-specific review checklists, see:
-- **Architectural Review:** `.copilot/skills/architectural-review/SKILL.md` — module boundaries, dependency direction, export surface, sweeping refactor safety
-- **Security Review:** `.copilot/skills/security-review/SKILL.md` — credentials, injection, workflow permissions, supply chain
+- **Architectural Review:** `.squad/skills/architectural-review/SKILL.md` — module boundaries, dependency direction, export surface, sweeping refactor safety
+- **Security Review:** `.squad/skills/security-review/SKILL.md` — credentials, injection, workflow permissions, supply chain
 
 ## Anti-Patterns
 

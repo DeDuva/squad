@@ -11,7 +11,7 @@
  *   3. Large mixed-language (Go + Python + TypeScript, deep nesting)
  *   4. Edge cases (deep dirs, large files, many agents, minimal repos)
  *
- * @see https://github.com/bradygaster/squad-pr/issues/532
+ * @see https://github.com/DeDuva/squad/issues/532
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

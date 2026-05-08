@@ -6,7 +6,7 @@
  * consumption rate between the oldest and newest samples
  * (first-to-last delta), not a full least-squares regression.
  *
- * @see https://github.com/bradygaster/squad/issues/515
+ * @see https://github.com/DeDuva/squad/issues/515
  */
 
 import path from 'node:path';

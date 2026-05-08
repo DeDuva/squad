@@ -30,7 +30,7 @@ squad-sdk → NEVER depends on → squad-cli
 ```
 
 **Check every new `import` statement in the PR:**
-- CLI files may import from SDK (`@bradygaster/squad-sdk`)
+- CLI files may import from SDK (`@deduvafork/squad-sdk`)
 - SDK files must NEVER import from CLI
 - If a PR adds an SDK import that pulls in CLI code, reject it
 
@@ -70,7 +70,7 @@ When a PR applies a codebase-wide pattern change (e.g., "convert all `fs` calls 
 
 1. **Protected Files checked** — None of the protected bootstrap files were converted
 2. **Zero-dependency markers scanned** — Files with `— zero dependencies` headers were skipped
-3. **Imports resolve** — Every `import { X } from '@bradygaster/squad-sdk'` references an export that actually exists in the SDK barrel file
+3. **Imports resolve** — Every `import { X } from '@deduvafork/squad-sdk'` references an export that actually exists in the SDK barrel file
 4. **Not blindly applied** — File-specific constraints were respected
 5. **Batched testing** — Changes were tested in logical groups, not all 30 files at once
 
@@ -123,7 +123,7 @@ When reviewing changes to `core/` files:
 **Example 1: Reject — SDK import in bootstrap file**
 ```
 PR adds to detect-squad-dir.ts:
-  import { FSStorageProvider } from '@bradygaster/squad-sdk';
+  import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 Finding: REJECT — detect-squad-dir.ts is a protected bootstrap file.
 It runs before the SDK is loaded. This import will crash the CLI at startup.
@@ -133,7 +133,7 @@ Recommendation: Use node:fs directly. See Protected Files table.
 **Example 2: Reject — Reverse dependency**
 ```
 PR adds to packages/squad-sdk/src/storage.ts:
-  import { detectSquadDir } from '@bradygaster/squad-cli';
+  import { detectSquadDir } from '@deduvafork/squad-cli';
 
 Finding: REJECT — SDK must never depend on CLI. Dependency direction is
 CLI → SDK, not reverse. Move the shared logic to SDK or extract to a

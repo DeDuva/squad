@@ -6,13 +6,13 @@
  *
  * Each describe block maps to a filed GitHub issue and a real human scenario.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/383 — "I just installed this"
- * @see https://github.com/bradygaster/squad-pr/issues/384 — "My first conversation"
- * @see https://github.com/bradygaster/squad-pr/issues/385 — "I'm waiting and getting anxious"
- * @see https://github.com/bradygaster/squad-pr/issues/386 — "Something went wrong"
- * @see https://github.com/bradygaster/squad-pr/issues/394 — "I want to talk to a specific agent"
- * @see https://github.com/bradygaster/squad-pr/issues/396 — "I'm a power user now"
- * @see https://github.com/bradygaster/squad-pr/issues/398 — "I came back the next day"
+ * @see https://github.com/DeDuva/squad/issues/383 — "I just installed this"
+ * @see https://github.com/DeDuva/squad/issues/384 — "My first conversation"
+ * @see https://github.com/DeDuva/squad/issues/385 — "I'm waiting and getting anxious"
+ * @see https://github.com/DeDuva/squad/issues/386 — "Something went wrong"
+ * @see https://github.com/DeDuva/squad/issues/394 — "I want to talk to a specific agent"
+ * @see https://github.com/DeDuva/squad/issues/396 — "I'm a power user now"
+ * @see https://github.com/DeDuva/squad/issues/398 — "I came back the next day"
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

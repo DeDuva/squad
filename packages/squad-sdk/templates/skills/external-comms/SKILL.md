@@ -212,7 +212,7 @@ timestamp: "2026-03-16T21:30:00Z"
 action: "post"
 item_number: 426
 draft_id: 1
-reviewer: "@bradygaster"
+reviewer: "@deduvafork"
 ---
 
 ## Context (draft, approve, edit, skip, post, delete actions)
@@ -229,7 +229,7 @@ We reproduced the issue in preview builds and we're checking the regression poin
 Let us know if you can share the command you ran right before the failure.
 
 ## Post Result (post, delete actions)
-https://github.com/bradygaster/squad/issues/426#issuecomment-123456
+https://github.com/DeDuva/squad/issues/426#issuecomment-123456
 ```
 
 ### T1 — Welcome

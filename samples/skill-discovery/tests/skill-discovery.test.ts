@@ -14,8 +14,8 @@ import {
   loadSkillsFromDirectory,
   parseSkillFile,
   parseFrontmatter,
-} from '@bradygaster/squad-sdk/skills';
-import type { SkillDefinition, SkillMatch } from '@bradygaster/squad-sdk/skills';
+} from '@deduvafork/squad-sdk/skills';
+import type { SkillDefinition, SkillMatch } from '@deduvafork/squad-sdk/skills';
 
 // ── Fixtures ─────────────────────────────────────────────
 

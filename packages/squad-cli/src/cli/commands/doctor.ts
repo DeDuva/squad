@@ -5,7 +5,7 @@
  * the health of every expected file / convention. Always exits 0
  * because this is a diagnostic tool, not a gate.
  *
- * Inspired by @spboyer (Shayne Boyer)'s doctor command in PR bradygaster/squad#131.
+ * Inspired by @spboyer (Shayne Boyer)'s doctor command in DeDuva/squad (upstream) #131.
  *
  * @module cli/commands/doctor
  */

@@ -4,7 +4,7 @@
  * Validates that a user can close the shell, return later, and resume
  * their previous session with full message history intact.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/398
+ * @see https://github.com/DeDuva/squad/issues/398
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

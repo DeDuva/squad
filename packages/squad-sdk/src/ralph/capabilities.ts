@@ -5,7 +5,7 @@
  * Issues with `needs:*` labels are only processed if the
  * local machine has those capabilities.
  *
- * @see https://github.com/bradygaster/squad/issues/514
+ * @see https://github.com/DeDuva/squad/issues/514
  */
 
 import path from 'node:path';

@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": "^0.8.0",
+    "@deduvafork/squad-sdk": "file:../../packages/squad-sdk",
     "chalk": "^5.4.0"
   },
   "devDependencies": {
@@ -19,6 +19,6 @@
     "vitest": "^3.0.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.5.0"
   }
 }

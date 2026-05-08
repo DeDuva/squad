@@ -1,6 +1,6 @@
 # SQLite StorageProvider sample
 
-This sample demonstrates `SQLiteStorageProvider` from `@bradygaster/squad-sdk` — a portable, single-file storage backend powered by [sql.js](https://github.com/nicolewhite/sql.js/) (SQLite compiled to WASM). No native dependencies required.
+This sample demonstrates `SQLiteStorageProvider` from `@deduvafork/squad-sdk` — a portable, single-file storage backend powered by [sql.js](https://github.com/nicolewhite/sql.js/) (SQLite compiled to WASM). No native dependencies required.
 
 ## Prerequisites
 

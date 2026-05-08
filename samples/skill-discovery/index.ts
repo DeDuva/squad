@@ -17,7 +17,7 @@ import {
   loadSkillsFromDirectory,
   parseSkillFile,
   parseFrontmatter,
-} from '@bradygaster/squad-sdk/skills';
+} from '@deduvafork/squad-sdk/skills';
 
 // ── Helpers ──────────────────────────────────────────────
 

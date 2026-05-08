@@ -1,6 +1,6 @@
 /**
  * Tests for resolveSquadPaths() — dual-root path resolution (Issue #311)
- * Design ported from @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
+ * Design ported from @spboyer (Shayne Boyer)'s DeDuva/squad#131.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

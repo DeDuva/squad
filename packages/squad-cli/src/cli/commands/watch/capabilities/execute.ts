@@ -56,13 +56,9 @@ function buildAgentCommand(
     const args = [...parts.slice(1), '-p', prompt];
     return { cmd, args };
   }
-  const args = ['-p', prompt];
-  if (context.copilotFlags) {
-    args.push(...context.copilotFlags.trim().split(/\s+/));
-  }
   throw new Error(
     'squad triage --execute requires --agent-cmd. No default runner is configured.\n' +
-    'Example: --agent-cmd "gh copilot" --copilot-flags "--yolo --autopilot --agent squad"',
+    'Example: --agent-cmd "gemini-cli" --agent-flags "--model gemini-2.5-pro"',
   );
 }
 
@@ -173,7 +169,7 @@ async function executeAll(
     // Track child PID for cleanup on exit/crash
     if (context.pidTracker && cp.pid) {
       const issueNums = issues.map(i => `#${i.number}`).join(',');
-      context.pidTracker.track(cp.pid, `copilot-session-${issueNums}`);
+      context.pidTracker.track(cp.pid, `agent-session-${issueNums}`);
     }
 
     cp.on('exit', () => {
@@ -205,7 +201,7 @@ export class ExecuteCapability implements WatchCapability {
     try {
       const timeout = ((context.config['timeout'] as number) ?? 30) * 60_000;
 
-      vlog.log(`Execute: agentCmd=${context.agentCmd ?? 'copilot'}, timeout=${timeout / 60_000}m`);
+      vlog.log(`Execute: agentCmd=${context.agentCmd ?? '(none)'}, timeout=${timeout / 60_000}m`);
 
       // Fetch open issues with squad label
       const sdkItems = await context.adapter.listWorkItems({ tags: ['squad'], state: 'open', limit: 50 });

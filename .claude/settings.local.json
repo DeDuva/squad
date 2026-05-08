@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^.*//.*copilot\\\\|option\\\\|flag\\\\|cmd\\\\|args\\\\|--agent\\\\|description\\\\|msg\\\\|log\\\\|warn\\\\|err\\\\|comment\")",
+      "Bash(grep -v \"//\")",
+      "Bash(grep -v \"//.*@bradygaster\")",
+      "Bash(npm test *)",
+      "Bash(node -e \"const p = require\\('./node_modules/@deduvafork/squad-sdk/package.json'\\); console.log\\(p.main\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(ln -sfn \"../../packages/squad-sdk\" \"/c/Users/dovzi/dev/squad-tst-20260505/squad/.claude/worktrees/friendly-williamson-8d716d/node_modules/@deduvafork/squad-sdk\")",
+      "Bash(ln -sfn \"../../packages/squad-cli\" \"/c/Users/dovzi/dev/squad-tst-20260505/squad/.claude/worktrees/friendly-williamson-8d716d/node_modules/@deduvafork/squad-cli\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/c/Users/dovzi/dev/squad-tst-20260505/squad/.claude/worktrees/friendly-williamson-8d716d/packages/squad-sdk/package.json'\\)\\); print\\('main:', d.get\\('main'\\)\\); print\\('module:', d.get\\('module'\\)\\); print\\('types:', d.get\\('types'\\)\\)\")",
+      "Bash(git -C \"/c/Users/dovzi/dev/squad-tst-20260505/squad\" ls-files packages/squad-sdk/dist/adapter/gemini-client.js)",
+      "Bash(git -C \"/c/Users/dovzi/dev/squad-tst-20260505/squad\" status packages/squad-sdk/dist/adapter/gemini-client.js)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('exports',{}\\).keys\\(\\)\\)[:5]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); e=d.get\\('exports',{}\\); print\\(e.get\\('./core/init'\\)\\); print\\(e.get\\('./core/upgrade'\\)\\)\")",
+      "Bash(node -e \"const pkg = require\\('./packages/squad-cli/package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.exports || {}\\), null, 2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; pkg=json.load\\(sys.stdin\\); [print\\(k,'->',v.get\\('import','?'\\)\\) for k,v in pkg['exports'].items\\(\\) if k in ['.', './core/init', './core/upgrade']]\")",
+      "Bash(npx vitest *)"
+    ]
+  }
+}
