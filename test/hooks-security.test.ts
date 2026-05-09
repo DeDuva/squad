@@ -184,13 +184,13 @@ describe('Secret Leak Mitigation (Issue #267)', () => {
       const ctx: PostToolUseContext = {
         toolName: 'view',
         arguments: {},
-        result: 'Visit https://github.com/bradygaster/squad for docs',
+        result: 'Visit https://github.com/DeDuva/squad for docs',
         agentName: 'test-agent',
         sessionId: 'session-1',
       };
 
       const result = await pipeline.runPostToolHooks(ctx);
-      expect(result.result).toBe('Visit https://github.com/bradygaster/squad for docs');
+      expect(result.result).toBe('Visit https://github.com/DeDuva/squad for docs');
     });
 
     it.todo('should redact secrets in nested objects');

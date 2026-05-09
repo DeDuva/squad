@@ -1189,8 +1189,6 @@ if (cmd === 'import') {
       : `skill-${index}`;
     return { skillContent, skillName };
   });
-  const hasForce = typeof force !== 'undefined' && force;
-
   if (fs.existsSync(copilotSkillsImportDir)) {
     if (hasForce) {
       const archivedSkillsDir = path.join(dest, '.copilot', `skills.backup.${Date.now()}`);
@@ -1423,7 +1421,7 @@ function stampVersion(filePath) {
   // Replace version in HTML comment (must come immediately after frontmatter closing ---)
   content = content.replace(/<!-- version: [^>]+ -->/m, `<!-- version: ${pkg.version} -->`);
   // Replace version in the Identity section's Version line
-  content = content.replace(/- \*\*Version:\*\* [0-9.]+(?:-[a-z]+)?/m, `- **Version:** ${pkg.version}`);
+  content = content.replace(/- \*\*Version:\*\* \S+/m, `- **Version:** ${pkg.version}`);
   // Replace {version} placeholder in the greeting instruction so it's unambiguous
   content = content.replace(/`Squad v\{version\}`/g, `\`Squad v${pkg.version}\``);
   fs.writeFileSync(filePath, content);
@@ -1435,7 +1433,7 @@ function readInstalledVersion(filePath) {
     if (!fs.existsSync(filePath)) return null;
     const content = fs.readFileSync(filePath, 'utf8');
     // Try to read from HTML comment first (new format)
-    const commentMatch = content.match(/<!-- version: ([0-9.]+(?:-[a-z]+)?) -->/);
+    const commentMatch = content.match(/<!-- version: ([^\s]+) -->/);
     if (commentMatch) return commentMatch[1];
     // Fallback: try old frontmatter format for backward compatibility during upgrade
     const frontmatterMatch = content.match(/^version:\s*"([^"]+)"/m);

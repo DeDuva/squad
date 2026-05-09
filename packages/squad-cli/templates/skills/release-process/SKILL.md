@@ -30,7 +30,7 @@ Established through the v0.9.1 incident (8-hour recovery) and reinforced by the 
 
 ## Context
 
-Squad publishes two npm packages: `@bradygaster/squad-sdk` and `@bradygaster/squad-cli`. The release pipeline flows: dev → preview → main → GitHub Release → npm publish. Brady (project owner) triggers releases — the coordinator does NOT.
+Squad publishes two npm packages: `@deduvafork/squad-sdk` and `@deduvafork/squad-cli`. The release pipeline flows: dev → preview → main → GitHub Release → npm publish. the project owner triggers releases — the coordinator does NOT.
 
 ## Rules (Non-Negotiable)
 
@@ -73,7 +73,7 @@ If `workflow_dispatch` or the publish workflow fails:
 
 After every publish, verify in a clean shell:
 ```bash
-npm install -g @bradygaster/squad-cli@latest
+npm install -g @deduvafork/squad-cli@latest
 squad --version    # should match published version
 squad doctor       # should pass in a test repo
 ```
@@ -178,7 +178,7 @@ The lockfile stability check in `squad-npm-publish.yml` (line 82) filters packag
 
 ### Prebuild Version Bump Breaks Local Workspace Resolution
 
-`scripts/bump-build.mjs` runs during `npm run prebuild` and bumps versions like `0.9.4` → `0.9.4-build.1`. This breaks workspace linking because CLI depends on exact `"@bradygaster/squad-sdk": "0.9.4"` but SDK becomes `0.9.4-build.1`.
+`scripts/bump-build.mjs` runs during `npm run prebuild` and bumps versions like `0.9.4` → `0.9.4-build.1`. This breaks workspace linking because CLI depends on exact `"@deduvafork/squad-sdk": "0.9.4"` but SDK becomes `0.9.4-build.1`.
 
 **Fix for local dev:**
 ```bash

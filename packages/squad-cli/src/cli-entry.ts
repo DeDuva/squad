@@ -746,12 +746,12 @@ async function main(): Promise<void> {
     const hasTunnel = args.includes('--tunnel');
     const portIdx = args.indexOf('--port');
     const port = (portIdx !== -1 && args[portIdx + 1]) ? parseInt(args[portIdx + 1]!, 10) : 0;
-    // Collect all remaining args to pass through to copilot
+    // Collect all remaining args to pass through to the agent runner
     const cmdIdx = args.indexOf('--command');
     const customCmd = (cmdIdx !== -1 && args[cmdIdx + 1]) ? args[cmdIdx + 1] : undefined;
     const squadFlags = ['start', '--tunnel', '--port', port.toString(), '--command', customCmd || ''].filter(Boolean);
-    const copilotArgs = args.slice(1).filter(a => !squadFlags.includes(a));
-    await runStart(getSquadStartDir(), { tunnel: hasTunnel, port, copilotArgs, command: customCmd });
+    const agentArgs = args.slice(1).filter(a => !squadFlags.includes(a));
+    await runStart(getSquadStartDir(), { tunnel: hasTunnel, port, agentArgs, command: customCmd });
     return;
   }
 
@@ -851,7 +851,12 @@ async function main(): Promise<void> {
     if (isDevtunnelAvailable()) {
       console.log(`${GREEN}✓${RESET} devtunnel CLI is available`);
     } else {
-      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: winget install Microsoft.devtunnel`);
+      const installHint = process.platform === 'win32'
+        ? 'winget install Microsoft.devtunnel'
+        : process.platform === 'darwin'
+          ? 'brew install devtunnel  # or: npm install -g @microsoft/devtunnel'
+          : 'npm install -g @microsoft/devtunnel  # see: aka.ms/devtunnel-install';
+      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: ${installHint}`);
     }
     return;
   }

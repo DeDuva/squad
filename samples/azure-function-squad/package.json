@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
-    "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"
+    "@deduvafork/squad-sdk": "file:../../packages/squad-sdk"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -23,6 +23,6 @@
     "typescript": "^5.7.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   }
 }

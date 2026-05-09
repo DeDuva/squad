@@ -12,13 +12,13 @@ import {
   selectResponseTier,
   getTier,
   MODELS,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 import type {
   ResponseTier,
   TierName,
   SquadConfig,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Terminal helpers

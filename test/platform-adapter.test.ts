@@ -61,8 +61,8 @@ describe('detectPlatformFromUrl', () => {
 
 describe('parseGitHubRemote', () => {
   it('parses HTTPS URL with .git suffix', () => {
-    const result = parseGitHubRemote('https://github.com/bradygaster/squad.git');
-    expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+    const result = parseGitHubRemote('https://github.com/DeDuva/squad.git');
+    expect(result).toEqual({ owner: 'DeDuva', repo: 'squad' });
   });
 
   it('parses HTTPS URL without .git suffix', () => {

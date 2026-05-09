@@ -164,7 +164,7 @@ describe('detectSourceType', () => {
   });
 
   it('detects slash-containing paths as git when dir does not exist', () => {
-    expect(detectSourceType('bradygaster/squad')).toBe('git');
+    expect(detectSourceType('DeDuva/squad')).toBe('git');
   });
 
   it('throws on ambiguous source', () => {

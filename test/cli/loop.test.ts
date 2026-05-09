@@ -316,6 +316,12 @@ describe('runLoop', () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue(unconfiguredLoopMd as any);
     vi.mocked(parseRoster).mockReturnValue([]);
+    // Mock execFile to immediately succeed so checkAgentCli resolves
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') (cb as Function)(null);
+      return {} as any;
+    });
     // Throw sentinel in createDefaultRegistry to halt execution after onboarding log
     vi.mocked(createDefaultRegistry).mockImplementation(() => {
       throw new Error('test-sentinel: stop after preflight');
@@ -355,24 +361,30 @@ describe('runLoop', () => {
     ).rejects.toThrow(/timeout/i);
   });
 
-  it('calls fatal when gh copilot preflight fails without agentCmd', async () => {
+  it('calls fatal when agentCmd binary is not found', async () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue(validLoopMd as any);
     vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1];
-      if (typeof cb === 'function') (cb as Function)(new Error('gh not found'));
+      if (typeof cb === 'function') (cb as Function)(new Error('ENOENT: not found'));
       return {} as any;
     });
 
-    await expect(runLoop(DEST, defaultOptions)).rejects.toThrow(
-      /Copilot CLI/i,
+    await expect(runLoop(DEST, { ...defaultOptions, agentCmd: 'nonexistent-agent' })).rejects.toThrow(
+      /Agent command not found/i,
     );
   });
 
-  it('skips gh copilot preflight when agentCmd is provided', async () => {
+  it('runs checkAgentCli preflight when agentCmd is provided', async () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue(validLoopMd as any);
     vi.mocked(parseRoster).mockReturnValue([]);
+    // Mock execFile to immediately succeed so checkAgentCli resolves
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') (cb as Function)(null);
+      return {} as any;
+    });
     // Throw sentinel in createDefaultRegistry to halt execution after preflight
     vi.mocked(createDefaultRegistry).mockImplementation(() => {
       throw new Error('test-sentinel: stop after preflight');
@@ -382,7 +394,7 @@ describe('runLoop', () => {
       runLoop(DEST, { ...defaultOptions, agentCmd: 'custom-agent --run' }),
     ).rejects.toThrow('test-sentinel');
 
-    // execFile should NOT have been called — preflight was skipped
-    expect(execFile).not.toHaveBeenCalled();
+    // execFile should have been called once for the agent preflight check
+    expect(execFile).toHaveBeenCalledWith('custom-agent', ['--version'], expect.any(Function));
   });
 });

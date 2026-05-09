@@ -242,12 +242,12 @@ function createNoopAdapter(): ReturnType<typeof createPlatformAdapter> {
   } as ReturnType<typeof createPlatformAdapter>;
 }
 
-// ── gh Copilot Preflight ─────────────────────────────────────────
+// ── Agent Preflight ───────────────────────────────────────────────
 
-/** Verify the copilot CLI is available. */
-async function checkCopilotCli(): Promise<void> {
+/** Verify a custom agent command is available on PATH. */
+async function checkAgentCli(cmd: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    execFile('copilot', ['--version'], (err) => {
+    execFile(cmd, ['--version'], (err) => {
       if (err) reject(err);
       else resolve();
     });
@@ -313,12 +313,13 @@ export async function runLoop(dest: string, options: LoopConfig): Promise<void> 
     fatal('timeout must be a positive number of minutes');
   }
 
-  // Preflight: verify copilot CLI is available (skip if user overrides the agent command)
-  if (!options.agentCmd) {
+  // Preflight: if a custom agent command is provided, verify it is available on PATH
+  if (options.agentCmd) {
+    const agentBin = options.agentCmd.trim().split(/\s+/)[0]!;
     try {
-      await checkCopilotCli();
+      await checkAgentCli(agentBin);
     } catch {
-      fatal('Copilot CLI required. Install from https://cli.github.com/ and run `gh extension install github/gh-copilot`');
+      fatal(`Agent command not found: "${agentBin}". Make sure it is installed and on your PATH.`);
     }
   }
 

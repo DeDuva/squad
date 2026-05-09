@@ -40,7 +40,7 @@ The `packages/squad-cli/src/cli/core/` directory contains a mix of early-startup
 ## Anti-Patterns
 
 - Converting all `fs` calls to `StorageProvider` without checking this list first
-- Adding `import { X } from '@bradygaster/squad-sdk'` to a bootstrap file
+- Adding `import { X } from '@deduvafork/squad-sdk'` to a bootstrap file
 - Assuming every file in `core/` can safely import SDK code
 
 ## Adding New Bootstrap Utilities

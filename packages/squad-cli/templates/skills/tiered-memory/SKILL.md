@@ -130,7 +130,7 @@ See Scribe charter: `.squad/agents/scribe/charter.md`
 
 ## References
 
-- Upstream issue: bradygaster/squad#600
+- Upstream issue: DeDuva/squad#600
 - Production data: tamirdresher/tamresearch1 (June 2025)
 
 ---

@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Hook Governance — beginner sample for @bradygaster/squad-sdk hook pipeline",
+  "description": "Hook Governance — beginner sample for @deduvafork/squad-sdk hook pipeline",
   "scripts": {
     "start": "npx tsx index.ts",
     "test": "vitest run"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"
+    "@deduvafork/squad-sdk": "file:../../packages/squad-sdk"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

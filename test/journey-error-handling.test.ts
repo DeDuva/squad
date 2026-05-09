@@ -5,7 +5,7 @@
  * friendly messages rather than raw stack traces, and that the shell
  * remains usable after failures.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/386
+ * @see https://github.com/DeDuva/squad/issues/386
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

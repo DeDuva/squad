@@ -6,7 +6,7 @@
  * indicator, receiving a response, exploring /help and /status,
  * trying @agent routing, and exiting gracefully.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/384
+ * @see https://github.com/DeDuva/squad/issues/384
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

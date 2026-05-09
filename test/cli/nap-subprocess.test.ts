@@ -9,7 +9,7 @@
  * falling back to process.cwd() when unset.
  *
  * @see packages/squad-cli/src/cli-entry.ts — getSquadStartDir()
- * @see https://github.com/bradygaster/squad/issues/734
+ * @see https://github.com/DeDuva/squad/issues/734
  */
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';

@@ -20,7 +20,7 @@ Developers new to Squad. No async patterns, no tooling, no governance. Pure SDK 
 
 **Initial setup — resolve and load:**
 ```typescript
-import { resolveSquad, loadConfig, CastingEngine, onboardAgent } from '@bradygaster/squad-sdk';
+import { resolveSquad, loadConfig, CastingEngine, onboardAgent } from '@deduvafork/squad-sdk';
 
 const squadPath = resolveSquad();
 const config = loadConfig(squadPath);

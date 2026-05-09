@@ -3,7 +3,7 @@
  *
  * Verifies the diagnostic command reports correct status
  * for healthy, empty, and remote-mode squad directories.
- * Doctor command inspired by @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
+ * Doctor command inspired by @spboyer (Shayne Boyer)'s DeDuva/squad#131.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

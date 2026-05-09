@@ -1,6 +1,6 @@
 /**
  * Tests for remote squad mode — squad link + squad init --mode remote (Issue #313)
- * Remote mode concept by @spboyer (Shayne Boyer), PR bradygaster/squad#131.
+ * Remote mode concept by @spboyer (Shayne Boyer), DeDuva/squad#131.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

@@ -6,7 +6,7 @@
  * Keep DB after run:  npm run demo -- --keep
  */
 
-import { SQLiteStorageProvider } from '@bradygaster/squad-sdk';
+import { SQLiteStorageProvider } from '@deduvafork/squad-sdk';
 import { existsSync, statSync, unlinkSync } from 'fs';
 
 const DB_PATH = './squad-demo.db';

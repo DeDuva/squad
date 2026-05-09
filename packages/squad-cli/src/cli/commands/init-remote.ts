@@ -4,7 +4,7 @@
  * Creates .squad/ with config.json pointing to an external team root.
  * The standard init scaffolding still runs; this just adds the config link.
  *
- * Remote squad mode concept by @spboyer (Shayne Boyer), PR bradygaster/squad#131.
+ * Remote squad mode concept by @spboyer (Shayne Boyer), DeDuva/squad (upstream) #131.
  *
  * @module cli/commands/init-remote
  */
