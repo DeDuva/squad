@@ -212,7 +212,7 @@ timestamp: "2026-03-16T21:30:00Z"
 action: "post"
 item_number: 426
 draft_id: 1
-reviewer: "@deduvafork"
+reviewer: "@DeDuva"
 ---
 
 ## Context (draft, approve, edit, skip, post, delete actions)

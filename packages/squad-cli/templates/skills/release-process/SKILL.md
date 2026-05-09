@@ -9,7 +9,7 @@ source: "earned"
 # Release Process
 
 > Earned knowledge from the v0.9.0→v0.9.1 and v0.9.4 incidents. Every agent involved in releases MUST read this before starting release work.
-> See also: `.squad/skills/release-process/SKILL.md` for the agent-facing runbook.
+> See also: `.copilot/skills/release-process/SKILL.md` for the Copilot-facing runbook.
 
 ## SCOPE
 
@@ -30,7 +30,7 @@ Established through the v0.9.1 incident (8-hour recovery) and reinforced by the 
 
 ## Context
 
-Squad publishes two npm packages: `@deduvafork/squad-sdk` and `@deduvafork/squad-cli`. The release pipeline flows: dev → preview → main → GitHub Release → npm publish. Brady (project owner) triggers releases — the coordinator does NOT.
+Squad publishes two npm packages: `@deduvafork/squad-sdk` and `@deduvafork/squad-cli`. The release pipeline flows: dev → preview → main → GitHub Release → npm publish. the project owner triggers releases — the coordinator does NOT.
 
 ## Rules (Non-Negotiable)
 
@@ -213,5 +213,5 @@ See `.github/workflows/squad-ci.yml` → `publish-policy` job for implementation
 - v0.9.4 fixes: PR #1042 (CHANGELOG), PR #1043 (root package.json), PR #1044 (lockfile integrity)
 - Retro: `.squad/decisions/inbox/surgeon-v091-retrospective.md`
 - CI audit: `.squad/decisions/inbox/booster-ci-audit.md`
-- Copilot-level skill: `.squad/skills/release-process/SKILL.md`
+- Copilot-level skill: `.copilot/skills/release-process/SKILL.md`
 - Playbook: `PUBLISH-README.md` (repo root)

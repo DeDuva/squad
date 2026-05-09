@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad",
-  "version": "0.9.4-build.11",
+  "version": "0.9.4-build.12",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime powered by Gemini (airlock mode)",
   "type": "module",
@@ -12,6 +12,8 @@
     "build": "npm run build -w packages/squad-sdk && npm run build -w packages/squad-cli",
     "sync-templates": "node scripts/sync-templates.mjs",
     "test": "vitest run",
+    "test:cjs": "node --test test/*.test.cjs",
+    "test:all": "npm test && npm run test:cjs",
     "test:watch": "vitest",
     "lint": "tsc --noEmit -p packages/squad-sdk/tsconfig.json && tsc --noEmit -p packages/squad-cli/tsconfig.json",
     "lint:eslint": "eslint packages/ test/",
