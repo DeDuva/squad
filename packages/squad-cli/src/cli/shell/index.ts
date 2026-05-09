@@ -29,7 +29,7 @@ import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, 
 import { loadAgentCharter, buildAgentPrompt } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
-import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance } from './error-messages.js';
+import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance, isAuthError, missingApiKeyGuidance } from './error-messages.js';
 import { parseCastResponse, createTeam, formatCastSummary, augmentWithCastingEngine, type CastProposal } from '../core/cast.js';
 
 export { SessionRegistry } from './sessions.js';
@@ -67,6 +67,8 @@ export {
   timeoutGuidance,
   unknownCommandGuidance,
   formatGuidance,
+  isAuthError,
+  missingApiKeyGuidance,
 } from './error-messages.js';
 export type { ErrorGuidance } from './error-messages.js';
 export {
@@ -266,8 +268,18 @@ export async function runShell(): Promise<void> {
       });
       debugLog('eager warm-up: coordinator session ready');
     } catch (err) {
-      debugLog('eager warm-up failed (non-fatal, will retry on first dispatch):', err);
-      // Non-fatal — first dispatch will create the session as before
+      const errMsg = err instanceof Error ? err.message : String(err);
+      debugLog('eager warm-up failed:', errMsg);
+      if (isAuthError(errMsg)) {
+        // Auth errors surface immediately — user cannot proceed without a key
+        const guidance = missingApiKeyGuidance();
+        shellApi?.addMessage({
+          role: 'system',
+          content: formatGuidance(guidance),
+          timestamp: new Date(),
+        });
+      }
+      // Non-fatal for other errors — first dispatch will retry session creation
     }
   })();
 
@@ -1171,6 +1183,8 @@ export async function runShell(): Promise<void> {
               }),
             );
           } catch { /* non-fatal */ }
+        } else if (isAuthError(errorMsg)) {
+          guidance = missingApiKeyGuidance();
         } else if (process.env['SQUAD_DEBUG'] === '1') {
           const friendly = errorMsg.replace(/^Error:\s*/i, '');
           guidance = genericGuidance(friendly);

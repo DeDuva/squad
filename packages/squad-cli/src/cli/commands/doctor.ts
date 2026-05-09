@@ -320,7 +320,11 @@ async function checkGeminiAuth(): Promise<DoctorCheck> {
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     if (res.ok) {
-      const source = process.env['GEMINI_API_KEY'] ? 'GEMINI_API_KEY env var' : '~/.config/squad/gemini.json';
+      const source = process.env['SQUAD_GEMINI_KEY_SOURCE']
+        ? process.env['SQUAD_GEMINI_KEY_SOURCE']
+        : process.env['GEMINI_API_KEY']
+          ? 'GEMINI_API_KEY env var'
+          : '~/.config/squad/gemini.json';
       return { name: 'Gemini API key', status: 'pass', message: `valid (source: ${source})` };
     }
     return {
