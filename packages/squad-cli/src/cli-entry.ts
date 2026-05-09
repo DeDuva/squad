@@ -851,7 +851,12 @@ async function main(): Promise<void> {
     if (isDevtunnelAvailable()) {
       console.log(`${GREEN}✓${RESET} devtunnel CLI is available`);
     } else {
-      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: winget install Microsoft.devtunnel`);
+      const installHint = process.platform === 'win32'
+        ? 'winget install Microsoft.devtunnel'
+        : process.platform === 'darwin'
+          ? 'brew install devtunnel  # or: npm install -g @microsoft/devtunnel'
+          : 'npm install -g @microsoft/devtunnel  # see: aka.ms/devtunnel-install';
+      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: ${installHint}`);
     }
     return;
   }
