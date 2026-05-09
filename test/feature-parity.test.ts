@@ -931,7 +931,7 @@ describe('Feature Parity: Model Registry', () => {
 
   it('looks up model info by ID', () => {
     const registry = new ModelRegistry();
-    const info = registry.getModelInfo('gemini-2.5-flash-preview-04-17');
+    const info = registry.getModelInfo('gemini-flash-latest');
     expect(info).toBeDefined();
     expect(info!.tier).toBe('standard');
     expect(info!.provider).toBe('google');

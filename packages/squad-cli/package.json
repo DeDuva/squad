@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-cli",
-  "version": "0.9.4-build.16",
+  "version": "0.9.4-build.28",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {

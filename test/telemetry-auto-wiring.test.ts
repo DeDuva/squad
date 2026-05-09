@@ -155,10 +155,10 @@ describe('initSquadTelemetry — auto-wiring', () => {
 // ============================================================================
 
 describe('estimateCost()', () => {
-  it('returns correct cost for a known model', () => {
-    // gemini-2.5-flash-preview-04-17: input $0.00000015/token, output $0.0000006/token
-    const cost = estimateCost('gemini-2.5-flash-preview-04-17', 1000, 500);
-    expect(cost).toBeCloseTo(1000 * 0.00000015 + 500 * 0.0000006, 9);
+  it('returns 0 for latest-alias models (pricing unknown until runtime)', () => {
+    // -latest aliases resolve dynamically; pricing is not statically known
+    expect(estimateCost('gemini-flash-latest', 1000, 500)).toBe(0);
+    expect(estimateCost('gemini-pro-latest', 1000, 500)).toBe(0);
   });
 
   it('returns 0 for an unknown model', () => {
@@ -167,20 +167,7 @@ describe('estimateCost()', () => {
   });
 
   it('returns 0 for zero tokens', () => {
-    const cost = estimateCost('gemini-2.5-flash-preview-04-17', 0, 0);
-    expect(cost).toBe(0);
-  });
-
-  it('works for fast-tier models', () => {
-    // gemini-2.0-flash: input $0.0000001/token, output $0.0000004/token
-    const cost = estimateCost('gemini-2.0-flash', 10000, 5000);
-    expect(cost).toBeCloseTo(10000 * 0.0000001 + 5000 * 0.0000004, 9);
-  });
-
-  it('works for premium-tier models', () => {
-    // gemini-2.5-pro-preview-05-06: input $0.00000125/token, output $0.00001/token
-    const cost = estimateCost('gemini-2.5-pro-preview-05-06', 1000, 500);
-    expect(cost).toBeCloseTo(1000 * 0.00000125 + 500 * 0.00001, 9);
+    expect(estimateCost('gemini-flash-latest', 0, 0)).toBe(0);
   });
 });
 
@@ -189,20 +176,11 @@ describe('estimateCost()', () => {
 // ============================================================================
 
 describe('MODEL_CATALOG pricing', () => {
-  it('all models have pricing data', () => {
+  it('latest-alias models have no static pricing (resolved at runtime)', () => {
+    // -latest aliases do not carry hardcoded pricing; estimateCost returns 0
     for (const model of MODEL_CATALOG) {
-      expect(model.pricing, `Model ${model.id} missing pricing`).toBeDefined();
-      const pricing = model.pricing as ModelPricing;
-      expect(pricing.inputPerToken).toBeGreaterThan(0);
-      expect(pricing.outputPerToken).toBeGreaterThan(0);
+      expect(model.pricing).toBeUndefined();
     }
-  });
-
-  it('premium models cost more per token than fast models', () => {
-    const premium = MODEL_CATALOG.find(m => m.id === 'gemini-2.5-pro-preview-05-06')!;
-    const fast = MODEL_CATALOG.find(m => m.id === 'gemini-2.0-flash')!;
-    expect(premium.pricing!.inputPerToken).toBeGreaterThan(fast.pricing!.inputPerToken);
-    expect(premium.pricing!.outputPerToken).toBeGreaterThan(fast.pricing!.outputPerToken);
   });
 });
 

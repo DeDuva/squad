@@ -222,7 +222,7 @@ describe('writeAgentModelOverrides', () => {
 
 describe('resolveModel', () => {
   it('Layer 4: returns Gemini standard default when nothing is set', () => {
-    expect(resolveModel({})).toBe('gemini-2.5-flash-preview-04-17');
+    expect(resolveModel({})).toBe('gemini-flash-latest');
   });
 
   it('Layer 3: task model wins over default', () => {

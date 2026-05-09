@@ -242,7 +242,7 @@ describe('Configuration Loader', () => {
   describe('DEFAULT_CONFIG', () => {
     it('should have valid structure', () => {
       expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-      expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-2.5-flash-preview-04-17');
+      expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-flash-latest');
       expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
       expect(DEFAULT_CONFIG.models.fallbackChains.premium).toBeInstanceOf(Array);
       expect(DEFAULT_CONFIG.models.fallbackChains.standard).toBeInstanceOf(Array);

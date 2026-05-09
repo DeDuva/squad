@@ -314,7 +314,7 @@ export async function runShell(): Promise<void> {
 
   /** Extract text delta from an SDK session event. */
   function extractDelta(event: { type: string; [key: string]: unknown }): string {
-    const val = event['deltaContent'] ?? event['delta'] ?? event['content'];
+    const val = event['deltaContent'] ?? event['delta'] ?? event['content'] ?? event['text'];
     const result = typeof val === 'string' ? val : '';
     debugLog('extractDelta', { type: event['type'], keys: Object.keys(event), hasDeltaContent: 'deltaContent' in event, result: result.slice(0, 80) });
     return result;
@@ -970,11 +970,22 @@ export async function runShell(): Promise<void> {
     } catch (err) {
       debugLog('handleInitCast error:', err);
       recordShellError('init_cast', err instanceof Error ? err.constructor.name : 'unknown');
-      shellApi?.addMessage({
-        role: 'system',
-        content: `⚠ Team casting failed: ${err instanceof Error ? err.message : String(err)}\nTry again or edit .squad/team.md directly.`,
-        timestamp: new Date(),
-      });
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const isRateLimit =
+        err instanceof RateLimitError ||
+        /rate.?limit|quota.*exceed|429|RESOURCE_EXHAUSTED/i.test(errorMsg);
+      let content: string;
+      if (isRateLimit) {
+        const retryAfter =
+          err instanceof RateLimitError ? err.retryAfter : extractRetryAfter(errorMsg);
+        const model = err instanceof RateLimitError ? err.context.model : undefined;
+        content = formatGuidance(rateLimitGuidance({ retryAfter, model }));
+      } else if (isAuthError(errorMsg)) {
+        content = formatGuidance(missingApiKeyGuidance());
+      } else {
+        content = `⚠ Team casting failed: ${errorMsg}\nTry again or edit .squad/team.md directly.`;
+      }
+      shellApi?.addMessage({ role: 'system', content, timestamp: new Date() });
     } finally {
       if (initSession) {
         try { await initSession.close?.(); } catch { /* ignore */ }
@@ -1073,11 +1084,22 @@ export async function runShell(): Promise<void> {
         } catch (err) {
           debugLog('finalizeCast error:', err);
           recordShellError('init_cast', err instanceof Error ? err.constructor.name : 'unknown');
-          shellApi?.addMessage({
-            role: 'system',
-            content: `⚠ Team casting failed: ${err instanceof Error ? err.message : String(err)}\nTry again or edit .squad/team.md directly.`,
-            timestamp: new Date(),
-          });
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          const isRateLimit =
+            err instanceof RateLimitError ||
+            /rate.?limit|quota.*exceed|429|RESOURCE_EXHAUSTED/i.test(errorMsg);
+          let content: string;
+          if (isRateLimit) {
+            const retryAfter =
+              err instanceof RateLimitError ? err.retryAfter : extractRetryAfter(errorMsg);
+            const model = err instanceof RateLimitError ? err.context.model : undefined;
+            content = formatGuidance(rateLimitGuidance({ retryAfter, model }));
+          } else if (isAuthError(errorMsg)) {
+            content = formatGuidance(missingApiKeyGuidance());
+          } else {
+            content = `⚠ Team casting failed: ${errorMsg}\nTry again or edit .squad/team.md directly.`;
+          }
+          shellApi?.addMessage({ role: 'system', content, timestamp: new Date() });
         }
       } else {
         shellApi?.addMessage({

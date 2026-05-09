@@ -61,77 +61,31 @@ export interface ModelInfo {
 export const MODEL_CATALOG: ModelInfo[] = [
   // -------------------------------------------------------------------------
   // Gemini — primary provider
+  // Version-free aliases that always resolve to the latest stable build.
   // -------------------------------------------------------------------------
 
   // Premium tier
   {
-    id: 'gemini-2.5-pro-preview-05-06',
+    id: 'gemini-pro-latest',
     tier: 'premium',
     provider: 'google',
     family: 'gemini',
     vision: true,
-    useCases: ['architecture proposals', 'security audits', 'complex design', 'deep reasoning'],
+    useCases: ['architecture proposals', 'security audits', 'complex design', 'deep reasoning', 'reviewer gates', 'long context'],
     cost: 8,
     speed: 4,
-    pricing: { inputPerToken: 0.00000125, outputPerToken: 0.000010 },
-  },
-  {
-    id: 'gemini-2.5-pro',
-    tier: 'premium',
-    provider: 'google',
-    family: 'gemini',
-    vision: true,
-    useCases: ['architecture proposals', 'reviewer gates', 'long context'],
-    cost: 8,
-    speed: 4,
-    pricing: { inputPerToken: 0.00000125, outputPerToken: 0.000010 },
   },
 
-  // Standard tier
+  // Standard / fast tier
   {
-    id: 'gemini-2.5-flash-preview-04-17',
+    id: 'gemini-flash-latest',
     tier: 'standard',
     provider: 'google',
     family: 'gemini',
     vision: true,
-    useCases: ['code generation', 'test writing', 'refactoring', 'prompt engineering'],
+    useCases: ['code generation', 'test writing', 'refactoring', 'prompt engineering', 'boilerplate', 'changelogs', 'simple fixes', 'triage'],
     cost: 3,
     speed: 8,
-    pricing: { inputPerToken: 0.00000015, outputPerToken: 0.0000006 },
-  },
-  {
-    id: 'gemini-2.5-flash',
-    tier: 'standard',
-    provider: 'google',
-    family: 'gemini',
-    vision: true,
-    useCases: ['code generation', 'test writing', 'refactoring'],
-    cost: 3,
-    speed: 8,
-    pricing: { inputPerToken: 0.00000015, outputPerToken: 0.0000006 },
-  },
-
-  // Fast tier
-  {
-    id: 'gemini-2.0-flash',
-    tier: 'fast',
-    provider: 'google',
-    family: 'gemini',
-    vision: true,
-    useCases: ['boilerplate', 'changelogs', 'simple fixes', 'triage'],
-    cost: 1,
-    speed: 10,
-    pricing: { inputPerToken: 0.0000001, outputPerToken: 0.0000004 },
-  },
-  {
-    id: 'gemini-2.0-flash-lite',
-    tier: 'fast',
-    provider: 'google',
-    family: 'gemini',
-    useCases: ['typo fixes', 'renames', 'lightweight tasks'],
-    cost: 1,
-    speed: 10,
-    pricing: { inputPerToken: 0.000000075, outputPerToken: 0.0000003 },
   },
 ];
 
@@ -140,9 +94,9 @@ export const MODEL_CATALOG: ModelInfo[] = [
  * Gemini models are the default — all tiers fall back within the Gemini family.
  */
 export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> = {
-  premium:  ['gemini-2.5-pro-preview-05-06', 'gemini-2.5-pro', 'gemini-2.5-flash-preview-04-17'],
-  standard: ['gemini-2.5-flash-preview-04-17', 'gemini-2.5-flash', 'gemini-2.0-flash'],
-  fast:     ['gemini-2.0-flash', 'gemini-2.0-flash-lite'],
+  premium:  ['gemini-pro-latest', 'gemini-flash-latest'],
+  standard: ['gemini-flash-latest'],
+  fast:     ['gemini-flash-latest'],
 };
 
 /**
@@ -398,14 +352,8 @@ export function estimateCost(model: string, inputTokens: number, outputTokens: n
  * Table source: issue #500
  */
 export const ECONOMY_MODEL_MAP: Record<string, string> = {
-  // Premium → standard downgrade
-  'gemini-2.5-pro-preview-05-06':  'gemini-2.5-flash-preview-04-17',
-  'gemini-2.5-pro':                'gemini-2.5-flash',
-  // Standard → fast downgrade
-  'gemini-2.5-flash-preview-04-17': 'gemini-2.0-flash',
-  'gemini-2.5-flash':               'gemini-2.0-flash',
-  // Fast → cheapest fast
-  'gemini-2.0-flash':               'gemini-2.0-flash-lite',
+  // Premium → flash downgrade
+  'gemini-pro-latest': 'gemini-flash-latest',
 };
 
 /**
@@ -675,6 +623,6 @@ export function resolveModel(options: {
   }
 
   // Layer 4: Default (economy mode applies)
-  const defaultModel = 'gemini-2.5-flash-preview-04-17';
+  const defaultModel = 'gemini-flash-latest';
   return isEconomy ? applyEconomyMode(defaultModel) : defaultModel;
 }
