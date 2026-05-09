@@ -95,7 +95,11 @@ export async function runAuth(args: string[]): Promise<void> {
 
     console.log('Checking Gemini API key...');
     const valid = await validateKey(apiKey);
-    const source = process.env['GEMINI_API_KEY'] ? 'GEMINI_API_KEY env var' : GEMINI_CONFIG_FILE;
+    const source = process.env['SQUAD_GEMINI_KEY_SOURCE']
+      ? process.env['SQUAD_GEMINI_KEY_SOURCE']
+      : process.env['GEMINI_API_KEY']
+        ? 'GEMINI_API_KEY env var'
+        : GEMINI_CONFIG_FILE;
 
     if (valid) {
       console.log(`  Gemini: ✓ authenticated (source: ${source})\n`);

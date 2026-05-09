@@ -10,6 +10,26 @@ export interface ErrorGuidance {
   recovery: string[];
 }
 
+/** Returns true when an error message indicates a missing or invalid Gemini API key. */
+export function isAuthError(message: string): boolean {
+  return /GEMINI_API_KEY.*not set|auth.*setup|api.?key.*not.*set|not.*set.*api.?key/i.test(message)
+    || /Gemini.*authentication failed|authentication failed.*Gemini/i.test(message)
+    || /Gemini API.*returned 40[13]/i.test(message);
+}
+
+/** Gemini API key missing or invalid */
+export function missingApiKeyGuidance(): ErrorGuidance {
+  return {
+    message: 'Gemini API key is not configured. Squad needs a key to run agents.',
+    recovery: [
+      "Run: squad auth setup --provider=gemini --key YOUR_KEY",
+      "Or set env var: export GEMINI_API_KEY=YOUR_KEY",
+      "Get a free key at: https://aistudio.google.com/app/apikey",
+      "Then run: squad auth status  to verify",
+    ],
+  };
+}
+
 /** SDK disconnect / connection errors */
 export function sdkDisconnectGuidance(detail?: string): ErrorGuidance {
   return {
