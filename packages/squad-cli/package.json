@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-cli",
-  "version": "0.9.4-build.12",
+  "version": "0.9.4-build.13",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {
@@ -190,13 +190,13 @@
     "cli"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/DeDuva/squad#readme",
+  "homepage": "https://github.com/bradygaster/squad#readme",
   "bugs": {
-    "url": "https://github.com/DeDuva/squad/issues"
+    "url": "https://github.com/bradygaster/squad/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DeDuva/squad.git",
+    "url": "git+https://github.com/bradygaster/squad.git",
     "directory": "packages/squad-cli"
   },
   "optionalDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-sdk",
-  "version": "0.9.4-build.12",
+  "version": "0.9.4-build.13",
   "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
@@ -264,13 +264,13 @@
     "sdk"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/DeDuva/squad#readme",
+  "homepage": "https://github.com/bradygaster/squad#readme",
   "bugs": {
-    "url": "https://github.com/DeDuva/squad/issues"
+    "url": "https://github.com/bradygaster/squad/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DeDuva/squad.git",
+    "url": "git+https://github.com/bradygaster/squad.git",
     "directory": "packages/squad-sdk"
   }
 }
