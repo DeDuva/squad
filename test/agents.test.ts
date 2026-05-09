@@ -159,28 +159,28 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
     it('should infer premium tier for pro models', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'gemini-2.5-pro-preview-05-06',
+        userOverride: 'gemini-pro-latest',
         taskType: 'visual',
       };
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
+      expect(result.model).toBe('gemini-pro-latest');
       expect(result.tier).toBe('premium');
-      expect(result.fallbackChain).toContain('gemini-2.5-pro');
+      expect(result.fallbackChain).toContain('gemini-flash-latest');
     });
 
-    it('should infer fast tier for flash-lite models', () => {
+    it('should infer standard tier for flash models', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'gemini-2.0-flash',
+        userOverride: 'gemini-flash-latest',
         taskType: 'docs',
       };
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.0-flash');
-      expect(result.tier).toBe('fast');
-      expect(result.fallbackChain).toContain('gemini-2.0-flash-lite');
+      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.tier).toBe('standard');
+      expect(result.fallbackChain).toContain('gemini-flash-latest');
     });
   });
 
@@ -208,7 +208,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       expect(result.source).not.toBe('charter');
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+      expect(result.model).toBe('gemini-flash-latest');
     });
 
     it('should prefer user override over charter', () => {
@@ -233,7 +233,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -245,7 +245,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -257,7 +257,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
+      expect(result.model).toBe('gemini-pro-latest');
       expect(result.tier).toBe('premium');
       expect(result.source).toBe('task-auto');
     });
@@ -269,7 +269,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -281,7 +281,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -293,7 +293,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -310,7 +310,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       // Should fall through to task-auto first
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.tier).toBe('fast');
     });
   });
@@ -318,17 +318,13 @@ describe('Per-Agent Model Selection (M1-9)', () => {
   describe('Fallback Chains', () => {
     it('should provide premium fallback chain', () => {
       const options: ModelResolutionOptions = {
-        userOverride: 'gemini-2.5-pro-preview-05-06',
+        userOverride: 'gemini-pro-latest',
         taskType: 'visual',
       };
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual([
-        'gemini-2.5-pro-preview-05-06',
-        'gemini-2.5-pro',
-        'gemini-2.5-flash-preview-04-17',
-      ]);
+      expect(result.fallbackChain).toEqual(['gemini-pro-latest', 'gemini-flash-latest']);
     });
 
     it('should provide standard fallback chain', () => {
@@ -338,11 +334,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual([
-        'gemini-2.5-flash-preview-04-17',
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-      ]);
+      expect(result.fallbackChain).toEqual(['gemini-flash-latest']);
     });
 
     it('should provide fast fallback chain', () => {
@@ -352,10 +344,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual([
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-lite',
-      ]);
+      expect(result.fallbackChain).toEqual(['gemini-flash-latest']);
     });
   });
 
@@ -414,7 +403,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       const result = resolveModel(options);
 
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+      expect(result.model).toBe('gemini-flash-latest');
     });
 
     it('should include agentRole in context without affecting resolution', () => {
@@ -425,7 +414,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+      expect(result.model).toBe('gemini-flash-latest');
       expect(result.source).toBe('task-auto');
     });
   });

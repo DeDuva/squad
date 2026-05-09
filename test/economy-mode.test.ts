@@ -37,30 +37,22 @@ afterEach(() => {
 // ============================================================================
 
 describe('ECONOMY_MODEL_MAP', () => {
-  it('maps premium Gemini models to standard', () => {
-    expect(ECONOMY_MODEL_MAP['gemini-2.5-pro-preview-05-06']).toBe('gemini-2.5-flash-preview-04-17');
-    expect(ECONOMY_MODEL_MAP['gemini-2.5-pro']).toBe('gemini-2.5-flash');
+  it('maps premium model to flash', () => {
+    expect(ECONOMY_MODEL_MAP['gemini-pro-latest']).toBe('gemini-flash-latest');
   });
 
-  it('maps standard flash models to fast', () => {
-    expect(ECONOMY_MODEL_MAP['gemini-2.5-flash-preview-04-17']).toBe('gemini-2.0-flash');
-    expect(ECONOMY_MODEL_MAP['gemini-2.5-flash']).toBe('gemini-2.0-flash');
-  });
-
-  it('maps fast flash to lite', () => {
-    expect(ECONOMY_MODEL_MAP['gemini-2.0-flash']).toBe('gemini-2.0-flash-lite');
+  it('has no entry for flash (already at base)', () => {
+    expect(ECONOMY_MODEL_MAP['gemini-flash-latest']).toBeUndefined();
   });
 });
 
 describe('applyEconomyMode', () => {
-  it('returns economy model for known Gemini models', () => {
-    expect(applyEconomyMode('gemini-2.5-pro-preview-05-06')).toBe('gemini-2.5-flash-preview-04-17');
-    expect(applyEconomyMode('gemini-2.5-flash-preview-04-17')).toBe('gemini-2.0-flash');
-    expect(applyEconomyMode('gemini-2.0-flash')).toBe('gemini-2.0-flash-lite');
+  it('downgrades pro to flash', () => {
+    expect(applyEconomyMode('gemini-pro-latest')).toBe('gemini-flash-latest');
   });
 
   it('returns original model when no economy mapping exists', () => {
-    expect(applyEconomyMode('gemini-2.0-flash-lite')).toBe('gemini-2.0-flash-lite');
+    expect(applyEconomyMode('gemini-flash-latest')).toBe('gemini-flash-latest');
     expect(applyEconomyMode('unknown-model-xyz')).toBe('unknown-model-xyz');
   });
 });
@@ -122,11 +114,11 @@ describe('writeEconomyMode', () => {
   it('merges with existing config without clobbering other fields', () => {
     writeFileSync(
       join(squadDir, 'config.json'),
-      JSON.stringify({ version: 1, defaultModel: 'gemini-2.5-pro-preview-05-06' })
+      JSON.stringify({ version: 1, defaultModel: 'gemini-pro-latest' })
     );
     writeEconomyMode(squadDir, true);
     const raw = JSON.parse(readFileSync(join(squadDir, 'config.json'), 'utf-8'));
-    expect(raw.defaultModel).toBe('gemini-2.5-pro-preview-05-06');
+    expect(raw.defaultModel).toBe('gemini-pro-latest');
     expect(raw.economyMode).toBe(true);
   });
 
@@ -147,46 +139,42 @@ describe('writeEconomyMode', () => {
 // ============================================================================
 
 describe('resolveModel economy mode (option)', () => {
-  it('Layer 4 default: uses gemini-2.0-flash instead of standard when economyMode: true', () => {
-    expect(resolveModel({ economyMode: true })).toBe('gemini-2.0-flash');
+  it('Layer 4 default: uses gemini-flash-latest regardless of economy mode', () => {
+    expect(resolveModel({ economyMode: true })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 4 default: uses gemini-2.5-flash-preview-04-17 when economyMode: false', () => {
-    expect(resolveModel({ economyMode: false })).toBe('gemini-2.5-flash-preview-04-17');
+  it('Layer 4 default: uses gemini-flash-latest when economyMode: false', () => {
+    expect(resolveModel({ economyMode: false })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 3 standard task: downgrades to fast when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'gemini-2.5-flash-preview-04-17', economyMode: true })).toBe('gemini-2.0-flash');
+  it('Layer 3 flash task: stays gemini-flash-latest when economyMode: true (no cheaper option)', () => {
+    expect(resolveModel({ taskModel: 'gemini-flash-latest', economyMode: true })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 3 premium task: downgrades to standard when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'gemini-2.5-pro-preview-05-06', economyMode: true })).toBe('gemini-2.5-flash-preview-04-17');
-  });
-
-  it('Layer 3 fast task: downgrades to lite when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'gemini-2.0-flash', economyMode: true })).toBe('gemini-2.0-flash-lite');
+  it('Layer 3 premium task: downgrades to flash when economyMode: true', () => {
+    expect(resolveModel({ taskModel: 'gemini-pro-latest', economyMode: true })).toBe('gemini-flash-latest');
   });
 
   it('Layer 2 charter preference: NOT overridden by economy mode', () => {
     expect(
-      resolveModel({ charterPreference: 'gemini-2.5-pro-preview-05-06', economyMode: true })
-    ).toBe('gemini-2.5-pro-preview-05-06');
+      resolveModel({ charterPreference: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 1 session directive: NOT overridden by economy mode', () => {
     expect(
-      resolveModel({ sessionDirective: 'gemini-2.5-pro-preview-05-06', economyMode: true })
-    ).toBe('gemini-2.5-pro-preview-05-06');
+      resolveModel({ sessionDirective: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 0b global config: NOT overridden by economy mode', () => {
     writeFileSync(
       join(squadDir, 'config.json'),
-      JSON.stringify({ version: 1, defaultModel: 'gemini-2.5-pro-preview-05-06' })
+      JSON.stringify({ version: 1, defaultModel: 'gemini-pro-latest' })
     );
     expect(
-      resolveModel({ squadDir, taskModel: 'gemini-2.5-flash-preview-04-17', economyMode: true })
-    ).toBe('gemini-2.5-pro-preview-05-06');
+      resolveModel({ squadDir, taskModel: 'gemini-flash-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 0a per-agent override: NOT overridden by economy mode', () => {
@@ -194,12 +182,12 @@ describe('resolveModel economy mode (option)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({
         version: 1,
-        agentModelOverrides: { eecom: 'gemini-2.5-pro-preview-05-06' },
+        agentModelOverrides: { eecom: 'gemini-pro-latest' },
       })
     );
     expect(
-      resolveModel({ agentName: 'eecom', squadDir, taskModel: 'gemini-2.0-flash', economyMode: true })
-    ).toBe('gemini-2.5-pro-preview-05-06');
+      resolveModel({ agentName: 'eecom', squadDir, taskModel: 'gemini-flash-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 });
 
@@ -213,7 +201,7 @@ describe('resolveModel economy mode (from config)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({ version: 1, economyMode: true })
     );
-    expect(resolveModel({ squadDir, taskModel: 'gemini-2.5-flash-preview-04-17' })).toBe('gemini-2.0-flash');
+    expect(resolveModel({ squadDir, taskModel: 'gemini-pro-latest' })).toBe('gemini-flash-latest');
   });
 
   it('uses normal model when economyMode absent from config', () => {
@@ -221,7 +209,7 @@ describe('resolveModel economy mode (from config)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({ version: 1 })
     );
-    expect(resolveModel({ squadDir, taskModel: 'gemini-2.5-flash-preview-04-17' })).toBe('gemini-2.5-flash-preview-04-17');
+    expect(resolveModel({ squadDir, taskModel: 'gemini-pro-latest' })).toBe('gemini-pro-latest');
   });
 
   it('explicit economyMode option overrides config setting', () => {
@@ -231,8 +219,8 @@ describe('resolveModel economy mode (from config)', () => {
     );
     // Option says true, config says false → option wins
     expect(
-      resolveModel({ squadDir, taskModel: 'gemini-2.5-flash-preview-04-17', economyMode: true })
-    ).toBe('gemini-2.0-flash');
+      resolveModel({ squadDir, taskModel: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-flash-latest');
   });
 });
 
@@ -241,49 +229,49 @@ describe('resolveModel economy mode (from config)', () => {
 // ============================================================================
 
 describe('SDK resolveModel (agents) economy mode', () => {
-  it('code task → gemini-2.0-flash when economyMode: true', () => {
+  it('code task → gemini-flash-latest when economyMode: true (no cheaper option)', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: true });
-    expect(result.model).toBe('gemini-2.0-flash');
+    expect(result.model).toBe('gemini-flash-latest');
     expect(result.source).toBe('task-auto');
   });
 
-  it('docs task → gemini-2.0-flash-lite when economyMode: true', () => {
+  it('docs task → gemini-flash-latest when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'docs', economyMode: true });
-    expect(result.model).toBe('gemini-2.0-flash-lite');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('mechanical task → gemini-2.0-flash-lite when economyMode: true', () => {
+  it('mechanical task → gemini-flash-latest when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'mechanical', economyMode: true });
-    expect(result.model).toBe('gemini-2.0-flash-lite');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('visual task → gemini-2.5-flash-preview-04-17 when economyMode: true', () => {
+  it('visual task → gemini-flash-latest when economyMode: true (pro → flash)', () => {
     const result = sdkResolveModel({ taskType: 'visual', economyMode: true });
-    expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('code task → gemini-2.5-flash-preview-04-17 when economyMode: false', () => {
+  it('code task → gemini-flash-latest when economyMode: false', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: false });
-    expect(result.model).toBe('gemini-2.5-flash-preview-04-17');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
   it('user override NOT affected by economy mode', () => {
     const result = sdkResolveModel({
       taskType: 'code',
-      userOverride: 'gemini-2.5-pro-preview-05-06',
+      userOverride: 'gemini-pro-latest',
       economyMode: true,
     });
-    expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
+    expect(result.model).toBe('gemini-pro-latest');
     expect(result.source).toBe('user-override');
   });
 
   it('charter preference NOT affected by economy mode', () => {
     const result = sdkResolveModel({
       taskType: 'code',
-      charterPreference: 'gemini-2.5-pro-preview-05-06',
+      charterPreference: 'gemini-pro-latest',
       economyMode: true,
     });
-    expect(result.model).toBe('gemini-2.5-pro-preview-05-06');
+    expect(result.model).toBe('gemini-pro-latest');
     expect(result.source).toBe('charter');
   });
 });

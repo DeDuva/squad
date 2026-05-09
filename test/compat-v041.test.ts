@@ -235,7 +235,7 @@ describe('Compat v0.4.1: Config Path Equivalence', () => {
 
   it('DEFAULT_CONFIG has expected shape', () => {
     expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-    expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-2.5-flash-preview-04-17');
+    expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-flash-latest');
     expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
     expect(DEFAULT_CONFIG.routing.rules.length).toBeGreaterThanOrEqual(1);
     expect(DEFAULT_CONFIG.casting?.allowlistUniverses).toBeDefined();
@@ -454,36 +454,28 @@ describe('Compat v0.4.1: Event Bus Shape', () => {
 
 describe('Compat v0.4.1: Model Catalog', () => {
   it('catalog contains expected premium models', () => {
-    expect(isModelAvailable('gemini-2.5-pro-preview-05-06')).toBe(true);
-    expect(isModelAvailable('gemini-2.5-pro')).toBe(true);
+    expect(isModelAvailable('gemini-pro-latest')).toBe(true);
   });
 
-  it('catalog contains expected standard models', () => {
-    expect(isModelAvailable('gemini-2.5-flash-preview-04-17')).toBe(true);
-    expect(isModelAvailable('gemini-2.5-flash')).toBe(true);
-  });
-
-  it('catalog contains expected fast models', () => {
-    expect(isModelAvailable('gemini-2.0-flash')).toBe(true);
-    expect(isModelAvailable('gemini-2.0-flash-lite')).toBe(true);
+  it('catalog contains expected flash model', () => {
+    expect(isModelAvailable('gemini-flash-latest')).toBe(true);
   });
 
   it('premium fallback chain starts with gemini pro', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-2.5-pro-preview-05-06');
+    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-pro-latest');
   });
 
   it('standard fallback chain starts with gemini flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-2.5-flash-preview-04-17');
+    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-flash-latest');
   });
 
-  it('fast fallback chain starts with gemini 2.0 flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-2.0-flash');
+  it('fast fallback chain starts with gemini flash', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-flash-latest');
   });
 
   it('getModelInfo returns correct tier for known models', () => {
-    expect(getModelInfo('gemini-2.5-pro-preview-05-06')!.tier).toBe('premium');
-    expect(getModelInfo('gemini-2.5-flash-preview-04-17')!.tier).toBe('standard');
-    expect(getModelInfo('gemini-2.0-flash')!.tier).toBe('fast');
+    expect(getModelInfo('gemini-pro-latest')!.tier).toBe('premium');
+    expect(getModelInfo('gemini-flash-latest')!.tier).toBe('standard');
   });
 });
 

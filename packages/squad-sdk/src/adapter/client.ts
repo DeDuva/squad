@@ -66,7 +66,7 @@ export interface SquadClientOptions {
  * const client = new SquadClient();
  * await client.connect();
  *
- * const session = await client.createSession({ model: 'gemini-2.5-pro-preview-05-06' });
+ * const session = await client.createSession({ model: 'gemini-pro-latest' });
  * await client.sendMessage(session, { prompt: 'Hello!' });
  *
  * await client.disconnect();

@@ -11,34 +11,23 @@
 
 export const MODELS = {
   /** Default model for config files and new projects (env-overridable) */
-  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? 'gemini-2.5-flash-preview-04-17',
+  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? 'gemini-flash-latest',
 
   /** Default model for model-selector Layer 4 */
-  SELECTOR_DEFAULT: 'gemini-2.5-flash-preview-04-17',
+  SELECTOR_DEFAULT: 'gemini-flash-latest',
 
   /** Default tier for the model-selector Layer 4 fallback */
   SELECTOR_DEFAULT_TIER: 'standard',
 
   /** Fallback chains by tier — ordered by preference */
   FALLBACK_CHAINS: {
-    premium: [
-      'gemini-2.5-pro-preview-05-06',
-      'gemini-2.5-pro',
-      'gemini-2.5-flash-preview-04-17',
-    ],
-    standard: [
-      'gemini-2.5-flash-preview-04-17',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-    ],
-    fast: [
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-    ],
+    premium: ['gemini-pro-latest', 'gemini-flash-latest'],
+    standard: ['gemini-flash-latest'],
+    fast: ['gemini-flash-latest'],
   },
 
   /** Nuclear fallback model when all chains are exhausted */
-  NUCLEAR_FALLBACK: 'gemini-2.0-flash',
+  NUCLEAR_FALLBACK: 'gemini-flash-latest',
 
   /** Maximum retries before nuclear fallback engages */
   NUCLEAR_MAX_RETRIES: 3,

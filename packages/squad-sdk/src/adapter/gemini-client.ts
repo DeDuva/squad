@@ -30,6 +30,7 @@ import type {
 
 interface GeminiPart {
   text?: string;
+  thought?: boolean;
   functionCall?: { name: string; args: Record<string, unknown> };
   functionResponse?: { name: string; response: { content: unknown } };
 }
@@ -61,6 +62,11 @@ interface GeminiRequest {
 }
 
 interface GeminiResponseChunk {
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
   candidates?: Array<{
     content?: {
       parts?: GeminiPart[];
@@ -79,15 +85,21 @@ interface GeminiResponseChunk {
 // SSE reader — parses `data: {...}` lines from a ReadableStream<Uint8Array>
 // ---------------------------------------------------------------------------
 
+const DEBUG_GEMINI = process.env['SQUAD_DEBUG_GEMINI'] === '1';
+
 async function* readSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<GeminiResponseChunk> {
   const decoder = new TextDecoder();
   const reader = body.getReader();
   let buffer = '';
+  let chunkIndex = 0;
 
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        if (DEBUG_GEMINI) process.stderr.write(`[gemini-debug] SSE stream done after ${chunkIndex} chunks\n`);
+        break;
+      }
       buffer += decoder.decode(value, { stream: true });
 
       const lines = buffer.split('\n');
@@ -95,13 +107,17 @@ async function* readSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<Gemini
 
       for (const line of lines) {
         const trimmed = line.trim();
+        if (DEBUG_GEMINI && trimmed) process.stderr.write(`[gemini-debug] raw line: ${trimmed}\n`);
         if (!trimmed.startsWith('data:')) continue;
         const json = trimmed.slice(5).trim();
         if (!json || json === '[DONE]') continue;
         try {
-          yield JSON.parse(json) as GeminiResponseChunk;
+          const parsed = JSON.parse(json) as GeminiResponseChunk;
+          if (DEBUG_GEMINI) process.stderr.write(`[gemini-debug] chunk[${chunkIndex}]: ${JSON.stringify(parsed)}\n`);
+          chunkIndex++;
+          yield parsed;
         } catch {
-          // malformed chunk — skip
+          if (DEBUG_GEMINI) process.stderr.write(`[gemini-debug] malformed chunk: ${json}\n`);
         }
       }
     }
@@ -179,7 +195,7 @@ export class GeminiSession implements SquadSession {
   ) {
     this.sessionId = config.sessionId ?? randomUUID();
     this.apiKey = apiKey;
-    this.model = config.model ?? 'gemini-2.5-pro-preview-05-06';
+    this.model = config.model ?? 'gemini-flash-latest';
     this.tools = config.tools ?? [];
 
     // System message
@@ -250,7 +266,9 @@ export class GeminiSession implements SquadSession {
         ? { systemInstruction: { parts: [{ text: this.systemPrompt }] } }
         : {}),
       ...(this.tools.length > 0 ? { tools: toGeminiTools(this.tools) } : {}),
-      ...(this.thinkingBudget !== undefined
+      // Only send thinkingConfig when a budget is explicitly requested.
+      // gemini-pro-latest rejects thinkingBudget=0 ("only works in thinking mode").
+      ...(this.thinkingBudget
         ? { generationConfig: { thinkingConfig: { thinkingBudget: this.thinkingBudget } } }
         : {}),
     };
@@ -296,11 +314,15 @@ export class GeminiSession implements SquadSession {
 
     try {
       for await (const chunk of readSSE(response.body)) {
+        if (chunk.error) {
+          throw new Error(`Gemini API error ${chunk.error.code}: ${JSON.stringify(chunk.error)}`);
+        }
+
         const candidate = chunk.candidates?.[0];
         const parts = candidate?.content?.parts ?? [];
 
         for (const part of parts) {
-          if (part.text !== undefined) {
+          if (part.text !== undefined && !part.thought) {
             modelParts.push({ text: part.text });
             this.emit({ type: 'message_delta', text: part.text });
           }

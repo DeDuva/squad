@@ -67,8 +67,8 @@ export interface SquadClientWithPoolConfig extends SquadClientOptions {
  *
  * await client.connect();
  *
- * const session1 = await client.createSession({ model: 'gemini-2.5-pro-preview-05-06' });
- * const session2 = await client.createSession({ model: 'gemini-2.5-flash-preview-04-17' });
+ * const session1 = await client.createSession({ model: 'gemini-pro-latest' });
+ * const session2 = await client.createSession({ model: 'gemini-flash-latest' });
  * 
  * client.eventBus.on('session.created', (event) => {
  *   console.log('New session:', event.sessionId);

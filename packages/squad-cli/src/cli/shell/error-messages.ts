@@ -82,6 +82,9 @@ function formatDuration(seconds: number): string {
 export function extractRetryAfter(message: string): number | undefined {
   const secMatch = message.match(/retry.{0,15}after\s+(\d+)\s*second/i);
   if (secMatch) return parseInt(secMatch[1]!, 10);
+  // Gemini format: "Please retry in 58.65464692s."
+  const geminiSecMatch = message.match(/retry\s+in\s+(\d+(?:\.\d+)?)s/i);
+  if (geminiSecMatch) return Math.ceil(parseFloat(geminiSecMatch[1]!));
   const hrMatch = message.match(/(?:try again|retry).{0,20}in\s+(\d+)\s*hour/i);
   if (hrMatch) return parseInt(hrMatch[1]!, 10) * 3600;
   const minMatch = message.match(/(?:try again|retry).{0,20}in\s+(\d+)\s*minute/i);
@@ -96,11 +99,11 @@ export function rateLimitGuidance(opts?: { retryAfter?: number; model?: string }
     ? `Try again in ${formatDuration(opts.retryAfter)}`
     : 'Try again later when the limit resets';
   return {
-    message: `Rate limit reached${modelStr}. Copilot has temporarily throttled your requests.`,
+    message: `Rate limit reached${modelStr}. The Gemini free tier allows 20 requests/day per model.`,
     recovery: [
       retryStr,
-      'Enable economy mode to switch to cheaper models: `squad economy on`',
-      'Or set a different model: add `"defaultModel": "gpt-4.1"` to .squad/config.json',
+      'Enable economy mode to reduce requests: `squad economy on`',
+      'Upgrade to a paid Gemini API key at: https://aistudio.google.com/app/apikey',
     ],
   };
 }

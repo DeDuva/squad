@@ -82,7 +82,7 @@ describe('Squad Initialization', () => {
       const configContent = await readFile(result.configPath, 'utf-8');
       const parsed = JSON.parse(configContent);
       expect(parsed.version).toBe('1.0.0');
-      expect(parsed.models.defaultModel).toBe('gemini-2.5-flash-preview-04-17');
+      expect(parsed.models.defaultModel).toBe('gemini-flash-latest');
       expect(parsed.routing.rules).toHaveLength(4);
     });
 

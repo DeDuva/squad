@@ -114,21 +114,21 @@ function selectModelForTask(taskType: TaskType, economyMode?: boolean): Resolved
 
   switch (taskType) {
     case 'code':
-      model = 'gemini-2.5-flash-preview-04-17';
+      model = 'gemini-flash-latest';
       tier = 'standard';
       break;
     case 'prompt':
-      model = 'gemini-2.5-flash-preview-04-17';
+      model = 'gemini-flash-latest';
       tier = 'standard';
       break;
     case 'visual':
-      model = 'gemini-2.5-pro-preview-05-06';
+      model = 'gemini-pro-latest';
       tier = 'premium';
       break;
     case 'docs':
     case 'planning':
     case 'mechanical':
-      model = 'gemini-2.0-flash';
+      model = 'gemini-flash-latest';
       tier = 'fast';
       break;
     default:

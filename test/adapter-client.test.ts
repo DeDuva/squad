@@ -70,7 +70,7 @@ describe('SquadClient — Session Management', () => {
   it('creates a session when connected', async () => {
     const client = new SquadClient({ geminiApiKey: 'test-key' });
     await client.connect();
-    const session = await client.createSession({ model: 'gemini-2.5-pro-preview-05-06' });
+    const session = await client.createSession({ model: 'gemini-pro-latest' });
     expect(session).toBeDefined();
     expect(session.sessionId).toBe('session-1');
   });
