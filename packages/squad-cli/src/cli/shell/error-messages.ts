@@ -10,6 +10,26 @@ export interface ErrorGuidance {
   recovery: string[];
 }
 
+/** Returns true when an error message indicates a missing or invalid Gemini API key. */
+export function isAuthError(message: string): boolean {
+  return /GEMINI_API_KEY.*not set|auth.*setup|api.?key.*not.*set|not.*set.*api.?key/i.test(message)
+    || /Gemini.*authentication failed|authentication failed.*Gemini/i.test(message)
+    || /Gemini API.*returned 40[13]/i.test(message);
+}
+
+/** Gemini API key missing or invalid */
+export function missingApiKeyGuidance(): ErrorGuidance {
+  return {
+    message: 'Gemini API key is not configured. Squad needs a key to run agents.',
+    recovery: [
+      "Run: squad auth setup --provider=gemini --key YOUR_KEY",
+      "Or set env var: export GEMINI_API_KEY=YOUR_KEY",
+      "Get a free key at: https://aistudio.google.com/app/apikey",
+      "Then run: squad auth status  to verify",
+    ],
+  };
+}
+
 /** SDK disconnect / connection errors */
 export function sdkDisconnectGuidance(detail?: string): ErrorGuidance {
   return {
@@ -62,6 +82,9 @@ function formatDuration(seconds: number): string {
 export function extractRetryAfter(message: string): number | undefined {
   const secMatch = message.match(/retry.{0,15}after\s+(\d+)\s*second/i);
   if (secMatch) return parseInt(secMatch[1]!, 10);
+  // Gemini format: "Please retry in 58.65464692s."
+  const geminiSecMatch = message.match(/retry\s+in\s+(\d+(?:\.\d+)?)s/i);
+  if (geminiSecMatch) return Math.ceil(parseFloat(geminiSecMatch[1]!));
   const hrMatch = message.match(/(?:try again|retry).{0,20}in\s+(\d+)\s*hour/i);
   if (hrMatch) return parseInt(hrMatch[1]!, 10) * 3600;
   const minMatch = message.match(/(?:try again|retry).{0,20}in\s+(\d+)\s*minute/i);
@@ -76,11 +99,11 @@ export function rateLimitGuidance(opts?: { retryAfter?: number; model?: string }
     ? `Try again in ${formatDuration(opts.retryAfter)}`
     : 'Try again later when the limit resets';
   return {
-    message: `Rate limit reached${modelStr}. Copilot has temporarily throttled your requests.`,
+    message: `Rate limit reached${modelStr}. The Gemini free tier allows 20 requests/day per model.`,
     recovery: [
       retryStr,
-      'Enable economy mode to switch to cheaper models: `squad economy on`',
-      'Or set a different model: add `"defaultModel": "gpt-4.1"` to .squad/config.json',
+      'Enable economy mode to reduce requests: `squad economy on`',
+      'Upgrade to a paid Gemini API key at: https://aistudio.google.com/app/apikey',
     ],
   };
 }

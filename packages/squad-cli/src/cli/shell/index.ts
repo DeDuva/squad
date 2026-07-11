@@ -29,7 +29,7 @@ import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, 
 import { loadAgentCharter, buildAgentPrompt } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
-import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance } from './error-messages.js';
+import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance, isAuthError, missingApiKeyGuidance } from './error-messages.js';
 import { parseCastResponse, createTeam, formatCastSummary, augmentWithCastingEngine, type CastProposal } from '../core/cast.js';
 
 export { SessionRegistry } from './sessions.js';
@@ -67,6 +67,8 @@ export {
   timeoutGuidance,
   unknownCommandGuidance,
   formatGuidance,
+  isAuthError,
+  missingApiKeyGuidance,
 } from './error-messages.js';
 export type { ErrorGuidance } from './error-messages.js';
 export {
@@ -249,7 +251,7 @@ export async function runShell(): Promise<void> {
   }
 
   // Create SDK client (auto-connects on first session creation)
-  const client = new SquadClient({ cwd: teamRoot });
+  const client = new SquadClient();
 
   let shellApi: ShellApi | undefined;
   let origAddMessage: ((msg: ShellMessage) => void) | undefined;
@@ -272,8 +274,18 @@ export async function runShell(): Promise<void> {
       });
       debugLog('eager warm-up: coordinator session ready');
     } catch (err) {
-      debugLog('eager warm-up failed (non-fatal, will retry on first dispatch):', err);
-      // Non-fatal — first dispatch will create the session as before
+      const errMsg = err instanceof Error ? err.message : String(err);
+      debugLog('eager warm-up failed:', errMsg);
+      if (isAuthError(errMsg)) {
+        // Auth errors surface immediately — user cannot proceed without a key
+        const guidance = missingApiKeyGuidance();
+        shellApi?.addMessage({
+          role: 'system',
+          content: formatGuidance(guidance),
+          timestamp: new Date(),
+        });
+      }
+      // Non-fatal for other errors — first dispatch will retry session creation
     }
   })();
 
@@ -308,7 +320,7 @@ export async function runShell(): Promise<void> {
 
   /** Extract text delta from an SDK session event. */
   function extractDelta(event: { type: string; [key: string]: unknown }): string {
-    const val = event['deltaContent'] ?? event['delta'] ?? event['content'];
+    const val = event['deltaContent'] ?? event['delta'] ?? event['content'] ?? event['text'];
     const result = typeof val === 'string' ? val : '';
     debugLog('extractDelta', { type: event['type'], keys: Object.keys(event), hasDeltaContent: 'deltaContent' in event, result: result.slice(0, 80) });
     return result;
@@ -965,11 +977,22 @@ export async function runShell(): Promise<void> {
     } catch (err) {
       debugLog('handleInitCast error:', err);
       recordShellError('init_cast', err instanceof Error ? err.constructor.name : 'unknown');
-      shellApi?.addMessage({
-        role: 'system',
-        content: `⚠ Team casting failed: ${err instanceof Error ? err.message : String(err)}\nTry again or edit .squad/team.md directly.`,
-        timestamp: new Date(),
-      });
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const isRateLimit =
+        err instanceof RateLimitError ||
+        /rate.?limit|quota.*exceed|429|RESOURCE_EXHAUSTED/i.test(errorMsg);
+      let content: string;
+      if (isRateLimit) {
+        const retryAfter =
+          err instanceof RateLimitError ? err.retryAfter : extractRetryAfter(errorMsg);
+        const model = err instanceof RateLimitError ? err.context.model : undefined;
+        content = formatGuidance(rateLimitGuidance({ retryAfter, model }));
+      } else if (isAuthError(errorMsg)) {
+        content = formatGuidance(missingApiKeyGuidance());
+      } else {
+        content = `⚠ Team casting failed: ${errorMsg}\nTry again or edit .squad/team.md directly.`;
+      }
+      shellApi?.addMessage({ role: 'system', content, timestamp: new Date() });
     } finally {
       if (initSession) {
         try { await initSession.close?.(); } catch { /* ignore */ }
@@ -1068,11 +1091,22 @@ export async function runShell(): Promise<void> {
         } catch (err) {
           debugLog('finalizeCast error:', err);
           recordShellError('init_cast', err instanceof Error ? err.constructor.name : 'unknown');
-          shellApi?.addMessage({
-            role: 'system',
-            content: `⚠ Team casting failed: ${err instanceof Error ? err.message : String(err)}\nTry again or edit .squad/team.md directly.`,
-            timestamp: new Date(),
-          });
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          const isRateLimit =
+            err instanceof RateLimitError ||
+            /rate.?limit|quota.*exceed|429|RESOURCE_EXHAUSTED/i.test(errorMsg);
+          let content: string;
+          if (isRateLimit) {
+            const retryAfter =
+              err instanceof RateLimitError ? err.retryAfter : extractRetryAfter(errorMsg);
+            const model = err instanceof RateLimitError ? err.context.model : undefined;
+            content = formatGuidance(rateLimitGuidance({ retryAfter, model }));
+          } else if (isAuthError(errorMsg)) {
+            content = formatGuidance(missingApiKeyGuidance());
+          } else {
+            content = `⚠ Team casting failed: ${errorMsg}\nTry again or edit .squad/team.md directly.`;
+          }
+          shellApi?.addMessage({ role: 'system', content, timestamp: new Date() });
         }
       } else {
         shellApi?.addMessage({
@@ -1178,6 +1212,8 @@ export async function runShell(): Promise<void> {
               }),
             );
           } catch { /* non-fatal */ }
+        } else if (isAuthError(errorMsg)) {
+          guidance = missingApiKeyGuidance();
         } else if (process.env['SQUAD_DEBUG'] === '1') {
           const friendly = errorMsg.replace(/^Error:\s*/i, '');
           guidance = genericGuidance(friendly);
