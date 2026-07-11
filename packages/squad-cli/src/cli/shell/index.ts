@@ -19,6 +19,7 @@ import { ShellLifecycle, loadWelcomeData } from './lifecycle.js';
 import { SquadClient } from '@deduvafork/squad-sdk/client';
 import type { SquadSession } from '@deduvafork/squad-sdk/client';
 import type { SquadPermissionHandler } from '@deduvafork/squad-sdk/client';
+import type { SquadPreToolUseHandler } from '@deduvafork/squad-sdk/adapter';
 import { RateLimitError } from '@deduvafork/squad-sdk/adapter/errors';
 import type { ShellMessage } from './types.js';
 import { FSStorageProvider, initSquadTelemetry, TIMEOUTS, StreamingPipeline, recordAgentSpawn, recordAgentDuration, recordAgentError, recordAgentDestroy, RuntimeEventBus, resolveSquad, resolveGlobalSquadPath, loadDirConfig, resolveExternalStateDir } from '@deduvafork/squad-sdk';
@@ -26,7 +27,7 @@ import type { UsageEvent } from '@deduvafork/squad-sdk';
 import { enableShellMetrics, recordShellSessionDuration, recordAgentResponseLatency, recordShellError } from './shell-metrics.js';
 import { parseAgentFromDescription } from './agent-name-parser.js';
 import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, hasRosterEntries } from './coordinator.js';
-import { loadAgentCharter, buildAgentPrompt } from './spawn.js';
+import { loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
 import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance, isAuthError, missingApiKeyGuidance } from './error-messages.js';
@@ -38,7 +39,7 @@ export type { StreamBridgeOptions } from './stream-bridge.js';
 export { ShellRenderer } from './render.js';
 export { ShellLifecycle } from './lifecycle.js';
 export type { LifecycleOptions, DiscoveredAgent } from './lifecycle.js';
-export { spawnAgent, loadAgentCharter, buildAgentPrompt } from './spawn.js';
+export { spawnAgent, loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
 export type { SpawnOptions, SpawnResult, ToolDefinition } from './spawn.js';
 export { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, formatConversationContext, hasRosterEntries } from './coordinator.js';
 export type { CoordinatorConfig, RoutingDecision } from './coordinator.js';
@@ -260,6 +261,29 @@ export async function runShell(): Promise<void> {
   let activeInitSession: SquadSession | null = null;
   let pendingCastConfirmation: { proposal: CastProposal; parsed: ParsedInput } | null = null;
 
+  /**
+   * Surface tool activity (workstation_bash, file reads/writes, etc.) to the
+   * user as it happens. Squad's CLI trust model auto-approves tool calls
+   * (see approveAllPermissions above) rather than gating each one — this
+   * hook trades blocking confirmation for visibility instead, so the user
+   * can see what an agent is doing without stopping to approve every call.
+   */
+  const reportToolUse: SquadPreToolUseHandler = (input) => {
+    const argsPreview = (() => {
+      try {
+        const json = JSON.stringify(input.toolArgs);
+        return json && json.length > 0 ? json.slice(0, 160) : '';
+      } catch {
+        return '';
+      }
+    })();
+    shellApi?.addMessage({
+      role: 'system',
+      content: `🔧 ${input.toolName}${argsPreview ? ` ${argsPreview}` : ''}`,
+      timestamp: new Date(),
+    });
+  };
+
   // Eager SDK warm-up — start coordinator session before user's first message
   // This runs in background so UI renders immediately
   (async () => {
@@ -428,6 +452,8 @@ export async function runShell(): Promise<void> {
         systemMessage: { mode: 'append', content: systemPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,
+        tools: buildAgentTools(teamRoot),
+        hooks: { onPreToolUse: reportToolUse },
       });
       agentSessions.set(agentName, session);
     }
