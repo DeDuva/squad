@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git switch -c dev origin/dev)",
+      "PowerShell(git diff --dirstat=files,1 7490df934..HEAD; echo '--- file count ---'; \\(git diff --name-only 7490df934..HEAD | Measure-Object -Line\\).Lines)",
+      "PowerShell($forkFiles = git diff --name-only 7490df934..origin/dev; $upFiles = git diff --name-only 7490df934..upstream/main; $overlap = Compare-Object $forkFiles $upFiles -IncludeEqual -ExcludeDifferent | ForEach-Object {$_.InputObject}; \"fork changed: $\\($forkFiles.Count\\)\"; \"upstream changed: $\\($upFiles.Count\\)\"; \"overlap \\(both changed\\): $\\($overlap.Count\\)\"; echo '--- overlap by area ---'; $overlap | ForEach-Object { \\($_ -split '/'\\)[0..1] -join '/' } | Group-Object | Sort-Object Count -Descending | Select-Object -First 15 Count,Name)"
+    ]
+  }
+}

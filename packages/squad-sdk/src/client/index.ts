@@ -163,25 +163,6 @@ export class SquadClientWithPool {
   }
   
   /**
-   * Resume an existing session and add it to the pool if not present.
-   */
-  async resumeSession(sessionId: string, config: SquadSessionConfig = {}): Promise<SquadSession> {
-    const session = await this.baseClient.resumeSession(sessionId, config);
-    
-    if (!this.pool.get(sessionId)) {
-      const poolSession = {
-        id: session.sessionId,
-        agentName: config.model ?? 'resumed',
-        status: 'active' as const,
-        createdAt: new Date(),
-      };
-      this.pool.add(poolSession);
-    }
-    
-    return session;
-  }
-  
-  /**
    * Delete a session and remove it from the pool.
    */
   async deleteSession(sessionId: string): Promise<void> {

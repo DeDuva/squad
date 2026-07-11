@@ -13,8 +13,7 @@
 // ============================================================================
 
 /**
- * Configuration for creating a Squad session.
- * Wraps and stabilizes the Copilot SDK SessionConfig type.
+ * Configuration for creating a Gemini-backed Squad session.
  */
 export interface SquadSessionConfig {
   /**
@@ -74,7 +73,7 @@ export interface SquadSessionConfig {
 
   /**
    * Custom provider configuration (BYOK - Bring Your Own Key).
-   * When specified, uses the provided API endpoint instead of Copilot API.
+   * Custom provider endpoint configuration (BYOK — Bring Your Own Key).
    */
   provider?: SquadProviderConfig;
 
@@ -114,6 +113,13 @@ export interface SquadSessionConfig {
    * Keys are server names, values are server configurations.
    */
   mcpServers?: Record<string, SquadMCPServerConfig>;
+
+  /**
+   * Maximum number of sequential tool-call rounds before throwing.
+   * Prevents infinite loops when a tool keeps returning function calls.
+   * @default 10
+   */
+  maxToolCallRounds?: number;
 
   /**
    * Custom agent configurations for the session.
