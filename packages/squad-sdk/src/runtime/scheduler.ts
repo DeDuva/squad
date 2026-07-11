@@ -409,6 +409,23 @@ export function validateTaskRef(ref: string): void {
   }
 }
 
+/**
+ * Split a task ref into argv, honoring double-quoted segments so a path
+ * containing spaces (e.g. Windows' "C:\Program Files\nodejs\node.exe") is
+ * kept as a single token instead of being split apart. This is a plain
+ * tokenizer, not a shell — no shell metacharacters are interpreted, which is
+ * what keeps `execFile(..., { shell: false })` injection-safe.
+ */
+export function tokenizeTaskRef(ref: string): string[] {
+  const tokens: string[] = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(ref)) !== null) {
+    tokens.push(match[1] ?? match[2]!);
+  }
+  return tokens;
+}
+
 // ============================================================================
 // Task Execution
 // ============================================================================
@@ -487,7 +504,7 @@ export class LocalPollingProvider implements ScheduleProvider {
         // loop and OpenTelemetry exporters.
         try {
           validateTaskRef(entry.task.ref);
-          const argv = entry.task.ref.trim().split(/\s+/);
+          const argv = tokenizeTaskRef(entry.task.ref.trim());
           const command = argv[0]!;
           const args = argv.slice(1);
           const { stdout } = await execFileAsync(command, args, {

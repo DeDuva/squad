@@ -9,8 +9,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { SquadConfig, AgentConfig } from '@bradygaster/squad-sdk/config';
-import { defineConfig, validateConfig } from '@bradygaster/squad-sdk/config';
+import type { SquadConfig, AgentConfig } from '@deduvafork/squad-sdk/config';
+import { defineConfig, validateConfig } from '@deduvafork/squad-sdk/config';
 import {
   ManifestCategory,
   validateManifest,
@@ -23,7 +23,7 @@ import {
   validatePackageContents,
   type MarketplaceManifest,
   type ExtensionEvent,
-} from '@bradygaster/squad-sdk/marketplace';
+} from '@deduvafork/squad-sdk/marketplace';
 import {
   LocalAgentSource,
   GitHubAgentSource,
@@ -33,8 +33,8 @@ import {
   type AgentManifest,
   type AgentDefinition,
   type GitHubFetcher,
-} from '@bradygaster/squad-sdk/config';
-import { SkillRegistry, type SkillDefinition } from '@bradygaster/squad-sdk/skills';
+} from '@deduvafork/squad-sdk/config';
+import { SkillRegistry, type SkillDefinition } from '@deduvafork/squad-sdk/skills';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

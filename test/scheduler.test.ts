@@ -29,6 +29,10 @@ import type {
 // Test Helpers
 // ============================================================================
 
+// Quote execPath so spaces in the path (e.g. "C:\Program Files\...") are handled
+// correctly when interpolated into a shell command string.
+const EXEC_PATH = process.execPath.includes(' ') ? `"${process.execPath}"` : process.execPath;
+
 function validManifest(overrides?: Partial<ScheduleManifest>): ScheduleManifest {
   return {
     version: 1,
@@ -414,7 +418,7 @@ describe('Scheduler: LocalPollingProvider', () => {
   it('should execute script tasks', async () => {
     const provider = new LocalPollingProvider();
     const entry = validEntry({
-      task: { type: 'script', ref: `${process.execPath} -e console.log('hello-from-scheduler')` },
+      task: { type: 'script', ref: `${EXEC_PATH} -e console.log('hello-from-scheduler')` },
     });
     const result = await provider.execute(entry);
     expect(result.success).toBe(true);
@@ -444,7 +448,7 @@ describe('Scheduler: LocalPollingProvider', () => {
   it('should handle script execution failure', async () => {
     const provider = new LocalPollingProvider();
     const entry = validEntry({
-      task: { type: 'script', ref: `${process.execPath} -e process.exit(1)` },
+      task: { type: 'script', ref: `${EXEC_PATH} -e process.exit(1)` },
     });
     const result = await provider.execute(entry);
     expect(result.success).toBe(false);
@@ -458,7 +462,7 @@ describe('Scheduler: LocalPollingProvider', () => {
     it('captures the exit code on a non-zero exit', async () => {
       const provider = new LocalPollingProvider();
       const entry = validEntry({
-        task: { type: 'script', ref: `${process.execPath} -e process.exit(7)` },
+        task: { type: 'script', ref: `${EXEC_PATH} -e process.exit(7)` },
       });
       const result = await provider.execute(entry);
       expect(result.success).toBe(false);
@@ -470,7 +474,7 @@ describe('Scheduler: LocalPollingProvider', () => {
       // Space-free script — the scheduler tokenizes `task.ref` by whitespace.
       const script = `process.stderr.write('boom-from-stderr');process.exit(1)`;
       const entry = validEntry({
-        task: { type: 'script', ref: `${process.execPath} -e ${script}` },
+        task: { type: 'script', ref: `${EXEC_PATH} -e ${script}` },
       });
       const result = await provider.execute(entry);
       expect(result.success).toBe(false);
@@ -481,7 +485,7 @@ describe('Scheduler: LocalPollingProvider', () => {
     it('does not set timedOut for ordinary non-zero exits', async () => {
       const provider = new LocalPollingProvider();
       const entry = validEntry({
-        task: { type: 'script', ref: `${process.execPath} -e process.exit(1)` },
+        task: { type: 'script', ref: `${EXEC_PATH} -e process.exit(1)` },
       });
       const result = await provider.execute(entry);
       expect(result.success).toBe(false);
@@ -497,7 +501,7 @@ describe('Scheduler: LocalPollingProvider', () => {
       // Space-free script — the scheduler tokenizes `task.ref` by whitespace.
       const script = `setTimeout(()=>process.exit(0),150)`;
       const entry = validEntry({
-        task: { type: 'script', ref: `${process.execPath} -e ${script}` },
+        task: { type: 'script', ref: `${EXEC_PATH} -e ${script}` },
       });
 
       const ticks: number[] = [];

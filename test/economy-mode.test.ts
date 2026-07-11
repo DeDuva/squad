@@ -17,10 +17,10 @@ import {
   writeEconomyMode,
   applyEconomyMode,
   ECONOMY_MODEL_MAP,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 import {
   resolveModel as sdkResolveModel,
-} from '@bradygaster/squad-sdk/agents';
+} from '@deduvafork/squad-sdk/agents';
 
 let squadDir: string;
 
@@ -37,32 +37,22 @@ afterEach(() => {
 // ============================================================================
 
 describe('ECONOMY_MODEL_MAP', () => {
-  it('maps premium models to standard', () => {
-    expect(ECONOMY_MODEL_MAP['claude-opus-4.6']).toBe('claude-sonnet-4.5');
-    expect(ECONOMY_MODEL_MAP['claude-opus-4.6-fast']).toBe('claude-sonnet-4.5');
-    expect(ECONOMY_MODEL_MAP['claude-opus-4.5']).toBe('claude-sonnet-4.5');
+  it('maps premium model to flash', () => {
+    expect(ECONOMY_MODEL_MAP['gemini-pro-latest']).toBe('gemini-flash-latest');
   });
 
-  it('maps standard sonnet models to fast', () => {
-    expect(ECONOMY_MODEL_MAP['claude-sonnet-4.6']).toBe('gpt-4.1');
-    expect(ECONOMY_MODEL_MAP['claude-sonnet-4.5']).toBe('gpt-4.1');
-  });
-
-  it('maps haiku to cheapest fast', () => {
-    expect(ECONOMY_MODEL_MAP['claude-haiku-4.5']).toBe('gpt-4.1');
+  it('has no entry for flash (already at base)', () => {
+    expect(ECONOMY_MODEL_MAP['gemini-flash-latest']).toBeUndefined();
   });
 });
 
 describe('applyEconomyMode', () => {
-  it('returns economy model for known models', () => {
-    expect(applyEconomyMode('claude-opus-4.6')).toBe('claude-sonnet-4.5');
-    expect(applyEconomyMode('claude-sonnet-4.6')).toBe('gpt-4.1');
-    expect(applyEconomyMode('claude-haiku-4.5')).toBe('gpt-4.1');
+  it('downgrades pro to flash', () => {
+    expect(applyEconomyMode('gemini-pro-latest')).toBe('gemini-flash-latest');
   });
 
   it('returns original model when no economy mapping exists', () => {
-    expect(applyEconomyMode('gpt-4.1')).toBe('gpt-4.1');
-    expect(applyEconomyMode('gpt-5-mini')).toBe('gpt-5-mini');
+    expect(applyEconomyMode('gemini-flash-latest')).toBe('gemini-flash-latest');
     expect(applyEconomyMode('unknown-model-xyz')).toBe('unknown-model-xyz');
   });
 });
@@ -124,11 +114,11 @@ describe('writeEconomyMode', () => {
   it('merges with existing config without clobbering other fields', () => {
     writeFileSync(
       join(squadDir, 'config.json'),
-      JSON.stringify({ version: 1, defaultModel: 'claude-opus-4.6' })
+      JSON.stringify({ version: 1, defaultModel: 'gemini-pro-latest' })
     );
     writeEconomyMode(squadDir, true);
     const raw = JSON.parse(readFileSync(join(squadDir, 'config.json'), 'utf-8'));
-    expect(raw.defaultModel).toBe('claude-opus-4.6');
+    expect(raw.defaultModel).toBe('gemini-pro-latest');
     expect(raw.economyMode).toBe(true);
   });
 
@@ -149,46 +139,42 @@ describe('writeEconomyMode', () => {
 // ============================================================================
 
 describe('resolveModel economy mode (option)', () => {
-  it('Layer 4 default: uses gpt-4.1 instead of haiku when economyMode: true', () => {
-    expect(resolveModel({ economyMode: true })).toBe('gpt-4.1');
+  it('Layer 4 default: uses gemini-flash-latest regardless of economy mode', () => {
+    expect(resolveModel({ economyMode: true })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 4 default: uses haiku when economyMode: false', () => {
-    expect(resolveModel({ economyMode: false })).toBe('claude-haiku-4.5');
+  it('Layer 4 default: uses gemini-flash-latest when economyMode: false', () => {
+    expect(resolveModel({ economyMode: false })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 3 code task: uses gpt-4.1 instead of sonnet when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'claude-sonnet-4.6', economyMode: true })).toBe('gpt-4.1');
+  it('Layer 3 flash task: stays gemini-flash-latest when economyMode: true (no cheaper option)', () => {
+    expect(resolveModel({ taskModel: 'gemini-flash-latest', economyMode: true })).toBe('gemini-flash-latest');
   });
 
-  it('Layer 3 architecture task: uses sonnet instead of opus when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'claude-opus-4.6', economyMode: true })).toBe('claude-sonnet-4.5');
-  });
-
-  it('Layer 3 docs task: uses gpt-4.1 instead of haiku when economyMode: true', () => {
-    expect(resolveModel({ taskModel: 'claude-haiku-4.5', economyMode: true })).toBe('gpt-4.1');
+  it('Layer 3 premium task: downgrades to flash when economyMode: true', () => {
+    expect(resolveModel({ taskModel: 'gemini-pro-latest', economyMode: true })).toBe('gemini-flash-latest');
   });
 
   it('Layer 2 charter preference: NOT overridden by economy mode', () => {
     expect(
-      resolveModel({ charterPreference: 'claude-opus-4.6', economyMode: true })
-    ).toBe('claude-opus-4.6');
+      resolveModel({ charterPreference: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 1 session directive: NOT overridden by economy mode', () => {
     expect(
-      resolveModel({ sessionDirective: 'claude-opus-4.6', economyMode: true })
-    ).toBe('claude-opus-4.6');
+      resolveModel({ sessionDirective: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 0b global config: NOT overridden by economy mode', () => {
     writeFileSync(
       join(squadDir, 'config.json'),
-      JSON.stringify({ version: 1, defaultModel: 'claude-opus-4.6' })
+      JSON.stringify({ version: 1, defaultModel: 'gemini-pro-latest' })
     );
     expect(
-      resolveModel({ squadDir, taskModel: 'claude-sonnet-4.6', economyMode: true })
-    ).toBe('claude-opus-4.6');
+      resolveModel({ squadDir, taskModel: 'gemini-flash-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 
   it('Layer 0a per-agent override: NOT overridden by economy mode', () => {
@@ -196,12 +182,12 @@ describe('resolveModel economy mode (option)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({
         version: 1,
-        agentModelOverrides: { eecom: 'claude-opus-4.6' },
+        agentModelOverrides: { eecom: 'gemini-pro-latest' },
       })
     );
     expect(
-      resolveModel({ agentName: 'eecom', squadDir, taskModel: 'claude-haiku-4.5', economyMode: true })
-    ).toBe('claude-opus-4.6');
+      resolveModel({ agentName: 'eecom', squadDir, taskModel: 'gemini-flash-latest', economyMode: true })
+    ).toBe('gemini-pro-latest');
   });
 });
 
@@ -215,7 +201,7 @@ describe('resolveModel economy mode (from config)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({ version: 1, economyMode: true })
     );
-    expect(resolveModel({ squadDir, taskModel: 'claude-sonnet-4.6' })).toBe('gpt-4.1');
+    expect(resolveModel({ squadDir, taskModel: 'gemini-pro-latest' })).toBe('gemini-flash-latest');
   });
 
   it('uses normal model when economyMode absent from config', () => {
@@ -223,7 +209,7 @@ describe('resolveModel economy mode (from config)', () => {
       join(squadDir, 'config.json'),
       JSON.stringify({ version: 1 })
     );
-    expect(resolveModel({ squadDir, taskModel: 'claude-sonnet-4.6' })).toBe('claude-sonnet-4.6');
+    expect(resolveModel({ squadDir, taskModel: 'gemini-pro-latest' })).toBe('gemini-pro-latest');
   });
 
   it('explicit economyMode option overrides config setting', () => {
@@ -233,8 +219,8 @@ describe('resolveModel economy mode (from config)', () => {
     );
     // Option says true, config says false → option wins
     expect(
-      resolveModel({ squadDir, taskModel: 'claude-sonnet-4.6', economyMode: true })
-    ).toBe('gpt-4.1');
+      resolveModel({ squadDir, taskModel: 'gemini-pro-latest', economyMode: true })
+    ).toBe('gemini-flash-latest');
   });
 });
 
@@ -243,49 +229,49 @@ describe('resolveModel economy mode (from config)', () => {
 // ============================================================================
 
 describe('SDK resolveModel (agents) economy mode', () => {
-  it('code task → gpt-4.1 when economyMode: true', () => {
+  it('code task → gemini-flash-latest when economyMode: true (no cheaper option)', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: true });
-    expect(result.model).toBe('gpt-4.1');
+    expect(result.model).toBe('gemini-flash-latest');
     expect(result.source).toBe('task-auto');
   });
 
-  it('docs task → gpt-4.1 when economyMode: true', () => {
+  it('docs task → gemini-flash-latest when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'docs', economyMode: true });
-    expect(result.model).toBe('gpt-4.1');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('mechanical task → gpt-4.1 when economyMode: true', () => {
+  it('mechanical task → gemini-flash-latest when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'mechanical', economyMode: true });
-    expect(result.model).toBe('gpt-4.1');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('visual task → claude-sonnet-4.5 when economyMode: true', () => {
+  it('visual task → gemini-flash-latest when economyMode: true (pro → flash)', () => {
     const result = sdkResolveModel({ taskType: 'visual', economyMode: true });
-    expect(result.model).toBe('claude-sonnet-4.5');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
-  it('code task → claude-sonnet-4.6 when economyMode: false', () => {
+  it('code task → gemini-flash-latest when economyMode: false', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: false });
-    expect(result.model).toBe('claude-sonnet-4.6');
+    expect(result.model).toBe('gemini-flash-latest');
   });
 
   it('user override NOT affected by economy mode', () => {
     const result = sdkResolveModel({
       taskType: 'code',
-      userOverride: 'claude-opus-4.6',
+      userOverride: 'gemini-pro-latest',
       economyMode: true,
     });
-    expect(result.model).toBe('claude-opus-4.6');
+    expect(result.model).toBe('gemini-pro-latest');
     expect(result.source).toBe('user-override');
   });
 
   it('charter preference NOT affected by economy mode', () => {
     const result = sdkResolveModel({
       taskType: 'code',
-      charterPreference: 'claude-opus-4.6',
+      charterPreference: 'gemini-pro-latest',
       economyMode: true,
     });
-    expect(result.model).toBe('claude-opus-4.6');
+    expect(result.model).toBe('gemini-pro-latest');
     expect(result.source).toBe('charter');
   });
 });

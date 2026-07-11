@@ -2,7 +2,7 @@
  * Regression guard — detect-squad-dir.ts must stay zero-dependency.
  *
  * The StorageProvider refactor (26047dc5) accidentally converted this
- * bootstrap utility to depend on @bradygaster/squad-sdk. This file runs
+ * bootstrap utility to depend on @deduvafork/squad-sdk. This file runs
  * before the SDK is loaded, so it must only use node built-ins.
  */
 
@@ -24,12 +24,12 @@ const SOURCE_PATH = resolve(
 describe('detect-squad-dir zero-dependency guard', () => {
   const source = readFileSync(SOURCE_PATH, 'utf-8');
 
-  it('must not import from @bradygaster/squad-sdk', () => {
-    expect(source).not.toMatch(/from\s+['"]@bradygaster\/squad-sdk(?:\/[^'"]+)?['"]/);
+  it('must not import from @deduvafork/squad-sdk', () => {
+    expect(source).not.toMatch(/from\s+['"]@deduvafork\/squad-sdk(?:\/[^'"]+)?['"]/);
   });
 
-  it('must not require @bradygaster/squad-sdk', () => {
-    expect(source).not.toMatch(/require\s*\(\s*['"]@bradygaster\/squad-sdk(?:\/[^'"]+)?['"]\s*\)/);
+  it('must not require @deduvafork/squad-sdk', () => {
+    expect(source).not.toMatch(/require\s*\(\s*['"]@deduvafork\/squad-sdk(?:\/[^'"]+)?['"]\s*\)/);
   });
 
   it('should import from node:fs for filesystem operations', () => {

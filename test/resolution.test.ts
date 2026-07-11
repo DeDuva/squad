@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { resolveSquad, resolveGlobalSquadPath, ensureSquadPath, ensurePersonalSquadDir, clearResolveSquadCache } from '@bradygaster/squad-sdk/resolution';
+import { resolveSquad, resolveGlobalSquadPath, ensureSquadPath, ensurePersonalSquadDir, clearResolveSquadCache } from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(process.cwd(), `.test-resolution-${randomBytes(4).toString('hex')}`);
 

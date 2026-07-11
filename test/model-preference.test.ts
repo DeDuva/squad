@@ -24,7 +24,7 @@ import {
   writeAgentReasoningEffortOverrides,
   resolveReasoningEffort,
   clampReasoningEffort,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 
 // Temp directory for each test
 let squadDir: string;
@@ -227,8 +227,8 @@ describe('writeAgentModelOverrides', () => {
 // ============================================================================
 
 describe('resolveModel', () => {
-  it('Layer 4: returns default haiku when nothing is set', () => {
-    expect(resolveModel({})).toBe('claude-haiku-4.5');
+  it('Layer 4: returns Gemini standard default when nothing is set', () => {
+    expect(resolveModel({})).toBe('gemini-flash-latest');
   });
 
   it('Layer 3: task model wins over default', () => {

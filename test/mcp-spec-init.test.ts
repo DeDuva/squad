@@ -43,7 +43,7 @@ describe('resolveSquadStateMcpSpec (iter-7: 2-tier resolver)', () => {
     expect(spec.command).toBe('npx');
     expect(spec.args).toEqual([
       '-y',
-      '@bradygaster/squad-cli@0.9.6-preview.42',
+      '@deduvafork/squad-cli@0.9.6-preview.42',
       'state-mcp',
     ]);
   });
@@ -54,7 +54,7 @@ describe('resolveSquadStateMcpSpec (iter-7: 2-tier resolver)', () => {
     });
     expect(spec.source).toBe('insider');
     expect(spec.command).toBe('npx');
-    expect(spec.args).toEqual(['-y', '@bradygaster/squad-cli@insider', 'state-mcp']);
+    expect(spec.args).toEqual(['-y', '@deduvafork/squad-cli@insider', 'state-mcp']);
   });
 
   it('short-circuits the registry check for the placeholder 0.0.0 version (returns @insider)', async () => {
@@ -64,7 +64,7 @@ describe('resolveSquadStateMcpSpec (iter-7: 2-tier resolver)', () => {
       },
     });
     expect(spec.source).toBe('insider');
-    expect(spec.args[1]).toBe('@bradygaster/squad-cli@insider');
+    expect(spec.args[1]).toBe('@deduvafork/squad-cli@insider');
   });
 
   it('short-circuits the registry check for empty version (returns @insider)', async () => {
@@ -91,7 +91,7 @@ describe('resolveSquadStateMcpSpec (iter-7: 2-tier resolver)', () => {
       },
     });
     expect(spec.source).toBe('insider');
-    expect(spec.args[1]).toBe('@bradygaster/squad-cli@insider');
+    expect(spec.args[1]).toBe('@deduvafork/squad-cli@insider');
   });
 
   it('uses the real npm-registry probe by default when publishedCheck is not injected', async () => {

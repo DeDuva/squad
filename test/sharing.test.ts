@@ -11,18 +11,18 @@ import {
   anonymizeContent,
   type ExportBundle,
   type ExportOptions,
-} from '@bradygaster/squad-sdk/sharing';
+} from '@deduvafork/squad-sdk/sharing';
 import {
   importSquadConfig,
   deserializeBundle,
   validateBundle,
-} from '@bradygaster/squad-sdk/sharing';
+} from '@deduvafork/squad-sdk/sharing';
 import {
   splitHistory,
   mergeHistory,
   type AgentHistory,
   type HistoryEntry,
-} from '@bradygaster/squad-sdk/sharing';
+} from '@deduvafork/squad-sdk/sharing';
 
 // --- Helpers ---
 

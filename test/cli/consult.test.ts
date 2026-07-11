@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { isConsultMode, type SquadDirConfig } from '@bradygaster/squad-sdk';
+import { isConsultMode, type SquadDirConfig } from '@deduvafork/squad-sdk';
 
 const TEST_ROOT = join(
   tmpdir(),

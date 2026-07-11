@@ -27,7 +27,7 @@ import type { SquadStateMcpSpec } from '../packages/squad-cli/src/cli/core/mcp-s
 const PINNED_SPEC: SquadStateMcpSpec = {
   source: 'pinned',
   command: 'npx',
-  args: ['-y', '@bradygaster/squad-cli@0.9.6-preview.14', 'state-mcp'],
+  args: ['-y', '@deduvafork/squad-cli@0.9.6-preview.14', 'state-mcp'],
 };
 
 describe('iter-8 mcp-root: repo-root .mcp.json writer + project tombstone', () => {

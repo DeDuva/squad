@@ -3,7 +3,7 @@
  */
 
 import { MODELS } from '../runtime/constants.js';
-import { applyEconomyMode } from '../config/models.js';
+import { applyEconomyMode, getModelInfo } from '../config/models.js';
 import type { EventBus } from '../runtime/event-bus.js';
 
 /**
@@ -114,21 +114,21 @@ function selectModelForTask(taskType: TaskType, economyMode?: boolean): Resolved
 
   switch (taskType) {
     case 'code':
-      model = 'claude-sonnet-4.6';
+      model = 'gemini-flash-latest';
       tier = 'standard';
       break;
     case 'prompt':
-      model = 'claude-sonnet-4.6';
+      model = 'gemini-flash-latest';
       tier = 'standard';
       break;
     case 'visual':
-      model = 'claude-opus-4.6';
+      model = 'gemini-pro-latest';
       tier = 'premium';
       break;
     case 'docs':
     case 'planning':
     case 'mechanical':
-      model = 'claude-haiku-4.5';
+      model = 'gemini-flash-latest';
       tier = 'fast';
       break;
     default:
@@ -149,17 +149,18 @@ function selectModelForTask(taskType: TaskType, economyMode?: boolean): Resolved
 }
 
 export function inferTierFromModel(model: string): ModelTier {
+  // Prefer catalog lookup for accuracy
+  const info = getModelInfo(model as Parameters<typeof getModelInfo>[0]);
+  if (info) return info.tier;
+
+  // Heuristic fallback for unknown / pass-through model IDs
   const lowerModel = model.toLowerCase();
-  
-  if (lowerModel.includes('opus')) {
+  if (lowerModel.includes('opus') || (lowerModel.includes('pro') && !lowerModel.includes('flash'))) {
     return 'premium';
   }
-  
-  if (lowerModel.includes('haiku') || lowerModel.includes('mini')) {
+  if (lowerModel.includes('haiku') || lowerModel.includes('mini') || lowerModel.includes('lite')) {
     return 'fast';
   }
-  
-  // Default to standard for sonnet, gpt-5.x, etc.
   return 'standard';
 }
 

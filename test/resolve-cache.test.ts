@@ -21,8 +21,8 @@ import { tmpdir } from 'node:os';
 import {
   resolveSquad,
   clearResolveSquadCache,
-} from '@bradygaster/squad-sdk/resolution';
-import * as resolutionModule from '@bradygaster/squad-sdk/resolution';
+} from '@deduvafork/squad-sdk/resolution';
+import * as resolutionModule from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(tmpdir(), `squad-cache-${randomBytes(4).toString('hex')}`);
 
@@ -137,7 +137,7 @@ describe('resolveSquad cache', () => {
   });
 
   it('exports clearResolveSquadCache from the SDK barrel', async () => {
-    const sdk = await import('@bradygaster/squad-sdk');
+    const sdk = await import('@deduvafork/squad-sdk');
     expect(typeof sdk.clearResolveSquadCache).toBe('function');
     // It should be the SAME function reference as the resolution module's export
     expect(sdk.clearResolveSquadCache).toBe(resolutionModule.clearResolveSquadCache);

@@ -9,9 +9,9 @@ import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from 'fs';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
-import { runInit } from '@bradygaster/squad-cli/core/init';
-import { runUpgrade, ensureGitattributes, ensureGitignore, ensureDirectories, ensureCastingDefaults, selfUpgradeCli } from '@bradygaster/squad-cli/core/upgrade';
-import { getPackageVersion } from '@bradygaster/squad-cli/core/version';
+import { runInit } from '@deduvafork/squad-cli/core/init';
+import { runUpgrade, ensureGitattributes, ensureGitignore, ensureDirectories, ensureCastingDefaults, selfUpgradeCli } from '@deduvafork/squad-cli/core/upgrade';
+import { getPackageVersion } from '@deduvafork/squad-cli/core/version';
 
 const TEST_ROOT = join(tmpdir(), `.test-cli-upgrade-${randomBytes(4).toString('hex')}`);
 const TEST_HOME = join(tmpdir(), `.test-cli-upgrade-home-${randomBytes(4).toString('hex')}`);
@@ -171,7 +171,7 @@ describe('CLI: upgrade command', () => {
     // After MCP-BRIDGE-BROKEN fix the args MUST pin the CLI version so npx
     // does not silently resolve to the npm `latest` dist-tag (which lacks the
     // state-mcp command). Match a regex rather than literal version.
-    expect(upgraded).toMatch(/args: \['-y', '@bradygaster\/squad-cli@[^']+', 'state-mcp'\]/);
+    expect(upgraded).toMatch(/args: \['-y', '@deduvafork\/squad-cli@[^']+', 'state-mcp'\]/);
     expect(upgraded).toContain('  EXAMPLE-github:');
     expect(upgraded).toContain("    args: ['-y', '@anthropic/github-mcp-server']");
     expect(upgraded).toContain('      GITHUB_TOKEN: ${GITHUB_TOKEN}');

@@ -8,56 +8,39 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
-import { CopilotClient } from '@github/copilot-sdk';
+import { SquadClient } from '@deduvafork/squad-sdk/client';
 import {
   StreamingPipeline,
   type StreamDelta,
   type UsageEvent,
-} from '@bradygaster/squad-sdk/runtime/streaming';
+} from '@deduvafork/squad-sdk/runtime/streaming';
 
-// Mock CopilotClient
-vi.mock('@github/copilot-sdk', () => {
+vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
-    CopilotClient: vi.fn(function (this: object) {
-      Object.assign(this, {
+    // Regular function expression, not an arrow function — SquadClient calls
+    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // constructors (Reflect.construct on one throws "is not a constructor").
+    GeminiClient: vi.fn().mockImplementation(function () {
+      return {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue([]),
-        forceStop: vi.fn().mockResolvedValue(undefined),
-        createSession: vi.fn().mockResolvedValue({
+        isStarted: vi.fn().mockReturnValue(true),
+        createSession: vi.fn().mockReturnValue({
           sessionId: 'session-1',
-          send: vi.fn().mockResolvedValue('msg-1'),
-          on: vi.fn().mockReturnValue(() => {}),
-          destroy: vi.fn().mockResolvedValue(undefined),
+          sendMessage: vi.fn().mockResolvedValue(undefined),
+          on: vi.fn(),
+          off: vi.fn(),
+          close: vi.fn().mockResolvedValue(undefined),
         }),
-        resumeSession: vi.fn().mockResolvedValue({
-          sessionId: 'session-1',
-          send: vi.fn().mockResolvedValue('msg-1'),
-          on: vi.fn().mockReturnValue(() => {}),
-          destroy: vi.fn().mockResolvedValue(undefined),
-        }),
-        listSessions: vi.fn().mockResolvedValue([]),
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        getLastSessionId: vi.fn().mockResolvedValue(undefined),
-        ping: vi.fn().mockResolvedValue({ message: 'pong', timestamp: Date.now() }),
-        getStatus: vi.fn().mockResolvedValue({ version: '1.0.0' }),
-        getAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
-        listModels: vi.fn().mockResolvedValue([]),
-        on: vi.fn().mockReturnValue(() => {}),
-        onLifecycle: vi.fn().mockReturnValue(() => {}),
-      });
+        getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
+      };
     }),
-    RuntimeConnection: {
-      forStdio: vi.fn(() => ({})),
-      forTcp: vi.fn(() => ({})),
-      forUri: vi.fn(() => ({})),
-    },
   };
 });
 
 // Mock otel-metrics to verify they're called
-vi.mock('@bradygaster/squad-sdk/runtime/otel-metrics', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('@bradygaster/squad-sdk/runtime/otel-metrics')>();
+vi.mock('@deduvafork/squad-sdk/runtime/otel-metrics', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@deduvafork/squad-sdk/runtime/otel-metrics')>();
   return {
     ...orig,
     recordTimeToFirstToken: vi.fn(),
@@ -71,7 +54,7 @@ import {
   recordTimeToFirstToken,
   recordResponseDuration,
   recordTokensPerSecond,
-} from '@bradygaster/squad-sdk/runtime/otel-metrics';
+} from '@deduvafork/squad-sdk/runtime/otel-metrics';
 
 // ============================================================================
 // #259 — SquadClient.sendMessage()
@@ -139,26 +122,18 @@ describe('SquadClient.closeSession() — squad.session.close span', () => {
     vi.clearAllMocks();
   });
 
-  it('should delete the session', async () => {
+  it('should close the session without error', async () => {
     const client = new SquadClient();
     await client.connect();
 
-    await client.closeSession('session-42');
-
-    const MockedCopilotClient = CopilotClient as unknown as ReturnType<typeof vi.fn>;
-    const instance = MockedCopilotClient.mock.results[0].value;
-    expect(instance.deleteSession).toHaveBeenCalledWith('session-42');
+    await expect(client.closeSession('session-42')).resolves.toBeUndefined();
   });
 
-  it('should propagate errors from deleteSession', async () => {
+  it('should close a session that was never opened without error', async () => {
     const client = new SquadClient();
     await client.connect();
 
-    const MockedCopilotClient = CopilotClient as unknown as ReturnType<typeof vi.fn>;
-    const instance = MockedCopilotClient.mock.results[0].value;
-    instance.deleteSession.mockRejectedValueOnce(new Error('not found'));
-
-    await expect(client.closeSession('session-99')).rejects.toThrow('not found');
+    await expect(client.closeSession('nonexistent-session')).resolves.toBeUndefined();
   });
 });
 

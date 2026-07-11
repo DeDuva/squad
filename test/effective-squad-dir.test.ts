@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { resolveStateDir, effectiveSquadDir } from '../packages/squad-cli/src/cli/core/effective-squad-dir.js';
-import { resolveGlobalSquadPath } from '@bradygaster/squad-sdk/resolution';
+import { resolveGlobalSquadPath } from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(process.cwd(), `.test-effective-squad-dir-${randomBytes(4).toString('hex')}`);
 

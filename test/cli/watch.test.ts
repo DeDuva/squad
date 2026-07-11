@@ -9,24 +9,24 @@ import { describe, it, expect } from 'vitest';
 
 describe('CLI: watch command', () => {
   it('module exports runWatch function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/watch');
+    const mod = await import('@deduvafork/squad-cli/commands/watch');
     expect(typeof mod.runWatch).toBe('function');
   });
 
   it('module exports reportBoard function', async () => {
-    const mod = await import('@bradygaster/squad-cli/commands/watch');
+    const mod = await import('@deduvafork/squad-cli/commands/watch');
     expect(typeof mod.reportBoard).toBe('function');
   });
 
   it('module exports BoardState interface (via type checking)', async () => {
     // If the module loads and exports are accessible, types are correctly defined
-    const mod = await import('@bradygaster/squad-cli/commands/watch');
+    const mod = await import('@deduvafork/squad-cli/commands/watch');
     expect(mod).toHaveProperty('runWatch');
     expect(mod).toHaveProperty('reportBoard');
   });
 
   it('reportBoard handles empty board state', async () => {
-    const { reportBoard } = await import('@bradygaster/squad-cli/commands/watch');
+    const { reportBoard } = await import('@deduvafork/squad-cli/commands/watch');
     const emptyState = {
       untriaged: 0,
       assigned: 0,
@@ -41,7 +41,7 @@ describe('CLI: watch command', () => {
   });
 
   it('reportBoard handles populated board state', async () => {
-    const { reportBoard } = await import('@bradygaster/squad-cli/commands/watch');
+    const { reportBoard } = await import('@deduvafork/squad-cli/commands/watch');
     const state = {
       untriaged: 3,
       assigned: 2,
@@ -55,7 +55,7 @@ describe('CLI: watch command', () => {
   });
 
   it('reportBoard accepts any positive round number', async () => {
-    const { reportBoard } = await import('@bradygaster/squad-cli/commands/watch');
+    const { reportBoard } = await import('@deduvafork/squad-cli/commands/watch');
     const state = {
       untriaged: 1,
       assigned: 0,

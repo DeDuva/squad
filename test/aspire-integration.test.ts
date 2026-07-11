@@ -254,13 +254,13 @@ describe.skipIf(SKIP_REASON !== null)(
     // Test 3: squad aspire command lifecycle
     // ------------------------------------------------------------------
     it('squad aspire command exists and exports runAspire', async () => {
-      const mod = await import('@bradygaster/squad-cli/commands/aspire');
+      const mod = await import('@deduvafork/squad-cli/commands/aspire');
       expect(typeof mod.runAspire).toBe('function');
     });
 
     it('squad aspire command has AspireOptions with docker flag', async () => {
       // Type-level validation: if this compiles, the interface is correct
-      const mod = await import('@bradygaster/squad-cli/commands/aspire');
+      const mod = await import('@deduvafork/squad-cli/commands/aspire');
       const opts: Parameters<typeof mod.runAspire>[0] = { docker: true, port: 18888 };
       expect(opts.docker).toBe(true);
     });

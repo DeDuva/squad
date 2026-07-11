@@ -1,7 +1,7 @@
 /**
  * Regression test for UPGRADE-EPERM-FALSE-SUCCESS.
  *
- * Before the fix: when `npm install -g @bradygaster/squad-cli` failed (EPERM /
+ * Before the fix: when `npm install -g @deduvafork/squad-cli` failed (EPERM /
  * EACCES / EBUSY), `selfUpgradeCli` swallowed the error and returned normally,
  * causing the caller in cli-entry.ts to unconditionally print
  * `✅ Upgraded. Please restart your terminal...` and exit 0 — contradicting

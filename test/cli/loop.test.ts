@@ -17,7 +17,7 @@ import {
 } from '../../packages/squad-cli/src/cli/commands/loop.js';
 import { detectSquadDir } from '../../packages/squad-cli/src/cli/core/detect-squad-dir.js';
 import { createDefaultRegistry } from '../../packages/squad-cli/src/cli/commands/watch/index.js';
-import { parseRoster } from '@bradygaster/squad-sdk/ralph/triage';
+import { parseRoster } from '@deduvafork/squad-sdk/ralph/triage';
 
 // ── Module Mocks (hoisted by vitest) ─────────────────────────────
 
@@ -39,11 +39,11 @@ vi.mock('../../packages/squad-cli/src/cli/commands/watch/index.js', () => ({
   CapabilityRegistry: vi.fn(),
 }));
 
-vi.mock('@bradygaster/squad-sdk/platform', () => ({
+vi.mock('@deduvafork/squad-sdk/platform', () => ({
   createPlatformAdapter: vi.fn(),
 }));
 
-vi.mock('@bradygaster/squad-sdk/ralph/triage', () => ({
+vi.mock('@deduvafork/squad-sdk/ralph/triage', () => ({
   parseRoster: vi.fn(),
 }));
 

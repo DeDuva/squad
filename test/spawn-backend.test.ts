@@ -4,7 +4,7 @@ import {
   TaskSpawnBackend,
   type CreateSessionFn,
   type SpawnHandle,
-} from '@bradygaster/squad-sdk/coordinator';
+} from '@deduvafork/squad-sdk/coordinator';
 
 describe('spawn backends', () => {
   it('TaskSpawnBackend creates a real session and sends the initial prompt', async () => {

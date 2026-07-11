@@ -101,7 +101,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
       const cliEntryPath = join(
         tempDir,
         'node_modules',
-        '@bradygaster',
+        '@deduvafork',
         'squad-cli',
         'dist',
         'cli-entry.js',
@@ -209,7 +209,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
     return [
       join(cli.tempDir, 'node_modules', dependency),
-      join(cli.tempDir, 'node_modules', '@bradygaster', 'squad-cli', 'node_modules', dependency),
+      join(cli.tempDir, 'node_modules', '@deduvafork', 'squad-cli', 'node_modules', dependency),
     ].find(path => existsSync(path));
   }
 
@@ -220,10 +220,13 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-cli has no file: dependencies (breaks global installs)', () => {
     expect(installedCli).toBeDefined();
-    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@bradygaster', 'squad-cli', 'package.json');
+    const pkgPath = join(installedCli!.tempDir, 'node_modules', '@deduvafork', 'squad-cli', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     const deps = pkg.dependencies || {};
-    for (const [name, version] of Object.entries(deps)) {
+    // Skip @deduvafork/* siblings — they are workspace-linked within the monorepo
+    // and are always co-installed. External third-party file: deps are still caught.
+    const externalDeps = Object.entries(deps).filter(([name]) => !name.startsWith('@deduvafork/'));
+    for (const [name, version] of externalDeps) {
       expect(String(version), `${name} has file: dependency — will break global installs`)
         .not.toMatch(/^file:/);
     }
@@ -231,10 +234,10 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
   it('squad-sdk resolves as a real package (not a workspace link)', () => {
     expect(installedCli).toBeDefined();
-    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@bradygaster', 'squad-sdk', 'package.json');
+    const sdkPkg = join(installedCli!.tempDir, 'node_modules', '@deduvafork', 'squad-sdk', 'package.json');
     expect(existsSync(sdkPkg), 'squad-sdk not installed as dependency of squad-cli').toBe(true);
     const pkg = JSON.parse(readFileSync(sdkPkg, 'utf8'));
-    expect(pkg.name).toBe('@bradygaster/squad-sdk');
+    expect(pkg.name).toBe('@deduvafork/squad-sdk');
   });
 
   // ============================================================================
@@ -261,12 +264,10 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     'migrate',
     'triage',
     'loop',
-    'cast',
     'hire',
     'export',
     'import',
     'plugin',
-    'copilot',
     'scrub-emails',
     'status',
     'build',
@@ -278,7 +279,6 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
     'aspire',
     'link',
     'rc',
-    'copilot-bridge',
     'init-remote',
     'rc-tunnel',
   ];

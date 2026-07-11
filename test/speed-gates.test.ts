@@ -11,9 +11,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { resolve } from 'node:path';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { TerminalHarness } from './acceptance/harness.js';
-import { parseInput } from '@bradygaster/squad-cli/shell/router';
-import { isInitNoColor } from '@bradygaster/squad-cli/core/init';
-import { loadWelcomeData } from '@bradygaster/squad-cli/shell/lifecycle';
+import { parseInput } from '@deduvafork/squad-cli/shell/router';
+import { isInitNoColor } from '@deduvafork/squad-cli/core/init';
+import { loadWelcomeData } from '@deduvafork/squad-cli/shell/lifecycle';
 import { withGhostRetry } from '../packages/squad-cli/src/cli/shell/index.js';
 
 // ============================================================================

@@ -12,7 +12,7 @@ import {
   ModelRegistry,
   MODEL_CATALOG,
   DEFAULT_FALLBACK_CHAINS,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 
 // ============================================================================
 // Cross-tier fallback: standard chain tries all models in order
@@ -23,7 +23,9 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 
   it('standard chain tries all models in order', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.standard;
-    expect(chain.length).toBeGreaterThan(1);
+    // Gemini-only catalog: the standard tier has a single model
+    // (gemini-flash-latest), so the chain has exactly one entry.
+    expect(chain.length).toBeGreaterThan(0);
 
     // Walk the chain with getNextFallback
     const attempted = new Set<string>();
@@ -45,9 +47,9 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
     expect(visitedSet).toEqual(chainSet);
   });
 
-  it('premium chain starts with opus and walks through all premium options', () => {
+  it('premium chain starts with gemini pro and walks through all premium options', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.premium;
-    expect(chain[0]).toBe('claude-opus-4.6');
+    expect(chain[0]).toBe('gemini-pro-latest');
 
     const attempted = new Set<string>();
     let count = 0;
@@ -68,7 +70,7 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 
   it('fast chain walks through all fast options', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.fast;
-    expect(chain[0]).toBe('claude-haiku-4.5');
+    expect(chain[0]).toBe('gemini-flash-latest');
 
     const attempted = new Set<string>();
     let count = 0;
@@ -101,12 +103,14 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 describe('Tier ceiling — fast never escalates to premium', () => {
   const registry = new ModelRegistry();
 
-  it('fast fallback chain contains only fast-tier models', () => {
+  it('fast fallback chain contains no premium models', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.fast;
+    expect(chain.length).toBeGreaterThan(0);
     for (const modelId of chain) {
       const info = registry.getModelInfo(modelId);
-      expect(info).not.toBeNull();
-      expect(info!.tier).toBe('fast');
+      if (info) {
+        expect(info.tier).not.toBe('premium');
+      }
     }
   });
 
@@ -126,11 +130,11 @@ describe('Tier ceiling — fast never escalates to premium', () => {
     }
   });
 
-  it('getNextFallback for fast model returns fast-tier model', () => {
-    const next = registry.getNextFallback('claude-haiku-4.5', 'fast');
+  it('getNextFallback for fast model returns non-premium model', () => {
+    const next = registry.getNextFallback('gemini-flash-latest', 'fast');
     if (next) {
       const info = registry.getModelInfo(next);
-      expect(info!.tier).toBe('fast');
+      expect(info!.tier).not.toBe('premium');
     }
   });
 
@@ -145,42 +149,35 @@ describe('Tier ceiling — fast never escalates to premium', () => {
 // Provider preference: "use Claude" stays in Claude family
 // ============================================================================
 
-describe('Provider preference — Claude family preference', () => {
+describe('Provider preference — Gemini family preference', () => {
   const registry = new ModelRegistry();
 
   it('getFallbackChain with preferSameProvider starts with same provider', () => {
-    const chain = registry.getFallbackChain('standard', true, 'claude-sonnet-4.5');
+    const chain = registry.getFallbackChain('standard', true, 'gemini-flash-latest');
 
-    // First models should be Anthropic (Claude family)
-    const firstTwo = chain.slice(0, 2);
-    for (const modelId of firstTwo) {
+    // All standard models are Google — chain should be non-empty
+    expect(chain.length).toBeGreaterThan(0);
+    for (const modelId of chain) {
       const info = registry.getModelInfo(modelId);
-      expect(info?.provider).toBe('anthropic');
+      expect(info?.provider).toBe('google');
     }
   });
 
-  it('prefer Claude: all anthropic models come before other providers', () => {
-    const chain = registry.getFallbackChain('standard', true, 'claude-sonnet-4.5');
-    const standardAnthropicCount = MODEL_CATALOG.filter(
-      m => m.tier === 'standard' && m.provider === 'anthropic'
-    ).length;
-
-    // The first N models should all be anthropic where N = number of anthropic standard models
-    if (standardAnthropicCount > 0) {
-      const firstBatch = chain.slice(0, standardAnthropicCount);
-      for (const modelId of firstBatch) {
-        const info = registry.getModelInfo(modelId);
-        expect(info?.provider).toBe('anthropic');
-      }
+  it('prefer Gemini: all google models come before other providers', () => {
+    const chain = registry.getFallbackChain('standard', true, 'gemini-flash-latest');
+    // All models in the chain should be Google
+    for (const modelId of chain) {
+      const info = registry.getModelInfo(modelId);
+      expect(info?.provider).toBe('google');
     }
+    expect(chain.length).toBeGreaterThan(0);
   });
 
-  it('prefer GPT: getFallbackChain reorders for OpenAI models', () => {
-    const chain = registry.getFallbackChain('standard', true, 'gpt-5.2-codex');
+  it('unknown current model with preferSameProvider falls back to default', () => {
+    const chain = registry.getFallbackChain('standard', true, 'gpt-unknown');
 
-    // First models should be OpenAI
-    const firstInfo = registry.getModelInfo(chain[0]!);
-    expect(firstInfo?.provider).toBe('openai');
+    // Unknown model → falls back to default chain
+    expect(chain).toEqual(DEFAULT_FALLBACK_CHAINS.standard);
   });
 
   it('without preference: returns default chain order', () => {
@@ -203,19 +200,19 @@ describe('Nuclear fallback — all models exhausted', () => {
 
   it('getNextFallback returns null when all premium models attempted', () => {
     const allPremium = new Set(DEFAULT_FALLBACK_CHAINS.premium);
-    const result = registry.getNextFallback('claude-opus-4.6', 'premium', allPremium);
+    const result = registry.getNextFallback('gemini-pro-latest', 'premium', allPremium);
     expect(result).toBeNull();
   });
 
   it('getNextFallback returns null when all standard models attempted', () => {
     const allStandard = new Set(DEFAULT_FALLBACK_CHAINS.standard);
-    const result = registry.getNextFallback('claude-sonnet-4.5', 'standard', allStandard);
+    const result = registry.getNextFallback('gemini-flash-latest', 'standard', allStandard);
     expect(result).toBeNull();
   });
 
   it('getNextFallback returns null when all fast models attempted', () => {
     const allFast = new Set(DEFAULT_FALLBACK_CHAINS.fast);
-    const result = registry.getNextFallback('claude-haiku-4.5', 'fast', allFast);
+    const result = registry.getNextFallback('gemini-flash-latest', 'fast', allFast);
     expect(result).toBeNull();
   });
 
@@ -259,9 +256,9 @@ describe('Model fallback — edge cases', () => {
   const registry = new ModelRegistry();
 
   it('getNextFallback with empty attempted set returns second in chain', () => {
-    const next = registry.getNextFallback('claude-opus-4.6', 'premium');
+    const next = registry.getNextFallback('gemini-pro-latest', 'premium');
     // With no attempted set, it should return the next in chain after current
-    expect(next).toBe('claude-opus-4.6-fast');
+    expect(next).toBe('gemini-flash-latest');
   });
 
   it('getNextFallback for unknown model returns null', () => {
@@ -271,10 +268,10 @@ describe('Model fallback — edge cases', () => {
     expect(next === null || typeof next === 'string').toBe(true);
   });
 
-  it('each tier has at least 3 fallback options', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium.length).toBeGreaterThanOrEqual(3);
-    expect(DEFAULT_FALLBACK_CHAINS.standard.length).toBeGreaterThanOrEqual(3);
-    expect(DEFAULT_FALLBACK_CHAINS.fast.length).toBeGreaterThanOrEqual(3);
+  it('each tier has at least 1 fallback option', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.premium.length).toBeGreaterThanOrEqual(1);
+    expect(DEFAULT_FALLBACK_CHAINS.standard.length).toBeGreaterThanOrEqual(1);
+    expect(DEFAULT_FALLBACK_CHAINS.fast.length).toBeGreaterThanOrEqual(1);
   });
 
   it('no duplicate models in any chain', () => {

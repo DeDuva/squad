@@ -42,7 +42,7 @@ describe('resolveSquadStateMcpSpec: chooses pinned or @insider fallback', () => 
     const spec = await resolveSquadStateMcpSpec('0.0.0');
     expect(spec).toEqual({
       command: 'npx',
-      args: ['-y', '@bradygaster/squad-cli@insider', 'state-mcp'],
+      args: ['-y', '@deduvafork/squad-cli@insider', 'state-mcp'],
       source: 'insider',
     });
   });
@@ -51,7 +51,7 @@ describe('resolveSquadStateMcpSpec: chooses pinned or @insider fallback', () => 
     const spec = await resolveSquadStateMcpSpec('999.999.999-not-a-real-version');
     expect(spec).toEqual({
       command: 'npx',
-      args: ['-y', '@bradygaster/squad-cli@insider', 'state-mcp'],
+      args: ['-y', '@deduvafork/squad-cli@insider', 'state-mcp'],
       source: 'insider',
     });
   });

@@ -8,8 +8,8 @@ import {
   compileRoutingRules,
   matchRoute,
   matchIssueLabels
-} from '@bradygaster/squad-sdk/config';
-import type { RoutingConfig, IssueRoutingRule } from '@bradygaster/squad-sdk/runtime';
+} from '@deduvafork/squad-sdk/config';
+import type { RoutingConfig, IssueRoutingRule } from '@deduvafork/squad-sdk/runtime';
 
 describe('parseRoutingMarkdown', () => {
   it('parses basic routing table', () => {

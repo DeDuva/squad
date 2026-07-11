@@ -7,13 +7,13 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { initSquadTelemetry } from '@bradygaster/squad-sdk/runtime/otel-init';
-import type { SquadTelemetryHandle } from '@bradygaster/squad-sdk/runtime/otel-init';
-import { EventBus } from '@bradygaster/squad-sdk/runtime/event-bus';
-import { CostTracker } from '@bradygaster/squad-sdk/runtime/cost-tracker';
-import { estimateCost } from '@bradygaster/squad-sdk/config/models';
-import { MODEL_CATALOG } from '@bradygaster/squad-sdk/config/models';
-import type { ModelPricing } from '@bradygaster/squad-sdk/config/models';
+import { initSquadTelemetry } from '@deduvafork/squad-sdk/runtime/otel-init';
+import type { SquadTelemetryHandle } from '@deduvafork/squad-sdk/runtime/otel-init';
+import { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
+import { CostTracker } from '@deduvafork/squad-sdk/runtime/cost-tracker';
+import { estimateCost } from '@deduvafork/squad-sdk/config/models';
+import { MODEL_CATALOG } from '@deduvafork/squad-sdk/config/models';
+import type { ModelPricing } from '@deduvafork/squad-sdk/config/models';
 
 // ============================================================================
 // initSquadTelemetry — auto-wiring
@@ -155,10 +155,10 @@ describe('initSquadTelemetry — auto-wiring', () => {
 // ============================================================================
 
 describe('estimateCost()', () => {
-  it('returns correct cost for a known model', () => {
-    const cost = estimateCost('claude-sonnet-4.5', 1000, 500);
-    // pricing: input $0.000003/token, output $0.000015/token
-    expect(cost).toBeCloseTo(0.003 + 0.0075, 6);
+  it('returns 0 for latest-alias models (pricing unknown until runtime)', () => {
+    // -latest aliases resolve dynamically; pricing is not statically known
+    expect(estimateCost('gemini-flash-latest', 1000, 500)).toBe(0);
+    expect(estimateCost('gemini-pro-latest', 1000, 500)).toBe(0);
   });
 
   it('returns 0 for an unknown model', () => {
@@ -167,20 +167,7 @@ describe('estimateCost()', () => {
   });
 
   it('returns 0 for zero tokens', () => {
-    const cost = estimateCost('claude-sonnet-4.5', 0, 0);
-    expect(cost).toBe(0);
-  });
-
-  it('works for fast-tier models', () => {
-    const cost = estimateCost('claude-haiku-4.5', 10000, 5000);
-    // pricing: input $0.0000008/token, output $0.000004/token
-    expect(cost).toBeCloseTo(0.008 + 0.02, 6);
-  });
-
-  it('works for premium-tier models', () => {
-    const cost = estimateCost('claude-opus-4.6', 1000, 500);
-    // pricing: input $0.000015/token, output $0.000075/token
-    expect(cost).toBeCloseTo(0.015 + 0.0375, 6);
+    expect(estimateCost('gemini-flash-latest', 0, 0)).toBe(0);
   });
 });
 
@@ -189,20 +176,11 @@ describe('estimateCost()', () => {
 // ============================================================================
 
 describe('MODEL_CATALOG pricing', () => {
-  it('all models have pricing data', () => {
+  it('latest-alias models have no static pricing (resolved at runtime)', () => {
+    // -latest aliases do not carry hardcoded pricing; estimateCost returns 0
     for (const model of MODEL_CATALOG) {
-      expect(model.pricing, `Model ${model.id} missing pricing`).toBeDefined();
-      const pricing = model.pricing as ModelPricing;
-      expect(pricing.inputPerToken).toBeGreaterThan(0);
-      expect(pricing.outputPerToken).toBeGreaterThan(0);
+      expect(model.pricing).toBeUndefined();
     }
-  });
-
-  it('premium models cost more per token than fast models', () => {
-    const premium = MODEL_CATALOG.find(m => m.id === 'claude-opus-4.6')!;
-    const fast = MODEL_CATALOG.find(m => m.id === 'claude-haiku-4.5')!;
-    expect(premium.pricing!.inputPerToken).toBeGreaterThan(fast.pricing!.inputPerToken);
-    expect(premium.pricing!.outputPerToken).toBeGreaterThan(fast.pricing!.outputPerToken);
   });
 });
 

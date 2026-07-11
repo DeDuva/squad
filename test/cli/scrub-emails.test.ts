@@ -9,8 +9,8 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { tmpdir } from 'os';
-import { runInit } from '@bradygaster/squad-cli/core/init';
-import { scrubEmails } from '@bradygaster/squad-cli/core/email-scrub';
+import { runInit } from '@deduvafork/squad-cli/core/init';
+import { scrubEmails } from '@deduvafork/squad-cli/core/email-scrub';
 
 const TEST_ROOT = join(tmpdir(), `.test-cli-scrub-${randomBytes(4).toString('hex')}`);
 

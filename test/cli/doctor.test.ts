@@ -12,8 +12,8 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { randomBytes } from 'crypto';
-import { runDoctor, getDoctorMode, checkNodeVersion, checkGitSyncHooks } from '@bradygaster/squad-cli/commands/doctor';
-import type { DoctorCheck } from '@bradygaster/squad-cli/commands/doctor';
+import { runDoctor, getDoctorMode, checkNodeVersion, checkGitSyncHooks } from '@deduvafork/squad-cli/commands/doctor';
+import type { DoctorCheck } from '@deduvafork/squad-cli/commands/doctor';
 
 const TEST_ROOT = join(process.cwd(), `.test-doctor-${randomBytes(4).toString('hex')}`);
 

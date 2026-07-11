@@ -20,10 +20,10 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { ToolRegistry, type RouteRequest } from '@bradygaster/squad-sdk/tools';
-import { SessionPool, EventBus } from '@bradygaster/squad-sdk/client';
-import type { FanOutDependencies } from '@bradygaster/squad-sdk/coordinator';
-import type { AgentCharter } from '@bradygaster/squad-sdk/agents';
+import { ToolRegistry, type RouteRequest } from '@deduvafork/squad-sdk/tools';
+import { SessionPool, EventBus } from '@deduvafork/squad-sdk/client';
+import type { FanOutDependencies } from '@deduvafork/squad-sdk/coordinator';
+import type { AgentCharter } from '@deduvafork/squad-sdk/agents';
 
 /**
  * Build mocked FanOutDependencies wired only at the documented public boundary

@@ -9,8 +9,8 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
-import { runInit } from '@bradygaster/squad-cli/core/init';
-import { getPackageVersion } from '@bradygaster/squad-cli/core/version';
+import { runInit } from '@deduvafork/squad-cli/core/init';
+import { getPackageVersion } from '@deduvafork/squad-cli/core/version';
 
 const TEST_ROOT = join(tmpdir(), `.test-cli-init-${randomBytes(4).toString('hex')}`);
 const TEST_HOME = join(tmpdir(), `.test-cli-init-home-${randomBytes(4).toString('hex')}`);
@@ -164,10 +164,10 @@ describe('CLI: init command', () => {
     expect(content).toContain('mcp-servers:');
     expect(content).toContain('  squad_state:');
     expect(content).toContain('    type: local');
-    // args may be pinned (`@bradygaster/squad-cli@<version>`) or unpinned
+    // args may be pinned (`@deduvafork/squad-cli@<version>`) or unpinned
     // depending on whether getPackageVersion() resolved a real version at
     // test time. Either shape is acceptable here.
-    expect(content).toMatch(/args:\s*\['-y',\s*'@bradygaster\/squad-cli(@[^']+)?',\s*'state-mcp'\]/);
+    expect(content).toMatch(/args:\s*\['-y',\s*'@deduvafork\/squad-cli(@[^']+)?',\s*'state-mcp'\]/);
     expect(content).toContain('    tools: ["*"]');
     const frontmatterEnd = content.indexOf('\n---', 4);
     expect(frontmatterEnd).toBeGreaterThan(0);

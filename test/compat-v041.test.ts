@@ -14,10 +14,10 @@ import {
   parseRoutingMarkdown,
   matchIssueLabels,
   type CompiledRouter,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 
 // --- Casting ---
-import { CastingEngine, type CastMember } from '@bradygaster/squad-sdk/casting';
+import { CastingEngine, type CastMember } from '@deduvafork/squad-sdk/casting';
 
 // --- Config ---
 import {
@@ -26,10 +26,10 @@ import {
   validateConfigDetailed,
   loadConfigSync,
   type SquadConfig,
-} from '@bradygaster/squad-sdk/runtime';
+} from '@deduvafork/squad-sdk/runtime';
 
 // --- Tools ---
-import { ToolRegistry } from '@bradygaster/squad-sdk/tools';
+import { ToolRegistry } from '@deduvafork/squad-sdk/tools';
 
 // --- Hooks ---
 import {
@@ -37,10 +37,10 @@ import {
   ReviewerLockoutHook,
   DEFAULT_BLOCKED_COMMANDS,
   type PreToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
+} from '@deduvafork/squad-sdk/hooks';
 
 // --- Event Bus ---
-import { EventBus, type SquadEvent, type SquadEventType } from '@bradygaster/squad-sdk/runtime/event-bus';
+import { EventBus, type SquadEvent, type SquadEventType } from '@deduvafork/squad-sdk/runtime/event-bus';
 
 // --- Models ---
 import {
@@ -50,19 +50,19 @@ import {
   getModelInfo,
   getFallbackChain,
   isModelAvailable,
-} from '@bradygaster/squad-sdk/config';
+} from '@deduvafork/squad-sdk/config';
 
 // --- Skills ---
-import { SkillRegistry, parseFrontmatter, parseSkillFile } from '@bradygaster/squad-sdk/skills';
+import { SkillRegistry, parseFrontmatter, parseSkillFile } from '@deduvafork/squad-sdk/skills';
 
 // --- Streaming ---
-import { StreamingPipeline, type UsageEvent } from '@bradygaster/squad-sdk/runtime/streaming';
+import { StreamingPipeline, type UsageEvent } from '@deduvafork/squad-sdk/runtime/streaming';
 
 // --- Agent doc ---
-import { parseAgentDoc } from '@bradygaster/squad-sdk/config';
+import { parseAgentDoc } from '@deduvafork/squad-sdk/config';
 
 // --- Migration ---
-import { MigrationRegistry, compareSemVer, parseSemVer } from '@bradygaster/squad-sdk/config';
+import { MigrationRegistry, compareSemVer, parseSemVer } from '@deduvafork/squad-sdk/config';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -235,7 +235,7 @@ describe('Compat v0.4.1: Config Path Equivalence', () => {
 
   it('DEFAULT_CONFIG has expected shape', () => {
     expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-    expect(DEFAULT_CONFIG.models.defaultModel).toBe('claude-sonnet-4.6');
+    expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-flash-latest');
     expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
     expect(DEFAULT_CONFIG.routing.rules.length).toBeGreaterThanOrEqual(1);
     expect(DEFAULT_CONFIG.casting?.allowlistUniverses).toBeDefined();
@@ -466,38 +466,28 @@ describe('Compat v0.4.1: Event Bus Shape', () => {
 
 describe('Compat v0.4.1: Model Catalog', () => {
   it('catalog contains expected premium models', () => {
-    expect(isModelAvailable('claude-opus-4.6')).toBe(true);
-    expect(isModelAvailable('claude-opus-4.5')).toBe(true);
+    expect(isModelAvailable('gemini-pro-latest')).toBe(true);
   });
 
-  it('catalog contains expected standard models', () => {
-    expect(isModelAvailable('claude-sonnet-4.5')).toBe(true);
-    expect(isModelAvailable('claude-sonnet-4')).toBe(true);
-    expect(isModelAvailable('gpt-5.2-codex')).toBe(true);
+  it('catalog contains expected flash model', () => {
+    expect(isModelAvailable('gemini-flash-latest')).toBe(true);
   });
 
-  it('catalog contains expected fast models', () => {
-    expect(isModelAvailable('claude-haiku-4.5')).toBe(true);
-    expect(isModelAvailable('gpt-5.1-codex-mini')).toBe(true);
-    expect(isModelAvailable('gpt-4.1')).toBe(true);
+  it('premium fallback chain starts with gemini pro', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-pro-latest');
   });
 
-  it('premium fallback chain starts with opus', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('claude-opus-4.6');
+  it('standard fallback chain starts with gemini flash', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-flash-latest');
   });
 
-  it('standard fallback chain starts with sonnet', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('claude-sonnet-4.6');
-  });
-
-  it('fast fallback chain starts with haiku', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('claude-haiku-4.5');
+  it('fast fallback chain starts with gemini flash', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-flash-latest');
   });
 
   it('getModelInfo returns correct tier for known models', () => {
-    expect(getModelInfo('claude-opus-4.6')!.tier).toBe('premium');
-    expect(getModelInfo('claude-sonnet-4.5')!.tier).toBe('standard');
-    expect(getModelInfo('claude-haiku-4.5')!.tier).toBe('fast');
+    expect(getModelInfo('gemini-pro-latest')!.tier).toBe('premium');
+    expect(getModelInfo('gemini-flash-latest')!.tier).toBe('standard');
   });
 });
 

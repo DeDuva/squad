@@ -10,18 +10,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@bradygaster/squad-sdk/tools';
+import { ToolRegistry, defineTool, type RouteRequest, type DecisionRecord, type MemoryEntry } from '@deduvafork/squad-sdk/tools';
 import {
   HookPipeline,
   ReviewerLockoutHook,
   PolicyConfig,
   PreToolUseContext,
   PostToolUseContext,
-} from '@bradygaster/squad-sdk/hooks';
-import { compileCharter, type CharterCompileOptions } from '@bradygaster/squad-sdk/agents';
-import { resolveModel, type ModelResolutionOptions, type TaskType } from '@bradygaster/squad-sdk/agents';
-import { EventBus, type SquadEvent } from '@bradygaster/squad-sdk/runtime/event-bus';
-import { SquadClient } from '@bradygaster/squad-sdk/client';
+} from '@deduvafork/squad-sdk/hooks';
+import { compileCharter, type CharterCompileOptions } from '@deduvafork/squad-sdk/agents';
+import { resolveModel, type ModelResolutionOptions, type TaskType } from '@deduvafork/squad-sdk/agents';
+import { EventBus, type SquadEvent } from '@deduvafork/squad-sdk/runtime/event-bus';
+import { SquadClient } from '@deduvafork/squad-sdk/client';
 import {
   SquadError,
   ErrorFactory,
@@ -29,37 +29,31 @@ import {
   ErrorSeverity,
   TelemetryCollector,
   RateLimitError,
-} from '@bradygaster/squad-sdk/adapter/errors';
+} from '@deduvafork/squad-sdk/adapter/errors';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-// Mock CopilotClient
-vi.mock('@github/copilot-sdk', () => {
+vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
-    CopilotClient: vi.fn(function (this: object) {
-      Object.assign(this, {
+    // Regular function expression, not an arrow function — SquadClient calls
+    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // constructors (Reflect.construct on one throws "is not a constructor").
+    GeminiClient: vi.fn().mockImplementation(function () {
+      return {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue([]),
-        forceStop: vi.fn().mockResolvedValue(undefined),
-        createSession: vi.fn().mockResolvedValue({ sessionId: 'session-1', send: vi.fn().mockResolvedValue('msg-1'), on: vi.fn().mockReturnValue(() => {}), destroy: vi.fn().mockResolvedValue(undefined) }),
-        resumeSession: vi.fn().mockResolvedValue({ sessionId: 'session-1', send: vi.fn().mockResolvedValue('msg-1'), on: vi.fn().mockReturnValue(() => {}), destroy: vi.fn().mockResolvedValue(undefined) }),
-        listSessions: vi.fn().mockResolvedValue([]),
-        deleteSession: vi.fn().mockResolvedValue(undefined),
-        getLastSessionId: vi.fn().mockResolvedValue(undefined),
-        ping: vi.fn().mockResolvedValue({ message: 'pong', timestamp: Date.now() }),
-        getStatus: vi.fn().mockResolvedValue({ version: '1.0.0' }),
-        getAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
-        listModels: vi.fn().mockResolvedValue([]),
-        on: vi.fn().mockReturnValue(() => {}),
-        onLifecycle: vi.fn().mockReturnValue(() => {}),
-      });
+        isStarted: vi.fn().mockReturnValue(false),
+        createSession: vi.fn().mockReturnValue({
+          sessionId: 'session-1',
+          sendMessage: vi.fn().mockResolvedValue(undefined),
+          on: vi.fn(),
+          off: vi.fn(),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+        getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
+      };
     }),
-    RuntimeConnection: {
-      forStdio: vi.fn(() => ({})),
-      forTcp: vi.fn(() => ({})),
-      forUri: vi.fn(() => ({})),
-    },
   };
 });
 
@@ -440,13 +434,13 @@ describe('Integration: Charter → Model → Session Pipeline', () => {
 
     it('should provide fallback chains for each tier', () => {
       const premiumResult = resolveModel({
-        charterPreference: 'claude-opus-4.6',
+        charterPreference: 'gemini-pro-latest',
         taskType: 'prompt',
       });
 
       expect(premiumResult.tier).toBe('premium');
-      expect(premiumResult.fallbackChain.length).toBeGreaterThan(1);
-      expect(premiumResult.fallbackChain[0]).toBe('claude-opus-4.6');
+      expect(premiumResult.fallbackChain.length).toBeGreaterThan(0);
+      expect(premiumResult.fallbackChain[0]).toBe('gemini-pro-latest');
     });
   });
 });
