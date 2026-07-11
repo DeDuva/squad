@@ -13,7 +13,7 @@
  */
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { FSStorageProvider, resolveStateBackend, TwoLayerBackend } from '@bradygaster/squad-sdk';
+import { FSStorageProvider, resolveStateBackend, TwoLayerBackend } from '@deduvafork/squad-sdk';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
 
 const storage = new FSStorageProvider();

@@ -1,12 +1,12 @@
 {
-  "name": "@bradygaster/squad-cli",
-  "version": "0.11.0",
+  "name": "@deduvafork/squad-cli",
+  "version": "0.11.0-build.1",
   "description": "Squad CLI — Command-line interface for the Squad multi-agent runtime",
   "type": "module",
   "bin": {
-    "squad": "dist/cli-entry.js",
-    "squad-cli": "dist/cli-entry.js",
-    "squad-test": "dist/cli-entry.js"
+    "squad": "dist/squad.js",
+    "squad-cli": "dist/squad.js",
+    "squad-test": "dist/squad.js"
   },
   "exports": {
     ".": {
@@ -145,10 +145,6 @@
       "types": "./dist/cli/commands/extract.d.ts",
       "import": "./dist/cli/commands/extract.js"
     },
-    "./commands/copilot": {
-      "types": "./dist/cli/commands/copilot.d.ts",
-      "import": "./dist/cli/commands/copilot.js"
-    },
     "./commands/memory": {
       "types": "./dist/cli/commands/memory.d.ts",
       "import": "./dist/cli/commands/memory.js"
@@ -156,10 +152,6 @@
     "./commands/cost": {
       "types": "./dist/cli/commands/cost.d.ts",
       "import": "./dist/cli/commands/cost.js"
-    },
-    "./commands/copilot-bridge": {
-      "types": "./dist/cli/commands/copilot-bridge.d.ts",
-      "import": "./dist/cli/commands/copilot-bridge.js"
     },
     "./commands/personal": {
       "types": "./dist/cli/commands/personal.d.ts",
@@ -178,29 +170,30 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "postinstall": "node scripts/patch-esm-imports.mjs && node scripts/patch-ink-rendering.mjs",
+    "postinstall": "node scripts/patch-ink-rendering.mjs",
     "prepublishOnly": "npm run build",
-    "build": "tsc -p tsconfig.json && npm run postbuild",
-    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\""
+    "build": "tsc -p tsconfig.json && npm run postbuild && npm run bundle",
+    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\"",
+    "bundle": "node scripts/bundle.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": "*",
+    "@deduvafork/squad-sdk": "file:../squad-sdk",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "ink": "^7.1.0",
-    "react": "^19.2.7",
-    "vscode-jsonrpc": "^9.0.0"
+    "react": "^19.2.7"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
     "typescript": "^6.0.3",
-    "ink-testing-library": "^4.0.0"
+    "ink-testing-library": "^4.0.0",
+    "esbuild": "^0.25.0"
   },
   "keywords": [
-    "copilot",
+    "gemini",
     "multi-agent",
     "squad",
     "cli"

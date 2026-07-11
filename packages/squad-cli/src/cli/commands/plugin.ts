@@ -28,7 +28,7 @@ import {
   type InstalledPluginFile,
   type PluginComponentKind,
   type PluginInstallPlanFile,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import { success, warn, info, dim, DIM, BOLD, RESET } from '../core/output.js';
 import { fatal } from '../core/errors.js';
 import { effectiveSquadDir } from '../core/effective-squad-dir.js';

@@ -252,7 +252,7 @@ function formatModelArray(chain: readonly string[]): string {
 function generateTypeScriptConfig(options: InitOptions): string {
   const { projectName, projectDescription, agents } = options;
 
-  return `import type { SquadConfig } from '@bradygaster/squad';
+  return `import type { SquadConfig } from '@deduvafork/squad';
 
 /**
  * Squad Configuration for ${projectName}
@@ -412,7 +412,7 @@ function generateSDKBuilderConfig(options: InitOptions): string {
   const { projectName, projectDescription, agents } = options;
 
   // Generate imports
-  let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@bradygaster/squad-sdk';\n\n`;
+  let code = `import {\n  defineSquad,\n  defineTeam,\n  defineAgent,\n} from '@deduvafork/squad-sdk';\n\n`;
 
   code += `/**\n * Squad Configuration — ${projectName}\n`;
   if (projectDescription) {
@@ -481,7 +481,7 @@ function generateSDKBuilderConfigWithRoles(options: InitOptions): string {
   if (needsDefineAgent) imports.push('defineAgent');
   if (needsUseRole) imports.push('useRole');
 
-  let code = `import {\n${imports.map(i => `  ${i},`).join('\n')}\n} from '@bradygaster/squad-sdk';\n\n`;
+  let code = `import {\n${imports.map(i => `  ${i},`).join('\n')}\n} from '@deduvafork/squad-sdk';\n\n`;
 
   code += `/**\n * Squad Configuration — ${projectName}\n`;
   if (projectDescription) {
@@ -649,12 +649,12 @@ interface McpServerSpec {
 
 function buildMcpServerSpecs(isGitHub: boolean, cliVersion?: string): McpServerSpec[] {
   // Pin the squad-cli package to the currently-installed CLI version so that
-  // `npx -y @bradygaster/squad-cli state-mcp` does NOT silently resolve to the
+  // `npx -y @deduvafork/squad-cli state-mcp` does NOT silently resolve to the
   // npm `latest` dist-tag (which may predate the `state-mcp` command and thus
   // expose zero tools to Copilot — see MCP-BRIDGE-BROKEN root cause).
   const pkgSpec = cliVersion && cliVersion !== '0.0.0'
-    ? `@bradygaster/squad-cli@${cliVersion}`
-    : '@bradygaster/squad-cli';
+    ? `@deduvafork/squad-cli@${cliVersion}`
+    : '@deduvafork/squad-cli';
   const servers: McpServerSpec[] = [
     {
       name: 'squad_state',
@@ -1323,13 +1323,13 @@ ${projectDescription ? `- **Description:** ${projectDescription}\n` : ''}- **Cre
       if (missing.length > 0) {
         // Manifest/templates drift — fail loudly so v0.10.0-style silent-skip
         // regressions (#1289) cannot reach users. End-users see this when an
-        // installed @bradygaster/squad-sdk ships with its templates dir
+        // installed @deduvafork/squad-sdk ships with its templates dir
         // missing skills the SDK code knows about — almost always a packaging
         // bug. The fix is to upgrade to a non-broken SDK version
         // (`squad upgrade`); the dev-facing sync-skill-templates.mjs script
         // is referenced only as the contributor-side root cause.
         throw new Error(
-          `Skill template drift in installed @bradygaster/squad-sdk: ` +
+          `Skill template drift in installed @deduvafork/squad-sdk: ` +
           `MANIFEST_SKILL_NAMES references ${missing.length} skill(s) ` +
           `missing from the SDK templates dir (${skillsSrc}): ${missing.join(', ')}. ` +
           `This is a packaging bug — try \`squad upgrade\` or reinstall the SDK; ` +

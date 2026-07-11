@@ -4,17 +4,17 @@
  */
 
 import { join } from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import {
   getRoleById,
   generateCharterFromRole,
   addAgentToConfig,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import {
   CastingEngine,
   type CastMember as EngineCastMember,
   type AgentRole as EngineAgentRole,
-} from '@bradygaster/squad-sdk/casting';
+} from '@deduvafork/squad-sdk/casting';
 
 // ── RAI Policy Template ────────────────────────────────────────────
 

@@ -19,8 +19,8 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { installGitHooks } from './install-hooks.js';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
-import { addSquadStateGitignoreBlock, removeSquadStateGitignoreBlock } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
+import { addSquadStateGitignoreBlock, removeSquadStateGitignoreBlock } from '@deduvafork/squad-sdk';
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';

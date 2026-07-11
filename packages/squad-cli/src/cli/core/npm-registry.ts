@@ -20,7 +20,7 @@ export function _resetNpmRegistryCache(): void {
 }
 
 /**
- * Returns true if `@bradygaster/squad-cli@<version>` is reachable on the npm
+ * Returns true if `@deduvafork/squad-cli@<version>` is reachable on the npm
  * registry, false on any network failure / 404 / non-publishable response.
  *
  * Uses Node's built-in `https` so we don't pull in extra deps. Total budget

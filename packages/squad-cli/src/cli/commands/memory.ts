@@ -3,7 +3,7 @@ import {
   LocalMemoryStore,
   type MemoryClass,
   type MemoryLoadGuidance,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 

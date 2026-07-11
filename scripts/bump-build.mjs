@@ -96,12 +96,12 @@ try {
         entry.version = newVersion;
         lockChanged = true;
       }
-      // Also bump the CLI's @bradygaster/squad-sdk dependency floor so it
+      // Also bump the CLI's @deduvafork/squad-sdk dependency floor so it
       // resolves the freshly-built SDK rather than the previous version.
-      if (key === 'packages/squad-cli' && entry?.dependencies?.['@bradygaster/squad-sdk']) {
+      if (key === 'packages/squad-cli' && entry?.dependencies?.['@deduvafork/squad-sdk']) {
         const desired = `>=${newVersion}`;
-        if (entry.dependencies['@bradygaster/squad-sdk'] !== desired) {
-          entry.dependencies['@bradygaster/squad-sdk'] = desired;
+        if (entry.dependencies['@deduvafork/squad-sdk'] !== desired) {
+          entry.dependencies['@deduvafork/squad-sdk'] = desired;
           lockChanged = true;
         }
       }

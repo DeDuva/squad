@@ -8,7 +8,7 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import { resolveStateDir } from '../core/effective-squad-dir.js';
 import { SessionRegistry } from './sessions.js';
 import { ShellRenderer } from './render.js';

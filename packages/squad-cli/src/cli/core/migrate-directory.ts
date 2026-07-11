@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import { success, warn, dim, bold } from './output.js';
 import { fatal } from './errors.js';
 import { scrubEmails } from './email-scrub.js';

@@ -2,7 +2,7 @@
 /**
  * scripts/run-benchmarks.mjs
  *
- * Foundation runner for the existing @bradygaster/squad-sdk BenchmarkSuite.
+ * Foundation runner for the existing @deduvafork/squad-sdk BenchmarkSuite.
  *
  * Why this script exists
  * ----------------------

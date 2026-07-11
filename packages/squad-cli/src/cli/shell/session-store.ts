@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { FSStorageProvider, safeTimestamp } from '@bradygaster/squad-sdk';
+import { FSStorageProvider, safeTimestamp } from '@deduvafork/squad-sdk';
 import type { ShellMessage } from './types.js';
 
 const storage = new FSStorageProvider();

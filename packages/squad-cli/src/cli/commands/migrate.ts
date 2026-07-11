@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
 import { success, warn, dim, bold, BOLD, RESET, DIM } from '../core/output.js';
@@ -15,7 +15,7 @@ import type {
   TeamDefinition,
   RoutingDefinition,
   CastingDefinition,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 export interface MigrateOptions {
   to?: 'sdk' | 'markdown';
@@ -290,7 +290,7 @@ function generateSquadConfig(
   if (casting) {
     lines.push("  defineCasting,");
   }
-  lines.push("} from '@bradygaster/squad-sdk';");
+  lines.push("} from '@deduvafork/squad-sdk';");
   lines.push("");
   lines.push("/**");
   lines.push(" * Squad Configuration");

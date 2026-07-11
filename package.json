@@ -1,22 +1,22 @@
 {
-  "name": "@bradygaster/squad",
-  "version": "0.11.0",
+  "name": "@deduvafork/squad",
+  "version": "0.11.0-build.1",
   "private": true,
-  "description": "Squad — Programmable multi-agent runtime for GitHub Copilot, built on @github/copilot-sdk",
+  "description": "Squad — Programmable multi-agent runtime powered by Gemini (airlock mode)",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "dependencies": {
-    "@bradygaster/squad-sdk": "file:packages/squad-sdk"
+    "@deduvafork/squad-sdk": "file:packages/squad-sdk"
   },
   "overrides": {
-    "@bradygaster/squad-cli": {
-      "@bradygaster/squad-sdk": "$@bradygaster/squad-sdk"
+    "@deduvafork/squad-cli": {
+      "@deduvafork/squad-sdk": "$@deduvafork/squad-sdk"
     }
   },
   "scripts": {
-    "prebuild": "node scripts/bump-build.mjs && node scripts/sync-skill-templates.mjs && node scripts/sync-templates.mjs",
+    "prebuild": "node -e \"const f=require('fs');f.rmSync('packages/squad-sdk/dist',{recursive:true,force:true});f.rmSync('packages/squad-sdk/tsconfig.tsbuildinfo',{force:true});f.rmSync('packages/squad-cli/node_modules/@bradygaster',{recursive:true,force:true});f.rmSync('packages/squad-cli/node_modules/@deduvafork',{recursive:true,force:true})\" && node scripts/bump-build.mjs && node scripts/sync-skill-templates.mjs && node scripts/sync-templates.mjs",
     "build": "npm run build -w packages/squad-sdk && npm run build -w packages/squad-cli",
     "sync-templates": "node scripts/sync-templates.mjs",
     "test": "vitest run",
@@ -57,7 +57,7 @@
     "vitest": "^4.1.9"
   },
   "keywords": [
-    "copilot",
+    "gemini",
     "multi-agent",
     "squad",
     "sdk"

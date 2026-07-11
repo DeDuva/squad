@@ -8,7 +8,7 @@
  */
 
 import { detectSquadDir, type SquadDirInfo } from './detect-squad-dir.js';
-import { loadDirConfig, resolveExternalStateDir } from '@bradygaster/squad-sdk';
+import { loadDirConfig, resolveExternalStateDir } from '@deduvafork/squad-sdk';
 
 /**
  * Resolve the effective state directory from a local .squad/ path.

@@ -21,39 +21,7 @@ process.emit = function (evt: string, ...args: unknown[]) {
   return _origEmit.apply(this, [evt, ...args] as Parameters<typeof _origEmit>);
 };
 
-// Runtime ESM Import Patcher for @github/copilot-sdk (#265)
-// ---------------------------------------------------------
-// Patch broken ESM import in @github/copilot-sdk@0.1.32 at runtime before
-// Node's module loader attempts resolution.
-//
-// Root cause: copilot-sdk's session.js imports 'vscode-jsonrpc/node' without
-// .js extension, violating Node 24+ strict ESM resolution requirements.
-//
-// Why runtime patch?: NPX caches packages in ~/.npm/_cacache and skips
-// postinstall scripts on cache hits (documented npm behavior). The install-time
-// patch in scripts/patch-esm-imports.mjs never runs on npx cache hits, causing
-// ERR_MODULE_NOT_FOUND crashes on Node 24+.
-//
-// This runtime patch intercepts Module._resolveFilename before any imports
-// trigger copilot-sdk loading, rewriting the broken import to include .js.
-// Works everywhere: npx (cache hit/miss), global install, CI/CD.
-//
-// Upstream issue: https://github.com/github/copilot-sdk/issues/707
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const Module = require('node:module');
-
-const _origResolveFilename = Module._resolveFilename;
-Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options?: unknown) {
-  // Intercept the broken import: 'vscode-jsonrpc/node' → 'vscode-jsonrpc/node.js'
-  if (request === 'vscode-jsonrpc/node') {
-    request = 'vscode-jsonrpc/node.js';
-  }
-  return _origResolveFilename.call(this, request, parent, isMain, options);
-};
-
-// Pre-flight: require Node.js ≥22.5.0 for node:sqlite (#214, #502).
-// node:sqlite is used by the Copilot SDK for session storage.
+// Pre-flight: require Node.js ≥22.5.0 for node:sqlite.
 // Fail fast with a clear message rather than letting users hit a cryptic
 // ERR_UNKNOWN_BUILTIN_MODULE crash when the SDK loads.
 {
@@ -63,7 +31,6 @@ Module._resolveFilename = function (request: string, parent: unknown, isMain: bo
   if (major < 22 || (major === 22 && minor < 5)) {
     console.error(
       `✗ Squad requires Node.js ≥22.5.0 (you have v${process.versions.node}).\n` +
-      `  node:sqlite (required by the Copilot SDK for session storage) was added in Node 22.5.0.\n` +
       `  Upgrade at: https://nodejs.org/en/download\n`,
     );
     process.exit(1);
@@ -89,8 +56,8 @@ function _handleTopLevelSignal(signal: 'SIGINT' | 'SIGTERM'): void {
 process.on('SIGINT', () => _handleTopLevelSignal('SIGINT'));
 process.on('SIGTERM', () => _handleTopLevelSignal('SIGTERM'));
 
-import { FSStorageProvider, resolveSquadState } from '@bradygaster/squad-sdk';
-import type { SquadStateContext, StateBackendType } from '@bradygaster/squad-sdk';
+import { FSStorageProvider, resolveSquadState } from '@deduvafork/squad-sdk';
+import type { SquadStateContext, StateBackendType } from '@deduvafork/squad-sdk';
 import path from 'node:path';
 import { fatal, SquadError } from './cli/core/errors.js';
 import { BOLD, RESET, DIM, RED, GREEN, YELLOW } from './cli/core/output.js';
@@ -101,7 +68,7 @@ import { printCommandHelp, printGenericCommandHelp } from './cli/core/command-he
 
 // Lazy-load squad-sdk to avoid triggering @github/copilot-sdk import on Node 24+
 // (Issue: copilot-sdk has broken ESM imports - vscode-jsonrpc/node without .js extension)
-const lazySquadSdk = () => import('@bradygaster/squad-sdk');
+const lazySquadSdk = () => import('@deduvafork/squad-sdk');
 const lazyRunShell = () => import('./cli/shell/index.js');
 
 // Use local version resolver instead of importing VERSION from squad-sdk
@@ -283,9 +250,8 @@ async function main(): Promise<void> {
     console.log(`                    apply <name> [--force] | save <name>`);
     console.log(`                    init [--remote]`);
     console.log(`  ${BOLD}cast${RESET}       Show current session cast (project + personal agents)`);
-    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser → Copilot)`);
+    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser)`);
     console.log(`             Usage: rc [--tunnel] [--port <n>] [--path <dir>]`);
-    console.log(`  ${BOLD}copilot-bridge${RESET}  Check Copilot ACP stdio compatibility`);
     console.log(`  ${BOLD}init-remote${RESET}    Link project to remote team root (shorthand)`);
     console.log(`             Usage: init-remote <team-repo-path>`);
     console.log(`  ${BOLD}rc-tunnel${RESET}      Check devtunnel CLI availability`);
@@ -317,8 +283,8 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}--economy${RESET}      Activate economy mode for this session (cheaper models)`);
     console.log(`  ${BOLD}--team-root${RESET}    Override team root path for resolution`);
     console.log(`\nInstallation:`);
-    console.log(`  npm install --save-dev @bradygaster/squad-cli`);
-    console.log(`  npm install --save-dev @bradygaster/squad-cli@insider\n`);
+    console.log(`  npm install --save-dev @deduvafork/squad-cli`);
+    console.log(`  npm install --save-dev @deduvafork/squad-cli@insider\n`);
     return;
   }
 
@@ -390,8 +356,8 @@ async function main(): Promise<void> {
     // Global init: suppress workflows (no GitHub CI in ~/.config/squad/) and bootstrap personal squad
     runInit(dest, { includeWorkflows: !noWorkflows && !hasGlobal, sdk, roles, isGlobal: hasGlobal, stateBackend: initStateBackend, mcpFrontmatter }).then(async () => {
       if (presetName) {
-        const { seedBuiltinPresets, applyPreset } = await import('@bradygaster/squad-sdk/presets');
-        const { resolvePresetsDir, ensureSquadHome } = await import('@bradygaster/squad-sdk/resolution');
+        const { seedBuiltinPresets, applyPreset } = await import('@deduvafork/squad-sdk/presets');
+        const { resolvePresetsDir, ensureSquadHome } = await import('@deduvafork/squad-sdk/resolution');
         const nodePath = await import('node:path');
 
         // Auto-initialize squad home + presets if they don't exist yet
@@ -754,7 +720,7 @@ async function main(): Promise<void> {
     if (args.includes('--init')) {
       const fileIdx = args.indexOf('--file');
       const filePath = (fileIdx !== -1 && args[fileIdx + 1]) ? args[fileIdx + 1]! : 'loop.md';
-      const { FSStorageProvider } = await import('@bradygaster/squad-sdk');
+      const { FSStorageProvider } = await import('@deduvafork/squad-sdk');
       const storage = new FSStorageProvider();
       const pathMod = await import('node:path');
       const absPath = pathMod.default.resolve(getSquadStartDir(), filePath);
@@ -870,14 +836,6 @@ async function main(): Promise<void> {
   if (cmd === 'plugin') {
     const { runPlugin } = await import('./cli/commands/plugin.js');
     await runPlugin(getSquadStartDir(), args.slice(1));
-    return;
-  }
-
-  if (cmd === 'copilot') {
-    const { runCopilot } = await import('./cli/commands/copilot.js');
-    const isOff = args.includes('--off');
-    const autoAssign = args.includes('--auto-assign');
-    await runCopilot(getSquadStartDir(), { off: isOff, autoAssign });
     return;
   }
 
@@ -1057,17 +1015,6 @@ async function main(): Promise<void> {
     const pathIdx = args.indexOf('--path');
     const rcPath = (pathIdx !== -1 && args[pathIdx + 1]) ? args[pathIdx + 1] : undefined;
     await runRC(rcPath || getSquadStartDir(), { tunnel: hasTunnel, port });
-    return;
-  }
-
-  if (cmd === 'copilot-bridge') {
-    const { CopilotBridge } = await import('./cli/commands/copilot-bridge.js');
-    const result = await CopilotBridge.checkCompatibility();
-    if (result.compatible) {
-      console.log(`${GREEN}✓${RESET} ${result.message}`);
-    } else {
-      console.log(`${YELLOW}⚠${RESET} ${result.message}`);
-    }
     return;
   }
 

@@ -13,7 +13,7 @@ import {
   isConsultMode,
   PersonalSquadNotFoundError,
   FSStorageProvider,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 
 const storage = new FSStorageProvider();
 import { fatal } from '../core/errors.js';

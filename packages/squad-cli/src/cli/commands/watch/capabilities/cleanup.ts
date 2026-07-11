@@ -8,7 +8,7 @@
 
 import path from 'node:path';
 import { rmSync } from 'node:fs';
-import { FSStorageProvider } from '@bradygaster/squad-sdk';
+import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
 
 const storage = new FSStorageProvider();

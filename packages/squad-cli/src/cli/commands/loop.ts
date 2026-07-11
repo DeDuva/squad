@@ -21,8 +21,8 @@ import {
 } from './watch/index.js';
 import type { WatchCapability, WatchContext, WatchPhase, CapabilityResult } from './watch/types.js';
 import type { WatchConfig } from './watch/config.js';
-import { createPlatformAdapter } from '@bradygaster/squad-sdk/platform';
-import { parseRoster } from '@bradygaster/squad-sdk/ralph/triage';
+import { createPlatformAdapter } from '@deduvafork/squad-sdk/platform';
+import { parseRoster } from '@deduvafork/squad-sdk/ralph/triage';
 
 // ── Types ────────────────────────────────────────────────────────
 
