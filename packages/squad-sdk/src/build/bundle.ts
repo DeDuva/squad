@@ -32,7 +32,9 @@ const DEFAULT_ENTRY_POINTS = [
 ];
 
 const DEFAULT_EXTERNAL = [
-  '@github/copilot-sdk',
+  'node-pty',
+  'sql.js',
+  '@opentelemetry/sdk-node',
 ];
 
 const DEFAULT_CONFIG: BundleConfig = {

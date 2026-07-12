@@ -14,7 +14,7 @@
  *
  * @see packages/squad-cli/src/cli-entry.ts — getSquadStartDir()
  * @see packages/squad-sdk/src/resolution.ts  — resolveSquad()
- * @see https://github.com/bradygaster/squad/issues/836
+ * @see https://github.com/DeDuva/squad/issues/836
  */
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
@@ -178,13 +178,19 @@ describe('SQUAD_TEAM_ROOT resolution (#836)', () => {
 
   describe('invalid SQUAD_TEAM_ROOT path', () => {
     it('resolveSquad returns null for a non-existent SQUAD_TEAM_ROOT path', () => {
-      const fakePath = join(tmpdir(), 'squad-nonexistent-' + Date.now());
+      // Create a real parent dir with .git so the walk stops here rather than
+      // climbing all the way to the user's home directory.
+      const parentDir = mkdtempSync(join(tmpdir(), 'squad-fence-'));
+      tmpDirs.push(parentDir);
+      mkdirSync(join(parentDir, '.git'), { recursive: true });
+
+      const fakePath = join(parentDir, 'squad-nonexistent-' + Date.now());
       process.env['SQUAD_TEAM_ROOT'] = fakePath;
 
       const startDir = getSquadStartDir();
       const result = resolveSquad(startDir);
 
-      // Non-existent path → resolveSquad walks up and finds nothing → null
+      // Non-existent path → resolveSquad walks up, hits .git boundary → null
       expect(result).toBeNull();
     });
 

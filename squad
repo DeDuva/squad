@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Squad — local entry point (airlock mode, no npm install required at runtime).
+# Build once: npm run build
+# Then run: ./squad [command] [options]
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec node "$SCRIPT_DIR/packages/squad-cli/dist/squad.js" "$@"

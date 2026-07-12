@@ -5,7 +5,7 @@
  * thinking indicators, activity hints, streaming content, /status
  * visibility, Ctrl+C cancellation, and recovery after cancel.
  *
- * @see https://github.com/bradygaster/squad-pr/issues/385
+ * @see https://github.com/DeDuva/squad/issues/385
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

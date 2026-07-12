@@ -1,14 +1,13 @@
 {
   "mcpServers": {
-    "EXAMPLE-trello": {
+    "EXAMPLE-github": {
       "command": "npx",
       "args": [
         "-y",
-        "@trello/mcp-server"
+        "@anthropic/github-mcp-server"
       ],
       "env": {
-        "TRELLO_API_KEY": "${TRELLO_API_KEY}",
-        "TRELLO_TOKEN": "${TRELLO_TOKEN}"
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     }
   }

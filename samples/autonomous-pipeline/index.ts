@@ -29,7 +29,7 @@ import {
   recordSessionCreated,
   recordSessionClosed,
   VERSION,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import type {
   CastMember,
   AgentRole,
@@ -37,7 +37,7 @@ import type {
   SquadConfig,
   TierContext,
   SquadTelemetryHandle,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 import chalk from 'chalk';
 
 // ============================================================================
@@ -455,7 +455,7 @@ function printFinalReport(
   }
 
   console.log();
-  console.log(chalk.dim(`  Squad SDK v${VERSION} · github.com/bradygaster/squad-pr`));
+  console.log(chalk.dim(`  Squad SDK v${VERSION} · github.com/DeDuva/squad`));
   console.log();
 }
 

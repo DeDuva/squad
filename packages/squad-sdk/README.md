@@ -1,6 +1,6 @@
-# @bradygaster/squad-sdk
+# @deduvafork/squad-sdk
 
-**Programmable multi-agent runtime for GitHub Copilot.** Build AI teams that persist, learn, and coordinate — with real governance, not vibes.
+**Programmable multi-agent runtime powered by Gemini.** Build AI teams that persist, learn, and coordinate — with real governance, not vibes.
 
 [![Status](https://img.shields.io/badge/status-production-brightgreen)](#requirements)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-green)](#requirements)
@@ -11,7 +11,7 @@
 ## Install
 
 ```bash
-npm install @bradygaster/squad-sdk
+npm install @deduvafork/squad-sdk
 ```
 
 ---
@@ -66,13 +66,13 @@ Router.matchRoute(message) → { agent: 'Backend', priority: 'high' }
 └─────────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────────┐
-│  @github/copilot-sdk                        │
+│  @google/generative-ai (Gemini API)         │
 │  - Real-time agent streaming                │
 │  - Tool execution                           │
 └─────────────────────────────────────────────┘
 ```
 
-Your code sits at the top. The runtime handles routing, permissions, and governance. Sessions are persistent and recoverable. Everything runs on top of the official Copilot SDK.
+Your code sits at the top. The runtime handles routing, permissions, and governance. Sessions are persistent and recoverable. Everything runs on top of the Gemini SDK.
 
 ---
 
@@ -144,7 +144,7 @@ await tool.handler({
 
 Agents learn as they work. Next session, Frontend reads this and knows immediately. No context hunting, no re-explaining.
 
-> Two more tools — `squad_status` (query the session pool) and `squad_skill` (read/write compressed learnings) — round out the coordination layer. See the [full docs](https://github.com/bradygaster/squad#the-custom-tools) for details.
+> Two more tools — `squad_status` (query the session pool) and `squad_skill` (read/write compressed learnings) — round out the coordination layer. See the [full docs](https://github.com/DeDuva/squad#the-custom-tools) for details.
 
 ---
 
@@ -249,7 +249,7 @@ Squad separates I/O from business logic. All persistent storage — sessions, st
 Implement the `StorageProvider` interface:
 
 ```typescript
-import type { StorageProvider } from '@bradygaster/squad-sdk';
+import type { StorageProvider } from '@deduvafork/squad-sdk';
 
 export class MyCloudStorageProvider implements StorageProvider {
   async read(filePath: string): Promise<string | undefined> {
@@ -354,9 +354,9 @@ When agents complete work, record decisions, or hit errors — Ralph knows. If a
 
 ## Links
 
-- **Repository:** [github.com/bradygaster/squad](https://github.com/bradygaster/squad)
-- **CLI package:** [@bradygaster/squad-cli](https://www.npmjs.com/package/@bradygaster/squad-cli)
-- **Issues:** [github.com/bradygaster/squad/issues](https://github.com/bradygaster/squad/issues)
+- **Repository:** [github.com/DeDuva/squad](https://github.com/DeDuva/squad)
+- **CLI package:** [@deduvafork/squad-cli](https://www.npmjs.com/package/@deduvafork/squad-cli)
+- **Issues:** [github.com/DeDuva/squad/issues](https://github.com/DeDuva/squad/issues)
 
 ---
 

@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { TerminalHarness } from '../harness.js';
@@ -35,6 +35,21 @@ export function registerCLISteps(registry: StepDefinitions): void {
     /a directory without a "\.squad" directory/,
     async (_stepText, context) => {
       const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+      context.tempDir = tempDir;
+    },
+    registry
+  );
+
+  registerStep(
+    'Given',
+    /a temp directory with a "\.squad" subdirectory/,
+    async (_stepText, context) => {
+      const tempDir = mkdtempSync(join(tmpdir(), 'squad-e2e-'));
+      const squadDir = join(tempDir, '.squad');
+      mkdirSync(squadDir);
+      // Pre-create team.md so that squad init finds existing files and
+      // outputs "already exists — skipping" (triggers the skipped-files path)
+      writeFileSync(join(squadDir, 'team.md'), '# Team\n');
       context.tempDir = tempDir;
     },
     registry

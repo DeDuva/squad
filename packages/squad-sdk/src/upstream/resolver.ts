@@ -58,7 +58,7 @@ function findSquadDir(sourcePath: string, storage: StorageProvider = defaultStor
 function readSkills(squadDir: string, storage: StorageProvider = defaultStorage): Array<{ name: string; content: string }> {
   const projectDir = path.dirname(squadDir);
   const candidateDirs = [
-    { dir: path.join(projectDir, '.copilot', 'skills'), layout: 'nested' as const },
+    { dir: path.join(projectDir, '.squad', 'skills'), layout: 'nested' as const },
     { dir: path.join(squadDir, 'skills'), layout: 'nested' as const },
     { dir: path.join(projectDir, '.ai-team', 'skills'), layout: 'flat' as const },
   ];

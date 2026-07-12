@@ -70,7 +70,7 @@ import {
   selectResponseTier,
   getTier,
   MODELS,
-} from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
 ```
 
 ## Next steps

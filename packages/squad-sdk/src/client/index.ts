@@ -64,11 +64,11 @@ export interface SquadClientWithPoolConfig extends SquadClientOptions {
  * const client = new SquadClientWithPool({
  *   pool: { maxConcurrent: 5 }
  * });
- * 
+ *
  * await client.connect();
- * 
- * const session1 = await client.createSession({ model: 'claude-sonnet-4.5' });
- * const session2 = await client.createSession({ model: 'claude-haiku-4.5' });
+ *
+ * const session1 = await client.createSession({ model: 'gemini-pro-latest' });
+ * const session2 = await client.createSession({ model: 'gemini-flash-latest' });
  * 
  * client.eventBus.on('session.created', (event) => {
  *   console.log('New session:', event.sessionId);
@@ -108,12 +108,10 @@ export class SquadClientWithPool {
     });
   }
   
-  /** Connect to the Copilot CLI server */
   async connect(): Promise<void> {
     return this.baseClient.connect();
   }
-  
-  /** Disconnect from the Copilot CLI server */
+
   async disconnect(): Promise<Error[]> {
     await this.pool.shutdown();
     return this.baseClient.disconnect();
@@ -182,9 +180,8 @@ export class SquadClientWithPool {
     return this.baseClient.listSessions();
   }
   
-  /** Send a ping to verify connectivity */
-  async ping(message?: string) {
-    return this.baseClient.ping(message);
+  async ping() {
+    return this.baseClient.ping();
   }
   
   /** Get CLI status information */

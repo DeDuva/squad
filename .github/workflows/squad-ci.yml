@@ -457,7 +457,6 @@ jobs:
           && steps.sdk.outputs.skip != 'true'
         run: |
           npm ci --ignore-scripts
-          node packages/squad-cli/scripts/patch-esm-imports.mjs
           npm run build -w packages/squad-sdk
       - name: Smoke test all subpath exports
         if: >-
@@ -574,7 +573,6 @@ jobs:
         if: steps.gate.outputs.skip != 'true' && steps.sdk.outputs.skip != 'true'
         run: |
           npm ci --ignore-scripts
-          node packages/squad-cli/scripts/patch-esm-imports.mjs
           npm run build -w packages/squad-sdk
       - name: Build and test samples
         if: steps.gate.outputs.skip != 'true' && steps.sdk.outputs.skip != 'true'

@@ -182,7 +182,7 @@ Done! ✨
 | --- | --- |
 | `azure-blob-storage-provider.ts` | Full `StorageProvider` implementation backed by Azure Blob Storage |
 | `index.ts` | Demo script that exercises every method and prints results |
-| `package.json` | Dependencies: `@azure/storage-blob`, `@azure/identity`, `@bradygaster/squad-sdk` |
+| `package.json` | Dependencies: `@azure/storage-blob`, `@azure/identity`, `@deduvafork/squad-sdk` |
 | `scripts/create-storage.sh` | Creates an Azure resource group + storage account with full-access connection string |
 | `scripts/delete-storage.sh` | Deletes the resource group and all resources inside it |
 

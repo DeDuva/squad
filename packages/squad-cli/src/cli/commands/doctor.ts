@@ -465,6 +465,64 @@ function checkCopilotCli(): Promise<DoctorCheck> {
   });
 }
 
+// ── gemini auth check ────────────────────────────────────────────────
+
+/**
+ * Check that a Gemini API key is configured (env var or stored config)
+ * and that it validates against the Gemini API.
+ */
+async function checkGeminiAuth(): Promise<DoctorCheck> {
+  const { homedir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { existsSync, readFileSync } = await import('node:fs');
+
+  let apiKey = process.env['GEMINI_API_KEY'];
+
+  if (!apiKey) {
+    const configFile = join(homedir(), '.config', 'squad', 'gemini.json');
+    if (existsSync(configFile)) {
+      try {
+        const parsed = JSON.parse(readFileSync(configFile, 'utf-8'));
+        if (typeof parsed.apiKey === 'string') apiKey = parsed.apiKey;
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (!apiKey) {
+    return {
+      name: 'Gemini API key',
+      status: 'fail',
+      message: 'not configured — run: squad auth setup --provider=gemini --key YOUR_KEY',
+    };
+  }
+
+  // Validate the key
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (res.ok) {
+      const source = process.env['SQUAD_GEMINI_KEY_SOURCE']
+        ? process.env['SQUAD_GEMINI_KEY_SOURCE']
+        : process.env['GEMINI_API_KEY']
+          ? 'GEMINI_API_KEY env var'
+          : '~/.config/squad/gemini.json';
+      return { name: 'Gemini API key', status: 'pass', message: `valid (source: ${source})` };
+    }
+    return {
+      name: 'Gemini API key',
+      status: 'fail',
+      message: `key found but validation failed (HTTP ${res.status}) — run: squad auth setup --provider=gemini --key YOUR_KEY`,
+    };
+  } catch (err) {
+    return {
+      name: 'Gemini API key',
+      status: 'warn',
+      message: `key found but connectivity check failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // ── git sync hooks check ─────────────────────────────────────────────
 
 const SQUAD_SYNC_HOOK_MARKER = '# --- squad-sync-hook ---';
@@ -603,6 +661,9 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
 
   // 13. Copilot CLI availability (needed by watch capabilities)
   checks.push(await checkCopilotCli());
+
+  // 14. Gemini API key (async — validates connectivity)
+  checks.push(await checkGeminiAuth());
 
   return checks;
 }

@@ -14,8 +14,8 @@ import {
   selectResponseTier,
   StreamingPipeline,
   VERSION,
-} from '@bradygaster/squad-sdk';
-import type { CastMember, ResponseTier, SquadConfig, TierContext } from '@bradygaster/squad-sdk';
+} from '@deduvafork/squad-sdk';
+import type { CastMember, ResponseTier, SquadConfig, TierContext } from '@deduvafork/squad-sdk';
 
 // ============================================================================
 // CastingEngine — cast a 4-agent team

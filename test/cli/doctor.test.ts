@@ -6,7 +6,7 @@
  * Doctor command inspired by @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -34,17 +34,29 @@ async function scaffold(root: string): Promise<void> {
 }
 
 describe('squad doctor', () => {
+  const originalEnv = process.env['GEMINI_API_KEY'];
+
   beforeEach(async () => {
     if (existsSync(TEST_ROOT)) {
       await rm(TEST_ROOT, { recursive: true, force: true });
     }
     await mkdir(TEST_ROOT, { recursive: true });
+
+    // Provide a dummy key and mock fetch so the Gemini auth check passes in tests
+    process.env['GEMINI_API_KEY'] = 'test-key-for-doctor-tests';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   afterEach(async () => {
     if (existsSync(TEST_ROOT)) {
       await rm(TEST_ROOT, { recursive: true, force: true });
     }
+    if (originalEnv === undefined) {
+      delete process.env['GEMINI_API_KEY'];
+    } else {
+      process.env['GEMINI_API_KEY'] = originalEnv;
+    }
+    vi.unstubAllGlobals();
   });
 
   it('reports all green on a healthy local setup', async () => {
@@ -62,6 +74,7 @@ describe('squad doctor', () => {
     // ESM checks return 'warn' (not fail) when node_modules absent from test dir
     expect(checks.some((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch')).toBe(true);
+    expect(checks.some((c: DoctorCheck) => c.name === 'Gemini API key' && c.status === 'pass')).toBe(true);
   });
 
   it('reports failures on an empty directory', async () => {
@@ -69,8 +82,8 @@ describe('squad doctor', () => {
 
     const squadDirCheck = checks.find((c: DoctorCheck) => c.name === '.squad/ directory exists');
     expect(squadDirCheck?.status).toBe('fail');
-    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI
-    expect(checks.length).toBe(6);
+    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI + Gemini API key
+    expect(checks.length).toBe(7);
   });
 
   it('detects remote mode from config.json with teamRoot', async () => {

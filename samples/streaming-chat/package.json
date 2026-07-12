@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"
+    "@deduvafork/squad-sdk": "file:../../packages/squad-sdk"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -19,6 +19,6 @@
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   }
 }

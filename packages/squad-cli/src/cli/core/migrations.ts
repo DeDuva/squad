@@ -64,7 +64,7 @@ const migrations: Migration[] = [
   },
   {
     version: '0.9.0',
-    description: 'Copy legacy .squad skills into .copilot/skills',
+    description: 'Copy legacy .squad skills into .squad/skills',
     run(squadDir: string) {
       const projectRoot = path.dirname(squadDir);
       const legacySkillsDir = path.join(squadDir, 'skills');
@@ -79,7 +79,7 @@ const migrations: Migration[] = [
         return;
       }
 
-      const copilotSkillsDir = path.join(projectRoot, '.copilot', 'skills');
+      const copilotSkillsDir = path.join(projectRoot, '.squad', 'skills');
       storage.mkdirSync(copilotSkillsDir, { recursive: true });
 
       for (const skillName of skillNames) {
@@ -90,7 +90,7 @@ const migrations: Migration[] = [
         );
       }
 
-      success(`Migrated skills to .copilot/skills: ${skillNames.join(', ')}`);
+      success(`Migrated skills to .squad/skills: ${skillNames.join(', ')}`);
     }
   }
 ];

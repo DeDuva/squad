@@ -63,7 +63,7 @@ During demo output, verify:
 In a Node.js REPL or script:
 
 ```typescript
-import { loadSkillsFromDirectory } from '@bradygaster/squad-sdk/skills';
+import { loadSkillsFromDirectory } from '@deduvafork/squad-sdk/skills';
 const skills = loadSkillsFromDirectory('/nonexistent/path');
 console.log(skills); // Should be []
 ```

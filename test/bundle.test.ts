@@ -47,9 +47,11 @@ describe('bundle', () => {
       expect(config.entryPoints.length).toBeGreaterThan(0);
     });
 
-    it('marks @github/copilot-sdk as external by default', () => {
+    it('marks native modules as external by default', () => {
       const config = createBundleConfig();
-      expect(config.external).toContain('@github/copilot-sdk');
+      expect(config.external).toContain('node-pty');
+      expect(config.external).toContain('sql.js');
+      expect(config.external).toContain('@opentelemetry/sdk-node');
     });
 
     it('allows overriding format to cjs', () => {
@@ -378,9 +380,9 @@ describe('github-dist', () => {
       expect(script).toContain('REPO="myrepo"');
     });
 
-    it('uses bradygaster/squad as default', () => {
+    it('uses deduvafork/squad as default', () => {
       const script = generateInstallScript();
-      expect(script).toContain('OWNER="bradygaster"');
+      expect(script).toContain('OWNER="deduvafork"');
       expect(script).toContain('REPO="squad"');
     });
 
@@ -398,7 +400,7 @@ describe('github-dist', () => {
 
   describe('validateGitHubRelease', () => {
     const config: GitHubDistConfig = {
-      owner: 'bradygaster',
+      owner: 'deduvafork',
       repo: 'squad',
       binaryName: 'squad',
       installCommandTemplate: 'npx @deduvafork/squad-cli',
@@ -481,9 +483,9 @@ describe('github-dist', () => {
   });
 
   describe('getDefaultDistConfig', () => {
-    it('returns config with bradygaster owner', () => {
+    it('returns config with deduvafork owner', () => {
       const config = getDefaultDistConfig();
-      expect(config.owner).toBe('bradygaster');
+      expect(config.owner).toBe('deduvafork');
     });
 
     it('returns config with squad repo', () => {
@@ -495,7 +497,7 @@ describe('github-dist', () => {
       const a = getDefaultDistConfig();
       a.owner = 'changed';
       const b = getDefaultDistConfig();
-      expect(b.owner).toBe('bradygaster');
+      expect(b.owner).toBe('deduvafork');
     });
   });
 });
