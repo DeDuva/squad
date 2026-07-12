@@ -1,13 +1,15 @@
 /**
  * Squad SDK Client Adapter
  *
- * Wraps GeminiClient to provide the stable SquadClient public API with
- * connection lifecycle management and OTel tracing.
+ * Wraps a SquadBackendClient (AiSdkClient by default) to provide the stable
+ * SquadClient public API with connection lifecycle management and OTel
+ * tracing.
  *
  * @module adapter/client
  */
 
-import { GeminiClient } from './gemini-client.js';
+import { AiSdkClient } from './ai-sdk-client.js';
+import type { SquadBackendClient } from './backend.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import { recordSessionCreated, recordSessionClosed, recordSessionError, recordTokenUsage } from '../runtime/otel-metrics.js';
 import { estimateCost } from '../config/models.js';
@@ -41,8 +43,20 @@ export interface SquadClientOptions {
   /**
    * Gemini API key.
    * Falls back to process.env.GEMINI_API_KEY when not provided.
+   * @deprecated Use apiKeys.gemini instead.
    */
   geminiApiKey?: string;
+
+  /**
+   * API keys per provider. Both are optional; a session only needs the key
+   * for whichever provider its model resolves to (see resolveProvider in
+   * ai-sdk-session.ts). Falls back to GEMINI_API_KEY / ANTHROPIC_API_KEY
+   * env vars when not provided.
+   */
+  apiKeys?: {
+    gemini?: string;
+    anthropic?: string;
+  };
 
   /**
    * Automatically connect when creating a session.
@@ -73,15 +87,16 @@ export interface SquadClientOptions {
  * ```
  */
 export class SquadClient {
-  private backend: GeminiClient;
+  private backend: SquadBackendClient;
   private state: SquadConnectionState = 'disconnected';
   private connectPromise: Promise<void> | null = null;
   private readonly autoStart: boolean;
   private readonly eventBus: EventBus | undefined;
 
   constructor(options: SquadClientOptions = {}) {
-    const apiKey = options.geminiApiKey ?? process.env['GEMINI_API_KEY'] ?? '';
-    this.backend = new GeminiClient(apiKey);
+    const geminiKey = options.apiKeys?.gemini ?? options.geminiApiKey ?? process.env['GEMINI_API_KEY'] ?? '';
+    const anthropicKey = options.apiKeys?.anthropic ?? process.env['ANTHROPIC_API_KEY'] ?? '';
+    this.backend = new AiSdkClient({ gemini: geminiKey, anthropic: anthropicKey });
     this.autoStart = options.autoStart ?? true;
     this.eventBus = options.eventBus;
   }
@@ -121,7 +136,7 @@ export class SquadClient {
       } catch (error) {
         this.state = 'error';
         const wrapped = new Error(
-          `Failed to connect to Gemini API: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to connect: ${error instanceof Error ? error.message : String(error)}`,
         );
         span.setStatus({ code: SpanStatusCode.ERROR, message: wrapped.message });
         span.recordException(wrapped);
