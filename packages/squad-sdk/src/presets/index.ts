@@ -11,7 +11,7 @@
 
 import path from 'node:path';
 import os from 'node:os';
-import { readdirSync, statSync, lstatSync, rmSync } from 'node:fs';
+import { readdirSync, statSync, lstatSync, rmSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { FSStorageProvider } from '../storage/fs-storage-provider.js';
@@ -654,7 +654,22 @@ function copyDirRecursive(src: string, dest: string): void {
  */
 export function getBuiltinPresetsDir(): string {
   const thisFile = fileURLToPath(import.meta.url);
-  return path.join(path.dirname(thisFile), 'builtin');
+  const dir = path.dirname(thisFile);
+
+  // Unbundled: this file is squad-sdk's own dist/presets/index.js, and
+  // squad-sdk's build copies src/presets/builtin -> dist/presets/builtin
+  // alongside it.
+  const unbundledPath = path.join(dir, 'builtin');
+  if (existsSync(unbundledPath)) {
+    return unbundledPath;
+  }
+
+  // Bundled: squad-sdk's source is esbuild-bundled into squad-cli's
+  // single-file dist/squad.js (airgap build), so `dir` is squad-cli/dist/
+  // instead of squad-sdk/dist/presets/ — the 'presets' path segment that
+  // unbundled resolution relied on is gone. squad-cli's own build copies
+  // squad-sdk's built-in presets to dist/presets/builtin as a sibling.
+  return path.join(dir, 'presets', 'builtin');
 }
 
 /**

@@ -124,8 +124,16 @@ export function parseLoopFile(content: string): { frontmatter: LoopFrontmatter; 
 /** Returns the content of a starter loop.md for --init. */
 export function generateLoopFile(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  // Walk up from src/cli/commands (or dist/cli/commands) to package root
-  const templatePath = path.resolve(here, '..', '..', '..', 'templates', 'loop.md');
+  // Candidate offsets from `here` to squad-cli's package root (which holds
+  // templates/loop.md): 3 levels up from unbundled dist/cli/commands/, or
+  // 1 level up when squad-cli's source is esbuild-bundled into a single
+  // dist/squad.js (airgap build) — bundling collapses `here` straight to
+  // dist/, so the unbundled offset alone resolves to the wrong directory.
+  const candidates = [
+    path.resolve(here, '..', '..', '..', 'templates', 'loop.md'),
+    path.resolve(here, '..', 'templates', 'loop.md'),
+  ];
+  const templatePath = candidates.find((c) => existsSync(c)) ?? candidates[0]!;
   return readFileSync(templatePath, 'utf-8');
 }
 
