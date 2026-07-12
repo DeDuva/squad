@@ -155,20 +155,18 @@ describe('Provider preference — Gemini family preference', () => {
   it('getFallbackChain with preferSameProvider starts with same provider', () => {
     const chain = registry.getFallbackChain('standard', true, 'gemini-flash-latest');
 
-    // All standard models are Google — chain should be non-empty
     expect(chain.length).toBeGreaterThan(0);
-    for (const modelId of chain) {
-      const info = registry.getModelInfo(modelId);
-      expect(info?.provider).toBe('google');
-    }
+    const firstInfo = registry.getModelInfo(chain[0]!);
+    expect(firstInfo?.provider).toBe('google');
   });
 
   it('prefer Gemini: all google models come before other providers', () => {
     const chain = registry.getFallbackChain('standard', true, 'gemini-flash-latest');
-    // All models in the chain should be Google
-    for (const modelId of chain) {
-      const info = registry.getModelInfo(modelId);
-      expect(info?.provider).toBe('google');
+    const providers = chain.map(modelId => registry.getModelInfo(modelId)?.provider);
+    // Once a non-google provider appears, no google provider should follow it.
+    const firstNonGoogleIndex = providers.findIndex(p => p !== 'google');
+    if (firstNonGoogleIndex !== -1) {
+      expect(providers.slice(firstNonGoogleIndex).every(p => p !== 'google')).toBe(true);
     }
     expect(chain.length).toBeGreaterThan(0);
   });

@@ -85,7 +85,13 @@ export class AiSdkSession implements SquadSession {
   private abortController: AbortController | null = null;
   private closed = false;
 
-  constructor(provider: SquadProviderId, apiKey: string, config: SquadSessionConfig) {
+  constructor(
+    provider: SquadProviderId,
+    apiKey: string,
+    config: SquadSessionConfig,
+    /** Test-only injection point — bypasses the real provider factories. */
+    languageModelOverride?: LanguageModel,
+  ) {
     this.sessionId = config.sessionId ?? randomUUID();
     this.provider = provider;
     this.model = config.model ?? 'gemini-flash-latest';
@@ -95,9 +101,10 @@ export class AiSdkSession implements SquadSession {
     this.reasoningEffort = config.reasoningEffort;
 
     this.languageModel =
-      provider === 'anthropic'
+      languageModelOverride ??
+      (provider === 'anthropic'
         ? createAnthropic({ apiKey })(this.model)
-        : createGoogleGenerativeAI({ apiKey })(this.model);
+        : createGoogleGenerativeAI({ apiKey })(this.model));
 
     // System message
     if (config.systemMessage?.mode === 'replace') {
@@ -243,6 +250,7 @@ export class AiSdkSession implements SquadSession {
     let inputTokens = 0;
     let outputTokens = 0;
     let finishReason = 'stop';
+    let stepCount = 0;
 
     try {
       const result = streamText({
@@ -267,6 +275,7 @@ export class AiSdkSession implements SquadSession {
       inputTokens = usage.inputTokens ?? 0;
       outputTokens = usage.outputTokens ?? 0;
       finishReason = await result.finishReason;
+      stepCount = (await result.steps).length;
 
       const responseMessages = await result.responseMessages;
       this.history.push(...responseMessages);
@@ -279,10 +288,13 @@ export class AiSdkSession implements SquadSession {
     }
 
     // stopWhen(stepCountIs(N)) stops the loop after N steps regardless of
-    // whether the model still wants to call tools — finishReason === 'tool-calls'
-    // at this point means the cap was hit mid-loop (mirrors GeminiSession's
-    // handleToolCalls throwing once toolCallRound exceeds maxToolCallRounds).
-    if (finishReason === 'tool-calls') {
+    // whether the model still wants to continue — the AI SDK reports this as
+    // finishReason 'other' (not the model's own reported reason) specifically
+    // when the loop is cut off mid-flight. Requiring stepCount >= N alongside
+    // it avoids misattributing an unrelated 'other' finish (e.g. a genuine
+    // provider-side stop) to the depth guard. Mirrors GeminiSession's
+    // handleToolCalls throwing once toolCallRound exceeds maxToolCallRounds.
+    if (finishReason === 'other' && stepCount >= this.maxToolCallRounds) {
       throw new Error(
         `Tool call depth exceeded maxToolCallRounds (${this.maxToolCallRounds}). ` +
         `This usually means a tool is returning function calls in a loop.`,

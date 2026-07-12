@@ -1,18 +1,18 @@
 /**
- * Unit tests for SquadClient (Gemini backend).
+ * Unit tests for SquadClient (AI SDK backend).
  *
- * Mocks GeminiClient so tests don't require a real API key.
+ * Mocks AiSdkClient so tests don't require a real API key.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SquadClient } from '@deduvafork/squad-sdk/client';
 
-vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
+vi.mock('../packages/squad-sdk/dist/adapter/ai-sdk-client.js', () => {
   return {
     // Regular function expression, not an arrow function — SquadClient calls
-    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // `new AiSdkClient(...)`, and arrow functions cannot be used as
     // constructors (Reflect.construct on one throws "is not a constructor").
-    GeminiClient: vi.fn().mockImplementation(function () {
+    AiSdkClient: vi.fn().mockImplementation(function () {
       return {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue([]),
@@ -108,7 +108,7 @@ describe('SquadClient — Session Management', () => {
 });
 
 describe('SquadClient — Auth and Status', () => {
-  it('getAuthStatus delegates to GeminiClient', async () => {
+  it('getAuthStatus delegates to the backend client', async () => {
     const client = new SquadClient({ geminiApiKey: 'test-key' });
     await client.connect();
     const status = await client.getAuthStatus();
