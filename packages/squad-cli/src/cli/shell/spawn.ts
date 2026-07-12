@@ -7,9 +7,11 @@
 import { resolveSquad } from '@deduvafork/squad-sdk/resolution';
 import { SquadClient } from '@deduvafork/squad-sdk/client';
 import type { SquadSession } from '@deduvafork/squad-sdk/client';
+import type { SquadTool } from '@deduvafork/squad-sdk/adapter';
 import { SquadState, FSStorageProvider } from '@deduvafork/squad-sdk';
+import { ToolRegistry } from '@deduvafork/squad-sdk/tools';
 import { SessionRegistry } from './sessions.js';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 /** Debug logger — writes to stderr only when SQUAD_DEBUG=1. */
 function debugLog(...args: unknown[]): void {
@@ -92,6 +94,29 @@ export function buildAgentPrompt(charter: string, options?: { systemContext?: st
 }
 
 /**
+ * Build the tool set for a worker-agent session: the squad_* orchestration
+ * tools plus the workstation bundle (bash/read/write/list/find), scoped to
+ * teamRoot so file and shell access can't escape the project.
+ *
+ * Coordinator and init-mode sessions deliberately do NOT get this — per
+ * squad's own architecture, the coordinator routes work and never does
+ * domain work itself. Only sessions actually doing the work (dispatched
+ * team agents) should be able to touch the filesystem.
+ */
+export function buildAgentTools(teamRoot: string): SquadTool<any>[] {
+  const registry = new ToolRegistry(
+    join(teamRoot, '.squad'),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { enableWorkstationTools: true, workstationOptions: { rootDir: teamRoot } },
+  );
+  return registry.getTools();
+}
+
+/**
  * Spawn an agent session.
  *
  * When a SquadClient is provided via options.client, creates a real SDK session,
@@ -130,6 +155,7 @@ export async function spawnAgent(
       streaming: true,
       systemMessage: { mode: 'append', content: systemPrompt },
       workingDirectory: teamRoot,
+      tools: buildAgentTools(teamRoot),
     });
 
     // Accumulate streamed response

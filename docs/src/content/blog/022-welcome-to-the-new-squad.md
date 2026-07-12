@@ -238,7 +238,7 @@ squad upgrade
 This updates Squad-owned files (templates, CLI scripts, SDK code) but never touches:
 - `.squad/agents/**` (your agent charters)
 - `.squad/decisions.md` (architectural decisions)
-- `.squad/skills/**` (learned patterns)
+- `.copilot/skills/**` (learned patterns)
 - `.squad/history/**` (session logs)
 
 Your team's memory is sacred. Upgrades respect that.
@@ -486,7 +486,7 @@ npm install && npm start
 
 **What you'll see:**
 ```
-📚 Loading skills from .squad/skills/
+📚 Loading skills from .copilot/skills/
 
 ✅ Loaded: TypeScript Patterns (confidence: high 🟢)
    Triggers: typescript, types, generics
@@ -671,7 +671,7 @@ Squad exports traces and metrics via OpenTelemetry. Three-layer API:
 - Cost accumulation in real time
 
 **Export to:**
-- .NET Aspire Dashboard (`squad aspire`)
+- Aspire Dashboard (`squad aspire`)
 - Jaeger
 - Zipkin
 - Any OTLP-compatible backend

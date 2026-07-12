@@ -1,25 +1,34 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquadClientWithPool } from '@deduvafork/squad-sdk/client';
 import { SessionPool, DEFAULT_POOL_CONFIG } from '@deduvafork/squad-sdk/client';
 import { EventBus } from '@deduvafork/squad-sdk/client';
 
-vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
-  return {
-    GeminiClient: vi.fn().mockImplementation(() => ({
+// Mock the SDK CopilotClient to avoid import.meta.resolve issues in tests
+vi.mock('@github/copilot-sdk', () => ({
+  CopilotClient: vi.fn(function (this: object) {
+    Object.assign(this, {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue([]),
-      isStarted: vi.fn().mockReturnValue(false),
-      createSession: vi.fn().mockReturnValue({
-        sessionId: 'test-session',
-        sendMessage: vi.fn().mockResolvedValue(undefined),
-        on: vi.fn(),
-        off: vi.fn(),
-        close: vi.fn().mockResolvedValue(undefined),
-      }),
-      getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
-    })),
-  };
-});
+      forceStop: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue({ sessionId: 'test-session' }),
+      resumeSession: vi.fn().mockResolvedValue({ sessionId: 'test-session' }),
+      listSessions: vi.fn().mockResolvedValue([]),
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      getLastSessionId: vi.fn().mockResolvedValue('test-session'),
+      ping: vi.fn().mockResolvedValue({ message: 'pong', timestamp: Date.now() }),
+      getStatus: vi.fn().mockResolvedValue({ version: '0.1.0', protocolVersion: 1 }),
+      getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true }),
+      listModels: vi.fn().mockResolvedValue([]),
+      on: vi.fn().mockReturnValue(() => {}),
+      onLifecycle: vi.fn().mockReturnValue(() => {}),
+    });
+  }),
+  RuntimeConnection: {
+    forStdio: vi.fn(() => ({})),
+    forTcp: vi.fn(() => ({})),
+    forUri: vi.fn(() => ({})),
+  },
+}));
 
 describe('SquadClientWithPool', () => {
   it('should construct with pool config', () => {

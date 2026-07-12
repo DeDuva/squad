@@ -10,8 +10,8 @@ const pkg = require('../package.json');
 export const VERSION: string = pkg.version;
 
 // Export public API
-export { resolveSquad, resolveGlobalSquadPath, resolvePersonalSquadDir, ensurePersonalSquadDir, ensureSquadPath, ensureSquadPathTriple, loadDirConfig, isConsultMode, scratchDir, scratchFile, deriveProjectKey, resolveExternalStateDir, resolveSquadHome, ensureSquadHome, resolvePresetsDir } from './resolution.js';
-export type { SquadDirConfig, ResolvedSquadPaths } from './resolution.js';
+export { resolveSquad, resolveGlobalSquadPath, resolvePersonalSquadDir, ensurePersonalSquadDir, ensureSquadPath, ensureSquadPathTriple, loadDirConfig, isConsultMode, scratchDir, scratchFile, deriveProjectKey, resolveExternalStateDir, resolveSquadHome, ensureSquadHome, resolvePresetsDir, resolveSquadState, clearResolveSquadCache } from './resolution.js';
+export type { ResolvedSquadPaths, SquadDirConfig, SquadStateContext } from './resolution.js';
 export * from './config/index.js';
 export * from './agents/onboarding.js';
 export { resolvePersonalAgents, mergeSessionCast } from './agents/personal.js';
@@ -44,11 +44,17 @@ export {
   type CrossSquadIssueOptions,
   type CrossSquadIssueResult,
   type CrossSquadWorkStatus,
+  type RegistryEntry,
+  type AddRegistryEntryResult,
   validateManifest,
   readManifest,
   discoverSquads,
   discoverFromUpstreams,
   discoverFromRegistry,
+  readSquadRegistry,
+  writeSquadRegistry,
+  addRegistryEntry,
+  removeRegistryEntry,
   buildDelegationArgs,
   buildStatusCheckArgs,
   parseIssueStatus,
@@ -102,10 +108,13 @@ export type {
 export * from './roles/index.js';
 export * from './platform/index.js';
 export * from './storage/index.js';
+export * from './memory/index.js';
 
-// Git-native state backends (Issue #807)
+// Git-native state backends (Issue #807, hardened in #864)
 export type { StateBackend, StateBackendType, StateBackendConfig } from './state-backend.js';
-export { WorktreeBackend, GitNotesBackend, OrphanBranchBackend, resolveStateBackend, validateStateKey } from './state-backend.js';
+export { WorktreeBackend, GitNotesBackend, OrphanBranchBackend, TwoLayerBackend, CircuitBreaker, GitExecError, resolveStateBackend, validateStateKey, StateBackendStorageAdapter, verifyStateBackend } from './state-backend.js';
+export type { PromoteNotesResult } from './state-backend.js';
+export { addSquadStateGitignoreBlock, removeSquadStateGitignoreBlock, SQUAD_STATE_GITIGNORE_OPEN_MARKER, SQUAD_STATE_GITIGNORE_CLOSE_MARKER } from './config/gitignore-state.js';
 
 // State facade (Phase 2) — namespaced to avoid conflicts with existing config/sharing exports
 export {

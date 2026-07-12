@@ -16,6 +16,44 @@ import {
   type AgentRole as EngineAgentRole,
 } from '@deduvafork/squad-sdk/casting';
 
+// ── RAI Policy Template ────────────────────────────────────────────
+
+const RAI_POLICY_TEMPLATE = `# RAI Policy
+
+> Responsible AI policy for this project. Rai enforces these standards.
+
+## Critical Violations (Always Blocked)
+
+- Hardcoded credentials, API keys, tokens, passwords
+- SQL injection, command injection, path traversal
+- Harmful content (hate speech, violence, self-harm)
+- Deceptive content (ungrounded claims, hallucinated citations)
+- Instructions that bypass AI safety guidelines
+
+## Advisory Concerns (Flagged, Not Blocked)
+
+- PII in logs or responses
+- Bias indicators in algorithms
+- Exclusionary language
+- Missing rate limiting on user-facing endpoints
+- Insufficient input validation
+
+## Terminology Standards
+
+| Avoid | Prefer |
+|-------|--------|
+| whitelist/blacklist | allowlist/blocklist |
+| master/slave | primary/replica |
+| sanity check | validation, smoke test |
+| dummy value | placeholder, sample |
+
+## Opt-Out Model
+
+- Cannot disable critical checks (credentials, harmful content, injection)
+- Can disable advisory checks with justification logged to audit trail
+- Temporary opt-down supported (auto re-enables after 30 days)
+`;
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export interface CastMember {
@@ -456,6 +494,155 @@ function ralphCharter(): string {
   return generateCharter(m);
 }
 
+function RaiMember(): CastMember {
+  return { name: 'Rai', role: 'RAI Reviewer', scope: 'Content safety, bias detection, credential scanning, ethical review', emoji: '🛡️' };
+}
+
+function factCheckerMember(): CastMember {
+  return { name: 'Fact Checker', role: 'Fact Checker', scope: 'Claim verification, hallucination detection, counter-hypothesis analysis, source validation', emoji: '🔍' };
+}
+
+function factCheckerCharter(): string {
+  return `# Fact Checker
+
+> Trust, but verify. Every claim gets a source check.
+
+## Identity
+
+- **Name:** Fact Checker
+- **Role:** Devil's Advocate & Verification Agent
+- **Emoji:** 🔍
+- **Style:** Rigorous but constructive. Flags issues clearly without being abrasive.
+
+## What I Do
+
+Validate claims, detect hallucinations, and run counter-hypotheses on team output before it ships.
+
+## Verification Methodology
+
+For every claim or assertion I review:
+
+1. **Source Check:** What evidence supports this? Can I verify it?
+2. **Counter-Hypothesis:** What would disprove this? Is there an alternative explanation?
+3. **Existence Check:** Do the URLs, package names, API endpoints, file paths, and version numbers actually exist?
+4. **Consistency Check:** Does this contradict anything in \`.squad/decisions.md\` or prior team output?
+
+## Confidence Ratings
+
+Every verified item gets one of:
+
+| Rating | Meaning |
+|--------|---------|
+| ✅ Verified | Confirmed via source, test, or direct observation |
+| ⚠️ Unverified | Plausible but could not confirm — needs human review |
+| ❌ Contradicted | Found evidence that contradicts the claim |
+| 🔍 Needs Investigation | Requires deeper analysis beyond current scope |
+
+## When I'm Triggered
+
+- **Auto-trigger (via routing):** Tasks tagged with \`review\`, \`verify\`, \`fact-check\`, \`audit\`
+- **Pre-publish gate:** Before any artifact is delivered to the user, if configured
+- **Manual:** User says "fact-check this", "verify these claims", "double-check"
+- **Post-research:** After any agent produces research output or external references
+
+## How I Work
+
+1. **Read the artifact** — understand what's being claimed
+2. **Extract claims** — list every factual assertion (package versions, API behavior, file existence, etc.)
+3. **Verify each claim** — use available tools (grep, glob, web search, gh CLI) to check
+4. **Run counter-hypotheses** — for key assumptions, ask "what if this is wrong?"
+5. **Produce a verification report**
+6. **Write decision** if I found issues: \`.squad/decisions/inbox/fact-checker-{slug}.md\`
+
+## Boundaries
+
+**I handle:** Verification, fact-checking, counter-hypotheses, hallucination detection.
+
+**I don't handle:** Implementation, design, testing, or docs. I review, not create.
+
+**I am not a blocker by default.** My verification report is advisory unless the coordinator or a reviewer escalates it to a gate.
+
+## Collaboration
+
+Before starting work, run \`git rev-parse --show-toplevel\` to find the repo root, or use the \`TEAM ROOT\` provided in the spawn prompt. All \`.squad/\` paths must be resolved relative to this root.
+
+After making a decision others should know, write it to \`.squad/decisions/inbox/fact-checker-{brief-slug}.md\`.
+
+## Learnings
+
+Initial setup complete. Ready for verification work.
+`;
+}
+
+function RaiCharter(): string {
+  return `# Rai — RAI Reviewer
+
+> The team's shield. Quiet until it matters — then unmistakably clear.
+
+## Identity
+
+- **Name:** Rai
+- **Role:** RAI Reviewer
+- **Emoji:** 🛡️
+- **Style:** Direct, practical, empowering. Never moralizing, never bureaucratic.
+- **Mode:** Background by default. Only escalates to blocking on 🔴 Critical findings.
+
+## What I Own
+
+- \`.squad/rai/policy.md\` — Canonical RAI policy (terms, anti-patterns, taxonomy)
+- \`.squad/rai/audit-trail.md\` — Evidence log (append-only, redacted)
+- \`.squad/agents/Rai/history.md\` — Learnings across sessions
+
+## Traffic Light Verdicts
+
+| Verdict | Meaning | Effect |
+|---------|---------|--------|
+| 🟢 **Green** | No issues detected | Work proceeds |
+| 🟡 **Yellow** | Minor concerns, recommendations provided | Advisory — work proceeds with suggestions |
+| 🔴 **Red** | Critical RAI violation | Work CANNOT ship until fixed — triggers Reviewer Rejection Protocol |
+
+## How I Work
+
+**Philosophy: "Guardrail, not wall."** Every finding includes:
+- **WHAT** is wrong
+- **WHY** it matters
+- **HOW** to fix it
+
+### Check Categories (Phase 1 — High-Signal Only)
+
+**Code:** Credentials, injection vulnerabilities, PII exposure, bias indicators, rate limiting.
+**Content:** Harmful patterns, deceptive content, exclusionary language.
+**Prompts/Charters:** Safety bypass instructions, insufficient grounding, privacy risks.
+**Decisions:** Unintended consequences, stakeholder exclusion.
+
+### Performance Budget
+
+- 5-second cap per review pass
+- Timeout = 🟡 Unknown (not green)
+- Fast-path bypass: docs-only, test files, dependency bumps
+
+### Opt-Out Model
+
+- Cannot disable 🔴 Critical checks
+- Can disable 🟡 Advisory checks with justification
+- Temporary opt-down supported (auto re-enables)
+
+## Boundaries
+
+**I handle:** RAI review, content safety, bias detection, credential scanning, ethical review.
+
+**I don't handle:** General code review, testing, architecture, performance. I am an ethics specialist, NOT general QA.
+
+## Collaboration
+
+Before starting work, run \`git rev-parse --show-toplevel\` to find the repo root, or use the \`TEAM ROOT\` provided in the spawn prompt. All \`.squad/\` paths must be resolved relative to this root.
+
+Read \`.squad/rai/policy.md\` for the canonical check definitions.
+Append findings to \`.squad/rai/audit-trail.md\` (redacted — never raw secrets or harmful text).
+After making a decision others should know, write it to \`.squad/decisions/inbox/Rai-{brief-slug}.md\`.
+`;
+}
+
 // ── Team file updaters ─────────────────────────────────────────────
 
 function buildMembersTable(allMembers: CastMember[]): string {
@@ -465,6 +652,7 @@ function buildMembersTable(allMembers: CastMember[]): string {
     let status = '✅ Active';
     if (m.role === 'Session Logger') status = '📋 Silent';
     if (m.role === 'Work Monitor') status = '🔄 Monitor';
+    if (m.role === 'RAI Reviewer') status = '🛡️ RAI';
     table += `| ${m.name} | ${m.role} | \`.squad/agents/${nameLower}/charter.md\` | ${status} |\n`;
   }
   return table;
@@ -473,7 +661,7 @@ function buildMembersTable(allMembers: CastMember[]): string {
 function buildRoutingTable(members: CastMember[]): string {
   let table = `## Work Type → Agent\n\n| Work Type | Primary | Secondary |\n|-----------|---------|----------|\n`;
   for (const m of members) {
-    if (m.role === 'Session Logger' || m.role === 'Work Monitor') continue;
+    if (m.role === 'Session Logger' || m.role === 'Work Monitor' || m.role === 'RAI Reviewer') continue;
     table += `| ${m.scope} | ${m.name} | — |\n`;
   }
   return table;
@@ -503,6 +691,12 @@ export async function createTeam(teamRoot: string, proposal: CastProposal): Prom
   const hasRalph = proposal.members.some(m => /ralph/i.test(m.name));
   if (!hasRalph) allMembers.push(ralphMember());
 
+  const hasRai = proposal.members.some(m => /Rai/i.test(m.name));
+  if (!hasRai) allMembers.push(RaiMember());
+
+  const hasFactChecker = proposal.members.some(m => /fact.?checker/i.test(m.name));
+  if (!hasFactChecker) allMembers.push(factCheckerMember());
+
   // Create agent directories and files
   for (const member of allMembers) {
     const nameLower = member.name.toLowerCase();
@@ -514,6 +708,10 @@ export async function createTeam(teamRoot: string, proposal: CastProposal): Prom
       charter = scribeCharter();
     } else if (member.name === 'Ralph' && !hasRalph) {
       charter = ralphCharter();
+    } else if (member.name === 'Rai' && !hasRai) {
+      charter = RaiCharter();
+    } else if (member.name === 'Fact Checker' && !hasFactChecker) {
+      charter = factCheckerCharter();
     } else {
       charter = generateCharter(member);
     }
@@ -639,6 +837,19 @@ export async function createTeam(teamRoot: string, proposal: CastProposal): Prom
   await storage.write(join(castingDir, 'policy.json'), JSON.stringify(policy, null, 2) + '\n');
   filesCreated.push(join(castingDir, 'policy.json'));
 
+  // Create .squad/rai/ directory with default policy and audit trail
+  const raiDir = join(squadDir, 'rai');
+  const raiPolicyPath = join(raiDir, 'policy.md');
+  if (!storage.existsSync(raiPolicyPath)) {
+    await storage.write(raiPolicyPath, RAI_POLICY_TEMPLATE);
+    filesCreated.push(raiPolicyPath);
+  }
+  const auditTrailPath = join(raiDir, 'audit-trail.md');
+  if (!storage.existsSync(auditTrailPath)) {
+    await storage.write(auditTrailPath, '# RAI Audit Trail\n\n> Append-only evidence log. Entries are redacted — never contains raw secrets or harmful content.\n\n<!-- Rai appends findings below -->\n');
+    filesCreated.push(auditTrailPath);
+  }
+
   // Sync new agents into squad.config.ts (if present)
   for (const member of allMembers) {
     await addAgentToConfig(teamRoot, member.name.toLowerCase(), member.role);
@@ -668,6 +879,16 @@ export function formatCastSummary(proposal: CastProposal): string {
   const hasRalph = proposal.members.some(m => /ralph/i.test(m.name));
   if (!hasRalph) {
     lines.push(`🔄  ${'Ralph'.padEnd(10)} — ${'(monitor)'.padEnd(15)} Work queue, backlog, keep-alive`);
+  }
+
+  const hasRai = proposal.members.some(m => /Rai/i.test(m.name));
+  if (!hasRai) {
+    lines.push(`🛡️  ${'Rai'.padEnd(10)} — ${'(background)'.padEnd(15)} RAI awareness, content safety`);
+  }
+
+  const hasFactChecker = proposal.members.some(m => /fact.?checker/i.test(m.name));
+  if (!hasFactChecker) {
+    lines.push(`🔍  ${'Fact Checker'.padEnd(10)} — ${'(advisory)'.padEnd(15)} Claim verification, hallucination detection`);
   }
 
   return lines.join('\n');

@@ -22,7 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { SessionRegistry } from '../packages/squad-cli/src/cli/shell/sessions.js';
-import { loadAgentCharter, buildAgentPrompt } from '../packages/squad-cli/src/cli/shell/spawn.js';
+import { loadAgentCharter, buildAgentPrompt, buildAgentTools } from '../packages/squad-cli/src/cli/shell/spawn.js';
 import {
   buildCoordinatorPrompt,
   parseCoordinatorResponse,
@@ -378,6 +378,47 @@ describe('spawn.ts — buildAgentPrompt', () => {
   it('handles empty charter', () => {
     const prompt = buildAgentPrompt('');
     expect(prompt).toContain('YOUR CHARTER');
+  });
+});
+
+// ============================================================================
+// 5b. spawn.ts — buildAgentTools() (M2: tool wiring)
+// ============================================================================
+
+describe('spawn.ts — buildAgentTools', () => {
+  it('includes the workstation bundle and squad_* orchestration tools', () => {
+    const tools = buildAgentTools(FIXTURES);
+    const names = tools.map((t) => t.name);
+
+    expect(names).toContain('workstation_bash');
+    expect(names).toContain('workstation_read_file');
+    expect(names).toContain('workstation_write_file');
+    expect(names).toContain('workstation_list_dir');
+    expect(names).toContain('workstation_find_files');
+    expect(names).toContain('squad_route');
+    expect(names).toContain('squad_decide');
+    expect(names).toContain('squad_memory');
+  });
+
+  it('scopes workstation file access to the given teamRoot', async () => {
+    const tools = buildAgentTools(FIXTURES);
+    const writeTool = tools.find((t) => t.name === 'workstation_write_file')!;
+    const readTool = tools.find((t) => t.name === 'workstation_read_file')!;
+
+    const invocation = { sessionId: 'test', toolCallId: 'call-1', toolName: 'workstation_write_file', arguments: {} };
+    await writeTool.handler({ path: 'm2-smoke.txt', content: 'hello from an agent' }, invocation);
+    const result = await readTool.handler({ path: 'm2-smoke.txt' }, { ...invocation, toolName: 'workstation_read_file' }) as { textResultForLlm: string };
+
+    expect(result.textResultForLlm).toContain('hello from an agent');
+
+    // Path traversal outside teamRoot must be rejected, not silently escape scope.
+    const escapeResult = await readTool.handler(
+      { path: '../outside-scope.txt' },
+      { ...invocation, toolName: 'workstation_read_file' },
+    ) as { resultType: string };
+    expect(escapeResult.resultType).toBe('failure');
+
+    await fs.promises.rm(join(FIXTURES, 'm2-smoke.txt'), { force: true });
   });
 });
 
@@ -1268,16 +1309,24 @@ describe('Stub command removal', () => {
     expect(result.handled).toBe(false);
   });
 
-  it('commands.ts executeCommand does not have hire command', () => {
+  it('commands.ts executeCommand does not have cast/hire command', () => {
     const reg = new SessionRegistry();
     const renderer = new ShellRenderer();
-    const result = executeCommand('hire', [], {
+    const result = executeCommand('cast', [], {
       registry: reg,
       renderer,
       messageHistory: [],
       teamRoot: '/test',
     });
     expect(result.handled).toBe(false);
+
+    const resultHire = executeCommand('hire', [], {
+      registry: reg,
+      renderer,
+      messageHistory: [],
+      teamRoot: '/test',
+    });
+    expect(resultHire.handled).toBe(false);
   });
 
   it('all known commands are functional (not stubs)', () => {

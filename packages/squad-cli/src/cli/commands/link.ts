@@ -4,13 +4,13 @@
  * Writes `.squad/config.json` with a relative `teamRoot` path so the
  * dual-root resolver (resolveSquadPaths) can find the team identity dir.
  *
- * Remote squad mode concept by @spboyer (Shayne Boyer), DeDuva/squad (upstream) #131.
+ * Remote squad mode concept by @spboyer (Shayne Boyer), PR bradygaster/squad#131.
  *
  * @module cli/commands/link
  */
 
 import path from 'node:path';
-import { FSStorageProvider } from '@deduvafork/squad-sdk';
+import { FSStorageProvider, clearResolveSquadCache } from '@deduvafork/squad-sdk';
 import { fatal } from '../core/errors.js';
 
 const storage = new FSStorageProvider();
@@ -72,6 +72,13 @@ export function runLink(projectDir: string, teamRepoPath: string): void {
       + ignoreEntry + '\n';
     storage.appendSync(gitignorePath, block);
   }
+
+  // Link just (re)created `.squad/` and wrote config.json. Any subsequent
+  // code in this process that calls resolveSquad()/resolveSquadPaths()
+  // would otherwise be served the cached "not found" result from before
+  // link ran. Drop the cache so the new directory is observed immediately
+  // instead of after the 5-second TTL.
+  clearResolveSquadCache();
 
   console.log(`✅ Linked to team root: ${relativePath}`);
 }

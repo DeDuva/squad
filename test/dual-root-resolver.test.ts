@@ -1,13 +1,13 @@
 /**
  * Tests for resolveSquadPaths() — dual-root path resolution (Issue #311)
- * Design ported from @spboyer (Shayne Boyer)'s DeDuva/squad#131.
+ * Design ported from @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { resolveSquadPaths } from '@deduvafork/squad-sdk/resolution';
+import { resolveSquadPaths, clearResolveSquadCache } from '@deduvafork/squad-sdk/resolution';
 
 const TMP = join(process.cwd(), `.test-dual-root-${randomBytes(4).toString('hex')}`);
 
@@ -23,11 +23,13 @@ function writeJson(relPath: string, data: unknown): void {
 
 describe('resolveSquadPaths()', () => {
   beforeEach(() => {
+    clearResolveSquadCache();
     if (existsSync(TMP)) rmSync(TMP, { recursive: true, force: true });
     mkdirSync(TMP, { recursive: true });
   });
 
   afterEach(() => {
+    clearResolveSquadCache();
     if (existsSync(TMP)) rmSync(TMP, { recursive: true, force: true });
   });
 

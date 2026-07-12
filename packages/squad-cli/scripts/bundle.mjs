@@ -10,7 +10,9 @@ await build({
   external: ['node-pty', 'sql.js', '@opentelemetry/sdk-node', 'ws'],
   banner: {
     js: [
-      '#!/usr/bin/env node',
+      // esbuild preserves the entry file's own shebang (from cli-entry.ts) as
+      // the first output line — do not add a second one here, or Node's ESM
+      // loader chokes on the duplicate `#!` as invalid syntax.
       // CJS interop: give bundled packages a real require() so they can load
       // Node built-ins (assert, events, fs, …) without hitting esbuild's stub
       // that throws "Dynamic require of X is not supported".

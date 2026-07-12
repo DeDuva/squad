@@ -209,7 +209,7 @@ describe('CLI packaging smoke test', { timeout: 120_000 }, () => {
 
     return [
       join(cli.tempDir, 'node_modules', dependency),
-      join(cli.tempDir, 'node_modules', '@bradygaster', 'squad-cli', 'node_modules', dependency),
+      join(cli.tempDir, 'node_modules', '@deduvafork', 'squad-cli', 'node_modules', dependency),
     ].find(path => existsSync(path));
   }
 

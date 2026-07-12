@@ -19,14 +19,15 @@ import { ShellLifecycle, loadWelcomeData } from './lifecycle.js';
 import { SquadClient } from '@deduvafork/squad-sdk/client';
 import type { SquadSession } from '@deduvafork/squad-sdk/client';
 import type { SquadPermissionHandler } from '@deduvafork/squad-sdk/client';
+import type { SquadPreToolUseHandler } from '@deduvafork/squad-sdk/adapter';
 import { RateLimitError } from '@deduvafork/squad-sdk/adapter/errors';
 import type { ShellMessage } from './types.js';
-import { FSStorageProvider, initSquadTelemetry, TIMEOUTS, StreamingPipeline, recordAgentSpawn, recordAgentDuration, recordAgentError, recordAgentDestroy, RuntimeEventBus, resolveSquad, resolveGlobalSquadPath } from '@deduvafork/squad-sdk';
+import { FSStorageProvider, initSquadTelemetry, TIMEOUTS, StreamingPipeline, recordAgentSpawn, recordAgentDuration, recordAgentError, recordAgentDestroy, RuntimeEventBus, resolveSquad, resolveGlobalSquadPath, loadDirConfig, resolveExternalStateDir } from '@deduvafork/squad-sdk';
 import type { UsageEvent } from '@deduvafork/squad-sdk';
 import { enableShellMetrics, recordShellSessionDuration, recordAgentResponseLatency, recordShellError } from './shell-metrics.js';
 import { parseAgentFromDescription } from './agent-name-parser.js';
 import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, hasRosterEntries } from './coordinator.js';
-import { loadAgentCharter, buildAgentPrompt } from './spawn.js';
+import { loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
 import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance, isAuthError, missingApiKeyGuidance } from './error-messages.js';
@@ -38,7 +39,7 @@ export type { StreamBridgeOptions } from './stream-bridge.js';
 export { ShellRenderer } from './render.js';
 export { ShellLifecycle } from './lifecycle.js';
 export type { LifecycleOptions, DiscoveredAgent } from './lifecycle.js';
-export { spawnAgent, loadAgentCharter, buildAgentPrompt } from './spawn.js';
+export { spawnAgent, loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
 export type { SpawnOptions, SpawnResult, ToolDefinition } from './spawn.js';
 export { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, formatConversationContext, hasRosterEntries } from './coordinator.js';
 export type { CoordinatorConfig, RoutingDecision } from './coordinator.js';
@@ -89,7 +90,7 @@ const storage = new FSStorageProvider();
  * Approve all permission requests. CLI runs locally with user trust,
  * so no interactive confirmation is needed.
  */
-const approveAllPermissions: SquadPermissionHandler = () => ({ kind: 'approved' });
+const approveAllPermissions: SquadPermissionHandler = () => ({ kind: 'approve-once' });
 
 /** Debug logger — writes to stderr only when SQUAD_DEBUG=1. */
 function debugLog(...args: unknown[]): void {
@@ -210,10 +211,16 @@ export async function runShell(): Promise<void> {
 
   // Session persistence — create or resume a previous session
   // Skip resume on first run (no team.md or .first-run marker present)
-  const hasTeam = storage.existsSync(join(teamRoot, '.squad', 'team.md'));
-  const isFirstRun = storage.existsSync(join(teamRoot, '.squad', '.first-run'));
+  // Resolve effective state dir for externalized state
+  const localSquadDir = join(teamRoot, '.squad');
+  const dirConfig = loadDirConfig(localSquadDir);
+  const stateDir = (dirConfig?.stateLocation === 'external' && dirConfig.projectKey)
+    ? resolveExternalStateDir(dirConfig.projectKey, false)
+    : localSquadDir;
+  const hasTeam = storage.existsSync(join(stateDir, 'team.md'));
+  const isFirstRun = storage.existsSync(join(stateDir, '.first-run'));
   let persistedSession: SessionData = createSession();
-  const recentSession = (hasTeam && !isFirstRun) ? loadLatestSession(teamRoot) : null;
+  const recentSession = (hasTeam && !isFirstRun) ? loadLatestSession(teamRoot, stateDir) : null;
   if (recentSession) {
     persistedSession = recentSession;
     debugLog('resuming recent session', persistedSession.id);
@@ -253,6 +260,29 @@ export async function runShell(): Promise<void> {
   let coordinatorSession: SquadSession | null = null;
   let activeInitSession: SquadSession | null = null;
   let pendingCastConfirmation: { proposal: CastProposal; parsed: ParsedInput } | null = null;
+
+  /**
+   * Surface tool activity (workstation_bash, file reads/writes, etc.) to the
+   * user as it happens. Squad's CLI trust model auto-approves tool calls
+   * (see approveAllPermissions above) rather than gating each one — this
+   * hook trades blocking confirmation for visibility instead, so the user
+   * can see what an agent is doing without stopping to approve every call.
+   */
+  const reportToolUse: SquadPreToolUseHandler = (input) => {
+    const argsPreview = (() => {
+      try {
+        const json = JSON.stringify(input.toolArgs);
+        return json && json.length > 0 ? json.slice(0, 160) : '';
+      } catch {
+        return '';
+      }
+    })();
+    shellApi?.addMessage({
+      role: 'system',
+      content: `🔧 ${input.toolName}${argsPreview ? ` ${argsPreview}` : ''}`,
+      timestamp: new Date(),
+    });
+  };
 
   // Eager SDK warm-up — start coordinator session before user's first message
   // This runs in background so UI renders immediately
@@ -422,6 +452,8 @@ export async function runShell(): Promise<void> {
         systemMessage: { mode: 'append', content: systemPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,
+        tools: buildAgentTools(teamRoot),
+        hooks: { onPreToolUse: reportToolUse },
       });
       agentSessions.set(agentName, session);
     }
@@ -953,9 +985,10 @@ export async function runShell(): Promise<void> {
 
       // P2: Cast confirmation — require user approval for freeform REPL casts
       if (!skipConfirmation) {
+        const memberNames = proposal.members.map(m => `${m.emoji} ${m.name}`).join(', ');
         shellApi?.addMessage({
           role: 'system',
-          content: 'Look good? Type **y** to confirm or **n** to cancel.',
+          content: `Confirm team: ${memberNames} (universe: ${proposal.universe})\n\nType **y** to confirm or **n** to cancel.`,
           timestamp: new Date(),
         });
         pendingCastConfirmation = { proposal, parsed };
@@ -1031,7 +1064,7 @@ export async function runShell(): Promise<void> {
 
     shellApi?.addMessage({
       role: 'system',
-      content: `✅ Team hired! ${result.membersCreated.length} members created.`,
+      content: `✅ Team cast! ${result.membersCreated.length} members created.`,
       timestamp: new Date(),
     });
 
@@ -1226,7 +1259,7 @@ export async function runShell(): Promise<void> {
   let shellMessages: ShellMessage[] = [];
   function autoSave(): void {
     persistedSession.messages = shellMessages;
-    try { saveSession(teamRoot, persistedSession); } catch (err) { debugLog('autoSave failed:', err); }
+    try { saveSession(teamRoot, persistedSession, stateDir); } catch (err) { debugLog('autoSave failed:', err); }
   }
 
   /** Callback for /resume command — replaces current messages with restored session. */

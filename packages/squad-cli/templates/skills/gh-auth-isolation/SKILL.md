@@ -139,13 +139,13 @@ git remote set-url origin https://github.com/personaluser/personaluser.github.io
 ### ✓ Correct: Agent creates a PR from personal fork to upstream
 
 ```powershell
-# Fork: personaluser/squad, Upstream: DeDuva/squad
+# Fork: personaluser/squad, Upstream: bradygaster/squad
 # Agent is on branch contrib/fix-docs in the fork clone
 
 git push origin contrib/fix-docs  # Pushes to fork (may need token auth)
 
 # Create PR targeting upstream
-gh pr create --repo DeDuva/squad --head personaluser:contrib/fix-docs `
+gh pr create --repo bradygaster/squad --head personaluser:contrib/fix-docs `
   --title "docs: fix installation guide" `
   --body "Fixes #123"
 ```

@@ -1,13 +1,12 @@
 /**
  * Squad Start — PTY Mirror Mode
  *
- * `squad start [--tunnel] [--command <cmd>]`
- * Spawns a configurable agent command in a PTY (pseudo-terminal) — you see
- * the EXACT same TUI as running the command directly. The raw terminal output
- * is mirrored to a remote PWA via WebSocket + devtunnel.
+ * `squad start [--tunnel]`
+ * Spawns copilot in a PTY (pseudo-terminal) — you see the EXACT same
+ * TUI as running copilot directly. The raw terminal output is mirrored
+ * to a remote PWA via WebSocket + devtunnel.
  *
- * Bidirectional: keyboard input from terminal AND phone both go to the agent.
- * Pass --command to specify which agent runner to use.
+ * Bidirectional: keyboard input from terminal AND phone both go to copilot.
  */
 
 import path from 'node:path';
@@ -15,6 +14,7 @@ import path from 'node:path';
 import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { FSStorageProvider, RemoteBridge } from '@deduvafork/squad-sdk';
+import { withAdditionalMcpConfig } from '../core/copilot-invocation.js';
 
 const storage = new FSStorageProvider();
 import type { RemoteBridgeConfig } from '@deduvafork/squad-sdk';
@@ -37,7 +37,7 @@ const MISSING_MODULE_RE =
 export interface StartOptions {
   tunnel: boolean;
   port: number;
-  agentArgs?: string[];
+  copilotArgs?: string[];
   command?: string;
 }
 
@@ -140,7 +140,7 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
         const qrcode = (await import('qrcode-terminal')) as any;
         qrcode.default.generate(tunnelUrlWithToken, { small: true }, (code: string) => { console.log(code); });
       } catch {}
-      console.log(`${DIM}Scan QR or open URL on phone. Starting agent...${RESET}\n`);
+      console.log(`${DIM}Scan QR or open URL on phone. Starting copilot...${RESET}\n`);
       console.log(`  ${DIM}Audit log:${RESET} ${bridge.getAuditLogPath()}`);
       console.log(`  ${DIM}Session expires:${RESET} ${new Date(bridge.getSessionExpiry()).toLocaleTimeString()}`);
     } catch (err) {
@@ -150,22 +150,30 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
     console.log(`${YELLOW}⚠${RESET} devtunnel not installed. Local mirror on port ${actualPort}.`);
   }
 
-  // ─── Spawn agent in PTY ───────────────────────────────────
+  // ─── Spawn copilot in PTY ─────────────────────────────────
 
-  if (!options.command) {
-    console.error(`${YELLOW}✗${RESET} No agent command specified. Use --command to specify the agent runner.`);
-    console.error(`  ${DIM}Example: squad start --command "gemini-cli" --tunnel${RESET}`);
-    process.exit(1);
-  }
-  const agentCmd = options.command;
+  const copilotExePath = path.join(
+    'C:', 'ProgramData', 'global-npm', 'node_modules', '@github', 'copilot',
+    'node_modules', '@github', 'copilot-win32-x64', 'copilot.exe'
+  );
+  const defaultCmd = storage.existsSync(copilotExePath) ? copilotExePath : 'copilot';
+  const copilotCmd = options.command || defaultCmd;
 
   const cols = process.stdout.columns || 120;
   const rows = process.stdout.rows || 30;
 
-  const agentExtraArgs = options.agentArgs || [];
-  if (agentExtraArgs.length > 0) {
-    console.log(`  ${DIM}Agent flags:${RESET} ${agentExtraArgs.join(' ')}\n`);
+  const copilotExtraArgs = options.copilotArgs || [];
+  if (copilotExtraArgs.length > 0) {
+    console.log(`  ${DIM}Copilot flags:${RESET} ${copilotExtraArgs.join(' ')}\n`);
   }
+
+  // Inject --additional-mcp-config so the project-level mcp-config.json
+  // actually loads in Copilot CLI 1.0.58 (which silently ignores the
+  // project file otherwise). Only injects when invoking the bare `copilot`
+  // binary; user-overridden commands are left untouched.
+  const finalCopilotArgs = (copilotCmd === 'copilot' || copilotCmd === copilotExePath)
+    ? withAdditionalMcpConfig('copilot', copilotExtraArgs, cwd)
+    : copilotExtraArgs;
 
   // F-07: Security — blocklist dangerous environment variables for PTY
   const DANGEROUS_VARS = new Set(['NODE_OPTIONS', 'NODE_REPL_HISTORY', 'NODE_EXTRA_CA_CERTS',
@@ -183,7 +191,7 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
     }
   }
 
-  const pty = nodePty.spawn(agentCmd, agentExtraArgs, {
+  const pty = nodePty.spawn(copilotCmd, finalCopilotArgs, {
     name: 'xterm-256color',
     cols,
     rows,
@@ -196,7 +204,7 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
 
   // PTY output → local terminal + remote
   pty.onData((data: string) => {
-    // Write to local terminal (exact agent output)
+    // Write to local terminal (exact copilot output)
     process.stdout.write(data);
 
     // Buffer for remote clients
@@ -211,7 +219,7 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
   });
 
   pty.onExit(({ exitCode }: { exitCode: number }) => {
-    console.log(`\n${DIM}Agent exited (code ${exitCode}).${RESET}`);
+    console.log(`\n${DIM}Copilot exited (code ${exitCode}).${RESET}`);
     destroyTunnel();
     bridge?.stop();
     process.exit(exitCode);

@@ -40,16 +40,11 @@ describe('squad upgrade --self', () => {
   it('upgrade module references correct npm package name', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    // Package name is in self-update.ts (passive banner); release channels in upgrade.ts
-    const selfUpdateSource = fs.readFileSync(
-      path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'self-update.ts'),
-      'utf-8',
-    );
     const upgradeSource = fs.readFileSync(
-      path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'upgrade.ts'),
+      path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'core', 'upgrade.ts'),
       'utf-8',
     );
-    expect(selfUpdateSource).toContain('@deduvafork/squad-cli');
+    expect(upgradeSource).toContain("@deduvafork/squad-cli");
     expect(upgradeSource).toContain("'insider'");
     expect(upgradeSource).toContain("'latest'");
   });

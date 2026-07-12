@@ -89,18 +89,17 @@ async function fetchLatestVersion(): Promise<string | null> {
 /**
  * Check for updates and print a banner if a newer version is available.
  *
- * Disabled in this fork — this build is not published to npm and the upstream
- * @deduvafork/squad-cli package is not the source of updates here.
- * Set SQUAD_UPDATE_CHECK=1 to re-enable for development/testing.
+ * This function is designed to be fire-and-forget: it never throws,
+ * never blocks the shell, and silently no-ops on any failure.
  *
  * @param currentVersion - The currently running CLI version
  */
-export async function notifyIfUpdateAvailable(_currentVersion: string): Promise<void> {
-  if (process.env['SQUAD_UPDATE_CHECK'] !== '1') return;
-
+export async function notifyIfUpdateAvailable(currentVersion: string): Promise<void> {
   try {
-    if (process.env['SQUAD_NO_UPDATE_CHECK'] === '1') return;
+    // Respect opt-out
+    if (process.env.SQUAD_NO_UPDATE_CHECK === '1') return;
 
+    // Check cache first
     const cached = readCache();
     let latest: string;
 
@@ -113,9 +112,10 @@ export async function notifyIfUpdateAvailable(_currentVersion: string): Promise<
       writeCache({ latestVersion: latest, checkedAt: Date.now() });
     }
 
-    if (compareVersions(latest, _currentVersion) > 0) {
+    // Only notify if strictly newer
+    if (compareVersions(latest, currentVersion) > 0) {
       console.log(
-        `\n${YELLOW}⚡${RESET} ${BOLD}Squad v${latest}${RESET} available ${DIM}(you have v${_currentVersion})${RESET}` +
+        `\n${YELLOW}⚡${RESET} ${BOLD}Squad v${latest}${RESET} available ${DIM}(you have v${currentVersion})${RESET}` +
         `\n   Run: ${BOLD}npm install -g @deduvafork/squad-cli@latest${RESET}\n`,
       );
     }

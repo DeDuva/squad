@@ -598,6 +598,11 @@ export interface SquadPermissionRequest {
 export interface SquadPermissionRequestResult {
   /** Outcome of the permission request */
   kind:
+    | "approve-once"
+    /**
+     * @deprecated Use `"approve-once"` instead. This value is kept for
+     * backwards compatibility and is normalised to `"approve-once"` by the SDK.
+     */
     | "approved"
     | "denied-by-rules"
     | "denied-no-approval-rule-and-could-not-request-from-user"
@@ -753,6 +758,10 @@ export interface SquadInfiniteSessionConfig {
 
 /**
  * Valid reasoning effort levels for models that support it.
+ *
+ * Canonical reasoning-effort union for the SDK — import this type instead of
+ * re-declaring the union inline. The runtime list lives in config/models.ts as
+ * `VALID_REASONING_EFFORTS` (kept in sync via `satisfies`).
  */
 export type SquadReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
@@ -972,7 +981,7 @@ export interface SquadModelPolicy {
  * Model billing information.
  */
 export interface SquadModelBilling {
-  multiplier: number;
+  multiplier?: number;
 }
 
 /**

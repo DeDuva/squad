@@ -8,13 +8,15 @@
  */
 
 import { SquadClientWithPool } from '../client/index.js';
-import type { SquadSession, SquadSessionConfig } from '../adapter/types.js';
-import { compileCharter, type CharterCompileOptions } from './charter-compiler.js';
+import type { SquadSession, SquadSessionConfig, SquadReasoningEffort } from '../adapter/types.js';
+import { compileCharterFull, type CharterCompileOptions } from './charter-compiler.js';
 import { resolveModel, type ModelResolutionOptions, type TaskType } from './model-selector.js';
+import { VALID_REASONING_EFFORTS } from '../config/models.js';
 import { ConfigurationError, SessionLifecycleError } from '../adapter/errors.js';
 import * as path from 'path';
 import { FSStorageProvider } from '../storage/fs-storage-provider.js';
 import type { StorageProvider } from '../storage/storage-provider.js';
+import { buildActivePluginContext } from '../marketplace/plugin-state.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import { recordAgentSpawn, recordAgentDestroy, recordAgentError } from '../runtime/otel-metrics.js';
 
@@ -71,6 +73,9 @@ export interface SpawnAgentOptions {
   
   /** User-specified model override */
   modelOverride?: string;
+
+  /** User-specified reasoning effort override */
+  reasoningEffortOverride?: SquadReasoningEffort;
   
   /** Team context content (team.md) */
   teamContext?: string;
@@ -149,6 +154,7 @@ export class AgentLifecycleManager {
       task,
       taskType = 'code',
       modelOverride,
+      reasoningEffortOverride,
       teamContext,
       routingRules,
       decisions,
@@ -157,8 +163,14 @@ export class AgentLifecycleManager {
     
     try {
       // Step 1: Read charter.md
-      const charterPath = path.join(this.teamRoot, '.ai-team', 'agents', agentName, 'charter.md');
-      const charterContent = await this.storage.read(charterPath);
+      const squadCharterPath = path.join(this.teamRoot, '.squad', 'agents', agentName, 'charter.md');
+      const legacyCharterPath = path.join(this.teamRoot, '.ai-team', 'agents', agentName, 'charter.md');
+      let charterPath = squadCharterPath;
+      let charterContent = await this.storage.read(charterPath);
+      if (charterContent === undefined) {
+        charterPath = legacyCharterPath;
+        charterContent = await this.storage.read(charterPath);
+      }
 
       if (charterContent === undefined) {
         throw new ConfigurationError(
@@ -176,19 +188,21 @@ export class AgentLifecycleManager {
       const compileOptions: CharterCompileOptions = {
         agentName,
         charterPath,
+        charterContent,
         teamContext,
         routingRules,
         decisions,
+        pluginContext: await buildActivePluginContext(this.storage, path.join(this.teamRoot, '.squad')),
       };
       
-      const agentConfig = compileCharter(compileOptions);
+      const agentConfig = compileCharterFull(compileOptions);
       
       // Step 3: Resolve model
       const modelOptions: ModelResolutionOptions = {
         userOverride: modelOverride,
-        charterPreference: agentConfig.prompt.includes('## Model') 
-          ? this.extractModelPreference(charterContent)
-          : undefined,
+        charterPreference: agentConfig.resolvedModel !== undefined
+          ? agentConfig.resolvedModel
+          : this.extractModelPreference(charterContent),
         taskType,
         agentRole: agentName,
       };
@@ -196,11 +210,20 @@ export class AgentLifecycleManager {
       const resolvedModel = resolveModel(modelOptions);
       
       // Step 4: Create session
+      // Use compiled charter's resolved reasoning effort (already validated/normalized),
+      // with spawn-time override taking precedence. Validate before passing to session.
+      const rawEffort = reasoningEffortOverride
+        || agentConfig.resolvedReasoningEffort
+        || undefined;
+      const validEffort = rawEffort && rawEffort !== 'auto' && (VALID_REASONING_EFFORTS as readonly string[]).includes(rawEffort)
+        ? rawEffort as SquadReasoningEffort
+        : undefined;
       const sessionConfig: SquadSessionConfig = {
         model: resolvedModel.model,
         systemMessage: {
           content: agentConfig.prompt,
         },
+        ...(validEffort ? { reasoningEffort: validEffort } : {}),
       };
       
       const session = await this.client.createSession(sessionConfig);

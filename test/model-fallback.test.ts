@@ -23,7 +23,9 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 
   it('standard chain tries all models in order', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.standard;
-    expect(chain.length).toBeGreaterThan(1);
+    // Gemini-only catalog: the standard tier has a single model
+    // (gemini-flash-latest), so the chain has exactly one entry.
+    expect(chain.length).toBeGreaterThan(0);
 
     // Walk the chain with getNextFallback
     const attempted = new Set<string>();

@@ -36,19 +36,24 @@ import { randomUUID } from 'node:crypto';
 
 vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
-    GeminiClient: vi.fn().mockImplementation(() => ({
-      start: vi.fn().mockResolvedValue(undefined),
-      stop: vi.fn().mockResolvedValue([]),
-      isStarted: vi.fn().mockReturnValue(false),
-      createSession: vi.fn().mockReturnValue({
-        sessionId: 'session-1',
-        sendMessage: vi.fn().mockResolvedValue(undefined),
-        on: vi.fn(),
-        off: vi.fn(),
-        close: vi.fn().mockResolvedValue(undefined),
-      }),
-      getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
-    })),
+    // Regular function expression, not an arrow function — SquadClient calls
+    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // constructors (Reflect.construct on one throws "is not a constructor").
+    GeminiClient: vi.fn().mockImplementation(function () {
+      return {
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockResolvedValue([]),
+        isStarted: vi.fn().mockReturnValue(false),
+        createSession: vi.fn().mockReturnValue({
+          sessionId: 'session-1',
+          sendMessage: vi.fn().mockResolvedValue(undefined),
+          on: vi.fn(),
+          off: vi.fn(),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+        getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
+      };
+    }),
   };
 });
 
@@ -59,8 +64,7 @@ describe('Integration: Tool → Hook Pipeline', () => {
 
   beforeEach(() => {
     testRoot = path.join('.', '.test-integration-' + randomUUID());
-    const mockSessionFactory = vi.fn().mockResolvedValue({ sessionId: 'mock-session' });
-    registry = new ToolRegistry(testRoot, undefined, undefined, undefined, mockSessionFactory);
+    registry = new ToolRegistry(testRoot);
   });
 
   afterEach(() => {
@@ -84,7 +88,11 @@ describe('Integration: Tool → Hook Pipeline', () => {
       const hookResult = await pipeline.runPreToolHooks(ctx);
       expect(hookResult.action).toBe('allow');
 
-      // Execute tool
+      // Execute tool. With no fanOutDepsGetter wired into ToolRegistry,
+      // the handler returns a structured failure (fan-out-deps-unavailable)
+      // rather than the previous fake-success. The point of this test is that
+      // the hook pipeline allows the call through; the tool's own outcome is
+      // determined by infra wiring (covered separately in test/tools.test.ts).
       const toolResult = await tool.handler(
         { targetAgent: 'fenster', task: 'Implement feature' } as RouteRequest,
         {
@@ -95,7 +103,8 @@ describe('Integration: Tool → Hook Pipeline', () => {
         }
       );
 
-      expect(toolResult.resultType).toBe('success');
+      expect(toolResult.resultType).toBe('failure');
+      expect((toolResult as { error?: string }).error).toBe('fan-out-deps-unavailable');
     });
 
     it('should block squad_route when custom hook blocks it', async () => {

@@ -435,6 +435,7 @@ describe('ToolRegistry — workstation integration', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       { enableWorkstationTools: true },
     );
     const names = registry.getTools().map(t => t.name);
@@ -448,6 +449,7 @@ describe('ToolRegistry — workstation integration', () => {
   it('forwards workstationOptions (bashTimeoutMs) into the registered tools', async () => {
     const registry = new ToolRegistry(
       '.test-squad',
+      undefined,
       undefined,
       undefined,
       undefined,

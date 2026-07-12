@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * Squad CLI — entry point for command-line invocation.
  * Separated from src/index.ts so library consumers can import
@@ -12,7 +14,6 @@ process.env.NODE_NO_WARNINGS = '1';
 // process.env.NODE_NO_WARNINGS only works when set BEFORE process starts;
 // this runtime hook catches warnings emitted during dynamic imports below.
 const _origEmit = process.emit;
-// @ts-expect-error — narrowing emit signature for warning suppression
 process.emit = function (evt: string, ...args: unknown[]) {
   if (evt === 'warning' && (args[0] as { name?: string })?.name === 'ExperimentalWarning') {
     return false;
@@ -21,6 +22,8 @@ process.emit = function (evt: string, ...args: unknown[]) {
 };
 
 // Pre-flight: require Node.js ≥22.5.0 for node:sqlite.
+// Fail fast with a clear message rather than letting users hit a cryptic
+// ERR_UNKNOWN_BUILTIN_MODULE crash when the SDK loads.
 {
   const parts = process.versions.node.split('.').map(Number);
   const major = parts[0] ?? 0;
@@ -53,14 +56,18 @@ function _handleTopLevelSignal(signal: 'SIGINT' | 'SIGTERM'): void {
 process.on('SIGINT', () => _handleTopLevelSignal('SIGINT'));
 process.on('SIGTERM', () => _handleTopLevelSignal('SIGTERM'));
 
-import { FSStorageProvider } from '@deduvafork/squad-sdk';
+import { FSStorageProvider, resolveSquadState } from '@deduvafork/squad-sdk';
+import type { SquadStateContext, StateBackendType } from '@deduvafork/squad-sdk';
 import path from 'node:path';
 import { fatal, SquadError } from './cli/core/errors.js';
 import { BOLD, RESET, DIM, RED, GREEN, YELLOW } from './cli/core/output.js';
 import { runInit } from './cli/core/init.js';
 import { runCost } from './cli/commands/cost.js';
 import { getPackageVersion } from './cli/core/version.js';
+import { printCommandHelp, printGenericCommandHelp } from './cli/core/command-help.js';
 
+// Lazy-load squad-sdk to avoid triggering @github/copilot-sdk import on Node 24+
+// (Issue: copilot-sdk has broken ESM imports - vscode-jsonrpc/node without .js extension)
 const lazySquadSdk = () => import('@deduvafork/squad-sdk');
 const lazyRunShell = () => import('./cli/shell/index.js');
 
@@ -146,6 +153,7 @@ async function main(): Promise<void> {
     console.log(`                    --global (personal squad dir)`);
     console.log(`                    --no-workflows (skip CI setup)`);
     console.log(`                    --preset <name> (apply a preset after init)`);
+    console.log(`                    --state-backend <type> (local|orphan|two-layer)`);
     console.log(`             Usage: init --mode remote <team-repo-path>`);
     console.log(`             Creates .squad/config.json pointing to an external team root`);
     console.log(`  ${BOLD}upgrade${RESET}    Update Squad-owned files to latest version`);
@@ -153,8 +161,12 @@ async function main(): Promise<void> {
     console.log(`             Never touches: .squad/ or .ai-team/ (your team state)`);
     console.log(`             Flags: --global (upgrade personal squad)`);
     console.log(`                    --migrate-directory (rename .ai-team/ → .squad/)`);
+    console.log(`                    --state-backend <type> (migrate to orphan|two-layer)`);
     console.log(`  ${BOLD}migrate${RESET}    Convert between markdown and SDK-First squad formats`);
     console.log(`             Flags: --to sdk|markdown, --from ai-team, --dry-run`);
+    console.log(`  ${BOLD}sync${RESET}       Sync squad-state branch(es) with remote (push/pull/both)`);
+    console.log(`             Flags: --push, --pull, --remote <name>, --quiet`);
+    console.log(`             No-op for local/worktree backends. Invoked by git hooks.`);
     console.log(`  ${BOLD}status${RESET}     Show which squad is active and why`);
     console.log(`  ${BOLD}roles${RESET}      List built-in Squad roles`);
     console.log(`             Usage: roles [--category <name>] [--search <query>]`);
@@ -186,8 +198,10 @@ async function main(): Promise<void> {
     console.log(`             Flags: --init (generate boilerplate loop.md)`);
     console.log(`                    --file <path> (custom loop file)`);
     console.log(`                    --monitor-email, --monitor-teams (add monitoring)`);
-    console.log(`  ${BOLD}hire${RESET}       Team creation wizard`);
-    console.log(`             Usage: hire [--name <name>] [--role <role>]`);
+    console.log(`  ${BOLD}cast${RESET}       Show roster, or add a new agent (alias: hire)`);
+    console.log(`             Usage: cast [--name <name>] [--role <role>]`);
+    console.log(`  ${BOLD}copilot${RESET}    Add/remove the Copilot coding agent (@copilot)`);
+    console.log(`             Usage: copilot [--off] [--auto-assign]`);
     console.log(`  ${BOLD}plugin${RESET}     Manage plugin marketplaces`);
     console.log(`             Usage: plugin marketplace add|remove|list|browse`);
     console.log(`  ${BOLD}export${RESET}     Export squad to a portable JSON snapshot`);
@@ -196,11 +210,19 @@ async function main(): Promise<void> {
     console.log(`             Usage: import <file> [--force]`);
     console.log(`  ${BOLD}scrub-emails${RESET}  Remove email addresses from Squad state files`);
     console.log(`             Usage: scrub-emails [directory] (default: .ai-team/)`);
-    console.log(`  ${BOLD}start${RESET}      Start Squad with remote access from phone/browser`);
+    console.log(`  ${BOLD}start${RESET}      Start Copilot with remote access from phone/browser`);
     console.log(`             Usage: start [--tunnel] [--port <n>] [--command <cmd>]`);
+    console.log(`                    [copilot flags...]`);
+    console.log(`             Examples: start --tunnel --yolo`);
+    console.log(`                       start --tunnel --model claude-sonnet-4`);
+    console.log(`                       start --tunnel --command "gh copilot"`);
     console.log(`  ${BOLD}nap${RESET}        Context hygiene (compress, prune, archive .squad/ state)`);
     console.log(`             Usage: nap [--deep] [--dry-run]`);
     console.log(`             Flags: --deep (thorough cleanup), --dry-run (preview only)`);
+    console.log(`  ${BOLD}memory${RESET}     Governed memory operations`);
+    console.log(`             Usage: memory write --content "..." --class LOCAL`);
+    console.log(`             Diagnostics: --log-level info|debug or --verbose`);
+    console.log(`  ${BOLD}state-mcp${RESET}  MCP bridge exposing Squad runtime state tools`);
     console.log(`  ${BOLD}doctor${RESET}     Validate squad setup (check files, config, health)`);
     console.log(`  ${BOLD}consult${RESET}    Enter consult mode with your personal squad`);
     console.log(`             Flags: --status, --check`);
@@ -211,10 +233,12 @@ async function main(): Promise<void> {
     console.log(`             Aliases: workstreams, streams (deprecated)`);
     console.log(`  ${BOLD}link${RESET}       Link project to a remote team root`);
     console.log(`             Usage: link <team-repo-path>`);
+    console.log(`  ${BOLD}externalize${RESET}  Move local squad state to an external team root`);
+    console.log(`  ${BOLD}internalize${RESET}  Pull an external team root back into the project`);
     console.log(`  ${BOLD}build${RESET}      Compile squad.config.ts into .squad/ markdown`);
     console.log(`             Flags: --check (validate only), --dry-run (preview)`);
     console.log(`                    --watch (rebuild on change)`);
-    console.log(`  ${BOLD}aspire${RESET}     Launch .NET Aspire dashboard for observability`);
+    console.log(`  ${BOLD}aspire${RESET}     Launch Aspire dashboard for observability`);
     console.log(`             Flags: --docker (force Docker), --port <n> (dashboard port)`);
     console.log(`  ${BOLD}schedule${RESET}   Manage scheduled tasks`);
     console.log(`             Usage: schedule list | run <id> | init | status`);
@@ -226,7 +250,7 @@ async function main(): Promise<void> {
     console.log(`                    apply <name> [--force] | save <name>`);
     console.log(`                    init [--remote]`);
     console.log(`  ${BOLD}cast${RESET}       Show current session cast (project + personal agents)`);
-    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser → Squad)`);
+    console.log(`  ${BOLD}rc${RESET}         Start Remote Control bridge (phone/browser)`);
     console.log(`             Usage: rc [--tunnel] [--port <n>] [--path <dir>]`);
     console.log(`  ${BOLD}init-remote${RESET}    Link project to remote team root (shorthand)`);
     console.log(`             Usage: init-remote <team-repo-path>`);
@@ -234,6 +258,10 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}discover${RESET}   List known squads and their capabilities`);
     console.log(`  ${BOLD}delegate${RESET}   Create work in another squad`);
     console.log(`             Usage: delegate <squad-name> <description>`);
+    console.log(`  ${BOLD}registry${RESET}   Manage peer squads for cross-squad discovery (no inheritance)`);
+    console.log(`             Usage: registry add <name> <path>`);
+    console.log(`                    registry list`);
+    console.log(`                    registry remove <name>`);
     console.log(`  ${BOLD}upstream${RESET}    Manage upstream Squad sources`);
     console.log(`             Usage: upstream add <source> [--name <n>] [--ref <branch>]`);
     console.log(`                    upstream remove <name>`);
@@ -241,11 +269,11 @@ async function main(): Promise<void> {
     console.log(`                    upstream sync [name]`);
     console.log(`  ${BOLD}economy${RESET}    Toggle economy mode (cost-conscious model selection)`);
     console.log(`             Usage: economy [on|off]`);
+    console.log(`  ${BOLD}externalize${RESET}  Move .squad/ state out of the working tree`);
+    console.log(`             Stores state in platform-local storage`);
+    console.log(`             Flags: --key <name> (explicit project key)`);
+    console.log(`  ${BOLD}internalize${RESET}  Restore externalized state into the working tree`);
 
-    console.log(`  ${BOLD}auth${RESET}       Manage API credentials`);
-    console.log(`             Usage: auth setup --provider=gemini [--key KEY]`);
-    console.log(`                    auth status`);
-    console.log(`                    auth logout`);
     console.log(`  ${BOLD}version${RESET}    Print installed version`);
     console.log(`  ${BOLD}help${RESET}       Show this help message`);
     console.log(`\nFlags:`);
@@ -254,10 +282,30 @@ async function main(): Promise<void> {
     console.log(`  ${BOLD}--global${RESET}       Use personal (global) squad path (for init, upgrade)`);
     console.log(`  ${BOLD}--economy${RESET}      Activate economy mode for this session (cheaper models)`);
     console.log(`  ${BOLD}--team-root${RESET}    Override team root path for resolution`);
-    console.log(`\nSetup (airlock — build from source):`);
-    console.log(`  git clone <squad-repo> && cd squad`);
-    console.log(`  npm ci && npm run build`);
-    console.log(`  ./squad auth setup --provider=gemini --key YOUR_KEY\n`);
+    console.log(`\nInstallation:`);
+    console.log(`  npm install --save-dev @deduvafork/squad-cli`);
+    console.log(`  npm install --save-dev @deduvafork/squad-cli@insider\n`);
+    return;
+  }
+
+  // --help / -h on a subcommand → print command-specific help and exit.
+  // Without this intercept the flag was silently dropped and the command
+  // would execute for real (sometimes with destructive side effects, e.g.
+  // `squad init --help` scaffolding files, or `squad triage --help` starting
+  // the polling loop). See #1201.
+  if (
+    cmd &&
+    cmd !== 'help' &&
+    cmd !== '--help' &&
+    cmd !== '-h' &&
+    cmd !== 'version' &&
+    cmd !== '--version' &&
+    cmd !== '-v' &&
+    (args.includes('--help') || args.includes('-h'))
+  ) {
+    if (!printCommandHelp(cmd, VERSION)) {
+      printGenericCommandHelp(cmd);
+    }
     return;
   }
 
@@ -297,12 +345,16 @@ async function main(): Promise<void> {
     const sdkMod = hasGlobal ? await lazySquadSdk() : null;
     const dest = hasGlobal ? sdkMod!.resolveGlobalSquadPath() : process.cwd();
     const noWorkflows = args.includes('--no-workflows');
+    const mcpFrontmatter = args.includes('--mcp-frontmatter');
     const sdk = args.includes('--sdk');
     const roles = args.includes('--roles');
     const presetIdx = args.indexOf('--preset');
     const presetName = (presetIdx !== -1 && args[presetIdx + 1]) ? args[presetIdx + 1] : undefined;
+    // Parse --state-backend flag for init
+    const sbIdx = args.indexOf('--state-backend');
+    const initStateBackend = (sbIdx !== -1 && args[sbIdx + 1]) ? args[sbIdx + 1] : undefined;
     // Global init: suppress workflows (no GitHub CI in ~/.config/squad/) and bootstrap personal squad
-    runInit(dest, { includeWorkflows: !noWorkflows && !hasGlobal, sdk, roles, isGlobal: hasGlobal }).then(async () => {
+    runInit(dest, { includeWorkflows: !noWorkflows && !hasGlobal, sdk, roles, isGlobal: hasGlobal, stateBackend: initStateBackend, mcpFrontmatter }).then(async () => {
       if (presetName) {
         const { seedBuiltinPresets, applyPreset } = await import('@deduvafork/squad-sdk/presets');
         const { resolvePresetsDir, ensureSquadHome } = await import('@deduvafork/squad-sdk/resolution');
@@ -348,7 +400,12 @@ async function main(): Promise<void> {
     const selfUpgrade = args.includes('--self');
     const forceUpgrade = args.includes('--force');
     const insider = args.includes('--insider');
+    const dryRun = args.includes('--dry-run');
     const dest = hasGlobal ? (await lazySquadSdk()).resolveGlobalSquadPath() : getSquadStartDir();
+
+    // Parse --state-backend for backend migration
+    const sbIdx = args.indexOf('--state-backend');
+    const upgradeStateBackend = (sbIdx !== -1 && args[sbIdx + 1]) ? args[sbIdx + 1] : undefined;
     
     // Warn when --insider is used without --self (it has no effect on project upgrades)
     if (insider && !selfUpgrade) {
@@ -361,19 +418,112 @@ async function main(): Promise<void> {
       // Continue with regular upgrade after migration
     }
     
-    // Handle --self: upgrade the CLI package itself
+    // Handle --self: upgrade the CLI package itself.
+    //
+    // UPGRADE-EPERM-FALSE-SUCCESS fix (iter-2): surface a failed self-upgrade
+    // instead of printing "✅ Upgraded" after a warning.
+    //
+    // Iter-4 hardening: when BOTH --self and --state-backend are passed and
+    // the self-upgrade fails (e.g. EPERM on a globally-installed CLI that
+    // can't be replaced by the current user), still run the state-backend
+    // migration. The two operations are independent — failing the npm
+    // install must not block the user from upgrading their existing project's
+    // on-disk state layout. Failures are tracked and we exit non-zero at the
+    // end if either step failed.
+    let selfUpgradeFailed: string | null = null;
     if (selfUpgrade) {
-      await selfUpgradeCli({ insider, force: forceUpgrade });
-      return;
+      try {
+        await selfUpgradeCli({ insider, force: forceUpgrade });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        selfUpgradeFailed = msg;
+        if (upgradeStateBackend) {
+          // Defer the failure: still attempt the state-backend migration so
+          // the user gets at least one of the two operations they asked for.
+          console.error(`⚠️ Self-upgrade failed: ${msg}`);
+          console.error('   Continuing with --state-backend migration. Self-upgrade can be retried separately.');
+        } else {
+          console.error(`❌ Self-upgrade failed: ${msg}`);
+          process.exit(1);
+        }
+      }
+      if (!selfUpgradeFailed && !upgradeStateBackend) {
+        console.log('✅ Upgraded. Please restart your terminal for changes to take effect.');
+        return;
+      }
+      if (!selfUpgradeFailed) {
+        console.log('✅ Self-upgrade complete. Running --state-backend migration next…');
+      }
     }
 
-    // Run upgrade
-    await runUpgrade(dest, { 
-      migrateDirectory: migrateDir,
-      self: selfUpgrade,
-      force: forceUpgrade
-    });
-    
+    // Run upgrade (skip when --self was successful AND no state-backend asked —
+    // that case returned above). Otherwise we always run a project upgrade so
+    // hooks/templates are refreshed alongside the backend migration.
+    if (!selfUpgrade || upgradeStateBackend) {
+      await runUpgrade(dest, {
+        migrateDirectory: migrateDir,
+        self: selfUpgrade,
+        force: forceUpgrade,
+        dryRun,
+      });
+    }
+
+    // Handle --state-backend: migrate backend after upgrade
+    if (upgradeStateBackend) {
+      const { migrateStateBackend } = await import('./cli/commands/migrate-backend.js');
+      try {
+        await migrateStateBackend(dest, upgradeStateBackend);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`❌ State-backend migration failed: ${msg}`);
+        process.exit(1);
+      }
+    } else {
+      // Ensure hooks are installed for existing orphan/two-layer backends
+      const { ensureHooksForBackend } = await import('./cli/commands/install-hooks.js');
+      ensureHooksForBackend(dest);
+    }
+
+    if (selfUpgradeFailed) {
+      // Partial success — state-backend migration completed but self-upgrade
+      // did not. Exit non-zero so callers (CI, wrapper scripts) can detect it.
+      console.error(`❌ Self-upgrade failed earlier: ${selfUpgradeFailed}`);
+      console.error('   The project upgrade and state-backend migration succeeded; retry the self-upgrade manually.');
+      process.exit(1);
+    }
+
+    return;
+  }
+
+  if (cmd === 'memory') {
+    const { runMemoryCommand } = await import('./cli/commands/memory.js');
+    await runMemoryCommand(getSquadStartDir(), args.slice(1));
+    return;
+  }
+
+  if (cmd === 'state-mcp') {
+    const { runStateMcp } = await import('./cli/commands/state-mcp.js');
+    await runStateMcp(getSquadStartDir());
+    return;
+  }
+
+  if (cmd === 'sync') {
+    const { runSync } = await import('./cli/commands/sync.js');
+    const quiet = args.includes('--quiet');
+    const remoteIdx = args.indexOf('--remote');
+    const remote = (remoteIdx !== -1 && args[remoteIdx + 1]) ? args[remoteIdx + 1] : undefined;
+    let direction: 'push' | 'pull' | 'both' = 'both';
+    if (args.includes('--push') && !args.includes('--pull')) direction = 'push';
+    else if (args.includes('--pull') && !args.includes('--push')) direction = 'pull';
+    try {
+      await runSync({ direction, remote, cwd: getSquadStartDir(), quiet });
+    } catch (err: unknown) {
+      if (!quiet) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`squad sync failed: ${msg}`);
+      }
+      process.exit(1);
+    }
     return;
   }
 
@@ -482,12 +632,16 @@ async function main(): Promise<void> {
     const rawStateBackend = (stateBackendIdx !== -1 && args[stateBackendIdx + 1])
       ? args[stateBackendIdx + 1]
       : undefined;
-    const validBackends = ['worktree', 'git-notes', 'orphan', 'external'] as const;
+    const validBackends = ['local', 'orphan', 'two-layer', 'external'] as const;
     if (rawStateBackend && !(validBackends as readonly string[]).includes(rawStateBackend)) {
       console.error(`\u26a0\ufe0f Invalid --state-backend "${rawStateBackend}". Valid: ${validBackends.join(', ')}.`);
       process.exit(1);
     }
-    const stateBackend = rawStateBackend as typeof validBackends[number] | undefined;
+    const mappedBackend = rawStateBackend as StateBackendType | undefined;
+
+    // Resolve the full state context (paths + backend) once at entry.
+    // Commands can thread this through instead of re-resolving independently.
+    const stateContext: SquadStateContext | null = resolveSquadState(getSquadStartDir(), mappedBackend);
 
     // Build capability overrides from CLI flags and --no-{cap} flags
     const capabilities: Record<string, boolean | Record<string, unknown>> = {};
@@ -506,6 +660,15 @@ async function main(): Promise<void> {
         : { projectNumber: parseInt(args[boardProjectIdx + 1]!, 10) };
     }
 
+    // --board-owner sets the project owner (org or user login)
+    const boardOwnerIdx = args.indexOf('--board-owner');
+    if (boardOwnerIdx !== -1 && args[boardOwnerIdx + 1]) {
+      const existing = capabilities['board'];
+      capabilities['board'] = typeof existing === 'object' && existing !== null
+        ? { ...existing, owner: args[boardOwnerIdx + 1]! }
+        : { owner: args[boardOwnerIdx + 1]! };
+    }
+
     // Load config: .squad/config.json merged with CLI overrides
     const config = loadWatchConfig(getSquadStartDir(), {
       interval,
@@ -522,14 +685,15 @@ async function main(): Promise<void> {
       overnightStart,
       overnightEnd,
       sentinelFile,
-      stateBackend,
+      stateBackend: mappedBackend,
+      stateContext,
       capabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
     });
 
     // After parsing all flags, check for positional args that look like prompts.
     // Skip values that follow known value-flags (e.g. "--interval 5" → "5" is not positional).
     const knownValueFlags = new Set([
-      '--interval', '--copilot-flags', '--agent-cmd', '--max-concurrent', '--timeout', '--board-project', '--auth-user',
+      '--interval', '--copilot-flags', '--agent-cmd', '--max-concurrent', '--timeout', '--board-project', '--board-owner', '--auth-user',
       '--dispatch-mode', '--log-file', '--notify-level', '--overnight-start', '--overnight-end', '--sentinel-file', '--state-backend',
     ]);
     const watchArgStart = args.indexOf(cmd) + 1;
@@ -550,37 +714,6 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'loop') {
-    // --help
-    if (args.includes('--help') || args.includes('-h')) {
-      console.log(`\n${BOLD}squad loop${RESET} — Prompt-driven continuous work loop\n`);
-      console.log(`Usage: squad loop [options]\n`);
-      console.log(`Reads loop.md and runs it as a continuous work loop.\n`);
-      console.log(`Options:`);
-      console.log(`  ${BOLD}--init${RESET}                Generate a boilerplate loop.md`);
-      console.log(`  ${BOLD}--file <path>${RESET}         Path to loop file (default: loop.md)`);
-      console.log(`  ${BOLD}--interval <min>${RESET}      Override loop interval in minutes`);
-      console.log(`  ${BOLD}--timeout <min>${RESET}       Override max minutes per cycle`);
-      console.log(`  ${BOLD}--copilot-flags "..."${RESET} Extra flags for Copilot CLI`);
-      console.log(`  ${BOLD}--agent-cmd <cmd>${RESET}     Override the agent command`);
-      console.log(`\nCapabilities (composable with the loop):`);
-      console.log(`  ${BOLD}--self-pull${RESET}           git fetch/pull at round start`);
-      console.log(`  ${BOLD}--monitor-email${RESET}       Scan email for actionable items`);
-      console.log(`  ${BOLD}--monitor-teams${RESET}       Scan Teams for actionable messages`);
-      console.log(`  ${BOLD}--decision-hygiene${RESET}    Auto-merge decision inbox`);
-      console.log(`  ${BOLD}--retro${RESET}               Enforce retrospective checks`);
-      console.log(`\nFrontmatter (in loop.md):`);
-      console.log(`  configured: true     ${DIM}(required — confirms intentional setup)${RESET}`);
-      console.log(`  interval: 10         ${DIM}(minutes between cycles)${RESET}`);
-      console.log(`  timeout: 30          ${DIM}(max minutes per cycle)${RESET}`);
-      console.log(`  description: "..."   ${DIM}(shown in status output)${RESET}`);
-      console.log(`\nExamples:`);
-      console.log(`  squad loop                          ${DIM}# run loop.md${RESET}`);
-      console.log(`  squad loop --init                   ${DIM}# generate boilerplate${RESET}`);
-      console.log(`  squad loop --file ops/loop.md       ${DIM}# custom loop file${RESET}`);
-      console.log(`  squad loop --monitor-email          ${DIM}# with email monitoring${RESET}`);
-      return;
-    }
-
     const { runLoop, generateLoopFile } = await import('./cli/commands/loop.js');
 
     // --init: scaffold a boilerplate loop.md
@@ -644,12 +777,20 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (cmd === 'hire') {
+  if (cmd === 'cast' || cmd === 'hire') {
     const nameIdx = args.indexOf('--name');
     const name = (nameIdx !== -1 && args[nameIdx + 1]) ? args[nameIdx + 1] : undefined;
     const roleIdx = args.indexOf('--role');
     const role = (roleIdx !== -1 && args[roleIdx + 1]) ? args[roleIdx + 1] : undefined;
-    console.log('👋 Squad hire — team creation wizard starting... (full implementation pending)');
+
+    // `squad cast` with no wizard flags shows the roster; `squad hire` always runs the wizard
+    if (cmd === 'cast' && !name && !role) {
+      const { runCast } = await import('./cli/commands/cast.js');
+      await runCast(getSquadStartDir());
+      return;
+    }
+
+    console.log('🎬 Squad cast — team creation wizard starting... (full implementation pending)');
     if (name) {
       console.log(`   Name: ${name}`);
     }
@@ -663,18 +804,32 @@ async function main(): Promise<void> {
     const { runExport } = await import('./cli/commands/export.js');
     const outIdx = args.indexOf('--out');
     const outPath = (outIdx !== -1 && args[outIdx + 1]) ? args[outIdx + 1] : undefined;
-    await runExport(getSquadStartDir(), outPath);
+    const repoIdx = args.indexOf('--repo');
+    const repoArg = (repoIdx !== -1 && args[repoIdx + 1]) ? args[repoIdx + 1] : undefined;
+    const branchIdx = args.indexOf('--branch');
+    const branchArg = (branchIdx !== -1 && args[branchIdx + 1]) ? args[branchIdx + 1] : undefined;
+    const repoOptions = repoArg ? { repo: repoArg, branch: branchArg } : undefined;
+    await runExport(getSquadStartDir(), outPath, repoOptions);
     return;
   }
 
   if (cmd === 'import') {
     const { runImport } = await import('./cli/commands/import.js');
-    const importFile = args[1];
-    if (!importFile) {
-      fatal('Usage: squad import <file> [--force]');
-    }
+    const repoIdx = args.indexOf('--repo');
+    const repoArg = (repoIdx !== -1 && args[repoIdx + 1]) ? args[repoIdx + 1] : undefined;
+    const branchIdx = args.indexOf('--branch');
+    const branchArg = (branchIdx !== -1 && args[branchIdx + 1]) ? args[branchIdx + 1] : undefined;
     const hasForce = args.includes('--force');
-    await runImport(getSquadStartDir(), importFile, hasForce);
+    if (repoArg) {
+      const repoOptions = { repo: repoArg, branch: branchArg };
+      await runImport(getSquadStartDir(), '', hasForce, repoOptions);
+    } else {
+      const importFile = args[1];
+      if (!importFile) {
+        fatal('Usage: squad import <file> [--force] or squad import --repo owner/repo [--branch branch] [--force]');
+      }
+      await runImport(getSquadStartDir(), importFile, hasForce);
+    }
     return;
   }
 
@@ -768,17 +923,18 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'start') {
-    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad start" is deprecated and will be removed in a future release.\n`);
+    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad start" is deprecated and will be removed in a future release.`);
+    console.log(`  Use the GitHub Copilot CLI directly: ${BOLD}gh copilot${RESET}\n`);
     const { runStart } = await import('./cli/commands/start.js');
     const hasTunnel = args.includes('--tunnel');
     const portIdx = args.indexOf('--port');
     const port = (portIdx !== -1 && args[portIdx + 1]) ? parseInt(args[portIdx + 1]!, 10) : 0;
-    // Collect all remaining args to pass through to the agent runner
+    // Collect all remaining args to pass through to copilot
     const cmdIdx = args.indexOf('--command');
     const customCmd = (cmdIdx !== -1 && args[cmdIdx + 1]) ? args[cmdIdx + 1] : undefined;
     const squadFlags = ['start', '--tunnel', '--port', port.toString(), '--command', customCmd || ''].filter(Boolean);
-    const agentArgs = args.slice(1).filter(a => !squadFlags.includes(a));
-    await runStart(getSquadStartDir(), { tunnel: hasTunnel, port, agentArgs, command: customCmd });
+    const copilotArgs = args.slice(1).filter(a => !squadFlags.includes(a));
+    await runStart(getSquadStartDir(), { tunnel: hasTunnel, port, copilotArgs, command: customCmd });
     return;
   }
 
@@ -850,7 +1006,8 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'rc' || cmd === 'remote-control') {
-    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad rc" is deprecated and will be removed in a future release.\n`);
+    console.log(`\n${YELLOW}⚠ DEPRECATED:${RESET} "squad rc" is deprecated and will be removed in a future release.`);
+    console.log(`  Use the GitHub Copilot CLI directly: ${BOLD}gh copilot${RESET}\n`);
     const { runRC } = await import('./cli/commands/rc.js');
     const hasTunnel = args.includes('--tunnel');
     const portIdx = args.indexOf('--port');
@@ -878,12 +1035,7 @@ async function main(): Promise<void> {
     if (isDevtunnelAvailable()) {
       console.log(`${GREEN}✓${RESET} devtunnel CLI is available`);
     } else {
-      const installHint = process.platform === 'win32'
-        ? 'winget install Microsoft.devtunnel'
-        : process.platform === 'darwin'
-          ? 'brew install devtunnel  # or: npm install -g @microsoft/devtunnel'
-          : 'npm install -g @microsoft/devtunnel  # see: aka.ms/devtunnel-install';
-      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: ${installHint}`);
+      console.log(`${YELLOW}⚠${RESET} devtunnel CLI not found. Install with: winget install Microsoft.devtunnel`);
     }
     return;
   }
@@ -909,9 +1061,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (cmd === 'cast') {
-    const { runCast } = await import('./cli/commands/cast.js');
-    await runCast(getSquadStartDir());
+  if (cmd === 'skill') {
+    const { runSkill } = await import('./cli/commands/skill.js');
+    await runSkill(getSquadStartDir(), args.slice(1));
     return;
   }
 
@@ -933,21 +1085,33 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (cmd === 'registry') {
+    const { registryCommand } = await import('./cli/commands/cross-squad.js');
+    await registryCommand(args.slice(1));
+    return;
+  }
+
   if (cmd === 'economy') {
     const { runEconomy } = await import('./cli/commands/economy.js');
     await runEconomy(getSquadStartDir(), args.slice(1));
     return;
   }
 
-  if (cmd === 'auth') {
-    const { runAuth } = await import('./cli/commands/auth.js');
-    await runAuth(args.slice(1));
+  if (cmd === 'notes') {
+    const { runNotes } = await import('./cli/commands/notes.js');
+    await runNotes(getSquadStartDir(), args.slice(1));
     return;
   }
 
   if (cmd === 'config') {
     const { runConfig } = await import('./cli/commands/config.js');
     await runConfig(getSquadStartDir(), args.slice(1));
+    return;
+  }
+
+  if (cmd === 'auth') {
+    const { runAuth } = await import('./cli/commands/auth.js');
+    await runAuth(args.slice(1));
     return;
   }
 

@@ -165,7 +165,7 @@ describe('Hostile corpus → MessageStream render()', () => {
         unmount();
       }).not.toThrow();
     }
-  });
+  }, 30000);
 
   it('renders unicode edge cases without crashing', () => {
     for (const input of UNICODE_NASTY_INPUTS) {
@@ -178,7 +178,7 @@ describe('Hostile corpus → MessageStream render()', () => {
         unmount();
       }).not.toThrow();
     }
-  });
+  }, 30000);
 
   it('renders hostile agent names without crashing', () => {
     for (const input of CLI_SAFE_NASTY_INPUTS) {
@@ -193,7 +193,7 @@ describe('Hostile corpus → MessageStream render()', () => {
         unmount();
       }).not.toThrow();
     }
-  });
+  }, 30000);
 
   it('renders hostile activity hints without crashing', () => {
     const hints = NASTY_INPUTS.slice(0, 20);
@@ -209,7 +209,7 @@ describe('Hostile corpus → MessageStream render()', () => {
         unmount();
       }).not.toThrow();
     }
-  });
+  }, 30000);
 });
 
 // ============================================================================

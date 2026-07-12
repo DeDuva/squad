@@ -5,13 +5,15 @@
  * the health of every expected file / convention. Always exits 0
  * because this is a diagnostic tool, not a gate.
  *
- * Inspired by @spboyer (Shayne Boyer)'s doctor command in DeDuva/squad (upstream) #131.
+ * Inspired by @spboyer (Shayne Boyer)'s doctor command in PR bradygaster/squad#131.
  *
  * @module cli/commands/doctor
  */
 
 import path from 'node:path';
+import { execFile, execFileSync } from 'node:child_process';
 import { FSStorageProvider } from '@deduvafork/squad-sdk';
+import { resolveStateDir } from '../core/effective-squad-dir.js';
 
 const storage = new FSStorageProvider();
 
@@ -265,10 +267,12 @@ function formatAge(seconds: number): string {
   return `${seconds}s`;
 }
 
+// ── ESM compatibility checks ────────────────────────────────────────
+
 // ── environment checks ─────────────────────────────────────────────
 
 /**
- * Check that Node.js is ≥22.5.0.
+ * Check that Node.js is ≥22.5.0 for node:sqlite availability.
  * Accepts an optional version string for testing.
  */
 export function checkNodeVersion(nodeVersion?: string): DoctorCheck {
@@ -278,16 +282,194 @@ export function checkNodeVersion(nodeVersion?: string): DoctorCheck {
   const minor = parts[1] ?? 0;
   const ok = major > 22 || (major === 22 && minor >= 5);
   return {
-    name: 'Node.js ≥22.5.0',
+    name: 'Node.js ≥22.5.0 (node:sqlite)',
     status: ok ? 'pass' : 'fail',
     message: ok
-      ? `v${version}`
-      : `v${version} — requires ≥22.5.0, upgrade at https://nodejs.org/en/download`,
+      ? `v${version} — node:sqlite available`
+      : `v${version} — node:sqlite requires ≥22.5.0. Upgrade at https://nodejs.org/en/download`,
   };
 }
 
 /**
- * Check that a Gemini API key is configured (env var or stored config).
+ * Check that vscode-jsonrpc has the `exports` field needed for Node 22/24+
+ * strict ESM subpath resolution. Without it, `import('vscode-jsonrpc/node')`
+ * fails with ERR_PACKAGE_PATH_NOT_EXPORTED.
+ */
+function checkVscodeJsonrpcExports(cwd: string): DoctorCheck {
+  const possiblePaths = [
+    path.join(cwd, 'node_modules', 'vscode-jsonrpc', 'package.json'),
+    path.join(cwd, 'packages', 'squad-cli', 'node_modules', 'vscode-jsonrpc', 'package.json'),
+  ];
+
+  for (const pkgPath of possiblePaths) {
+    if (!fileExists(pkgPath)) continue;
+
+    const pkg = tryReadJson(pkgPath) as Record<string, unknown> | undefined;
+    if (!pkg) {
+      return {
+        name: 'vscode-jsonrpc exports field',
+        status: 'fail',
+        message: 'package.json found but not valid JSON',
+      };
+    }
+
+    if (pkg['exports'] && typeof pkg['exports'] === 'object') {
+      const exports = pkg['exports'] as Record<string, unknown>;
+      if (exports['./node']) {
+        return {
+          name: 'vscode-jsonrpc exports field',
+          status: 'pass',
+          message: 'exports field present with ./node subpath',
+        };
+      }
+    }
+
+    return {
+      name: 'vscode-jsonrpc exports field',
+      status: 'fail',
+      message: 'missing exports field — run postinstall or reinstall (see #449)',
+    };
+  }
+
+  // Detect whether we're in a local dev context (node_modules exists) or global install
+  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
+  if (hasNodeModules) {
+    return {
+      name: 'vscode-jsonrpc exports field',
+      status: 'warn',
+      message: 'not found in node_modules — run npm install or check dependencies',
+    };
+  }
+
+  return {
+    name: 'vscode-jsonrpc exports field',
+    status: 'warn',
+    severity: 'info',
+    message: 'not found in node_modules (expected for global installs)',
+  };
+}
+
+/**
+ * Check that @github/copilot-sdk session.js has the .js extension fix
+ * on its vscode-jsonrpc/node import (defense-in-depth behind the exports patch).
+ */
+function checkCopilotSdkSessionPatch(cwd: string): DoctorCheck {
+  const possiblePaths = [
+    path.join(cwd, 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
+    path.join(cwd, 'packages', 'squad-cli', 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
+  ];
+
+  for (const sessionPath of possiblePaths) {
+    if (!fileExists(sessionPath)) continue;
+
+    try {
+      const content = storage.readSync(sessionPath) ?? '';
+
+      if (/from\s+["']vscode-jsonrpc\/node["']/.test(content)) {
+        return {
+          name: 'copilot-sdk session.js ESM patch',
+          status: 'fail',
+          message: 'session.js has extensionless vscode-jsonrpc/node import — run postinstall (see #449)',
+        };
+      }
+
+      return {
+        name: 'copilot-sdk session.js ESM patch',
+        status: 'pass',
+        message: 'session.js imports use .js extension',
+      };
+    } catch {
+      return {
+        name: 'copilot-sdk session.js ESM patch',
+        status: 'warn',
+        message: 'could not read session.js',
+      };
+    }
+  }
+
+  // Detect whether we're in a local dev context (node_modules exists) or global install
+  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
+  if (hasNodeModules) {
+    return {
+      name: 'copilot-sdk session.js ESM patch',
+      status: 'warn',
+      message: 'not found in node_modules — run npm install or check dependencies',
+    };
+  }
+
+  return {
+    name: 'copilot-sdk session.js ESM patch',
+    status: 'warn',
+    severity: 'info',
+    message: 'not found in node_modules (expected for global installs)',
+  };
+}
+
+function checkSquadAgentMd(cwd: string): DoctorCheck {
+  const agentMdPath = path.join(cwd, '.github', 'agents', 'squad.agent.md');
+  if (!fileExists(agentMdPath)) {
+    return {
+      name: '.github/agents/squad.agent.md',
+      status: 'fail',
+      message: "file not found — run 'squad upgrade' to restore it",
+    };
+  }
+  try {
+    const content = storage.readSync(agentMdPath) ?? '';
+    if (content.trim().length === 0) {
+      return {
+        name: '.github/agents/squad.agent.md',
+        status: 'warn',
+        message: "file is empty — run 'squad upgrade' to restore it",
+      };
+    }
+  } catch {
+    return {
+      name: '.github/agents/squad.agent.md',
+      status: 'warn',
+      message: "file is empty — run 'squad upgrade' to restore it",
+    };
+  }
+  return {
+    name: '.github/agents/squad.agent.md',
+    status: 'pass',
+    message: 'file present (Copilot agent discovery file)',
+  };
+}
+
+// ── copilot CLI check ───────────────────────────────────────────────
+
+/**
+ * Check that the Copilot CLI is reachable (needed by watch capabilities).
+ * Tests `copilot --version` with shell:true for Windows compatibility.
+ */
+function checkCopilotCli(): Promise<DoctorCheck> {
+  return new Promise((resolve) => {
+    execFile('copilot', ['--version'], { shell: true, timeout: 5000 }, (err) => {
+      if (err) {
+        resolve({
+          name: 'Copilot CLI available',
+          status: 'warn',
+          message:
+            "'copilot --version' failed — watch capabilities (monitor-teams, monitor-email, retro, decision-hygiene) require the Copilot CLI. " +
+            "If you installed the GitHub CLI extension, ensure 'copilot' is also available on your PATH, or set --agent-cmd to override.",
+        });
+      } else {
+        resolve({
+          name: 'Copilot CLI available',
+          status: 'pass',
+          message: 'copilot CLI reachable',
+        });
+      }
+    });
+  });
+}
+
+// ── gemini auth check ────────────────────────────────────────────────
+
+/**
+ * Check that a Gemini API key is configured (env var or stored config)
+ * and that it validates against the Gemini API.
  */
 async function checkGeminiAuth(): Promise<DoctorCheck> {
   const { homedir } = await import('node:os');
@@ -341,55 +523,85 @@ async function checkGeminiAuth(): Promise<DoctorCheck> {
   }
 }
 
-/**
- * Check that the local esbuild bundle exists and is runnable.
- * Only applies inside the Squad source checkout; skipped in user projects.
- */
-function checkBundle(cwd: string): DoctorCheck {
-  const isSrcCheckout = fileExists(path.join(cwd, 'packages', 'squad-cli', 'package.json'));
-  if (!isSrcCheckout) {
-    return { name: 'squad.js bundle', status: 'pass', message: 'skipped (not a squad source checkout)' };
-  }
-  const bundlePath = path.join(cwd, 'packages', 'squad-cli', 'dist', 'squad.js');
-  if (!fileExists(bundlePath)) {
-    return {
-      name: 'squad.js bundle',
-      status: 'fail',
-      message: 'not found — run: npm run build',
-    };
-  }
-  return { name: 'squad.js bundle', status: 'pass', message: bundlePath };
-}
+// ── git sync hooks check ─────────────────────────────────────────────
 
-function checkSquadAgentMd(cwd: string): DoctorCheck {
-  const agentMdPath = path.join(cwd, '.github', 'agents', 'squad.agent.md');
-  if (!fileExists(agentMdPath)) {
-    return {
-      name: '.github/agents/squad.agent.md',
-      status: 'fail',
-      message: "file not found — run 'squad upgrade' to restore it",
-    };
-  }
+const SQUAD_SYNC_HOOK_MARKER = '# --- squad-sync-hook ---';
+const REQUIRED_SYNC_HOOKS = ['pre-push', 'post-merge', 'post-rewrite', 'post-checkout'] as const;
+
+/**
+ * Check that squad git sync hooks are installed when the state backend requires them.
+ * Only runs for 'two-layer' and 'orphan' backends (which need hooks to push state branches).
+ * Returns undefined when the check is not applicable.
+ */
+export function checkGitSyncHooks(cwd: string, squadDir: string): DoctorCheck | undefined {
+  const configPath = path.join(squadDir, 'config.json');
+  if (!fileExists(configPath)) return undefined;
+
+  const config = tryReadJson(configPath) as Record<string, unknown> | undefined;
+  if (!config) return undefined;
+
+  const stateBackend = config['stateBackend'];
+  if (stateBackend !== 'two-layer' && stateBackend !== 'orphan') return undefined;
+
+  // Resolve the git hooks directory (respects core.hooksPath when configured)
+  let hooksDir: string;
   try {
-    const content = storage.readSync(agentMdPath) ?? '';
-    if (content.trim().length === 0) {
-      return {
-        name: '.github/agents/squad.agent.md',
-        status: 'warn',
-        message: "file is empty — run 'squad upgrade' to restore it",
-      };
+    const customPath = execFileSync('git', ['config', '--get', 'core.hooksPath'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    if (customPath) {
+      hooksDir = path.isAbsolute(customPath) ? customPath : path.resolve(cwd, customPath);
+    } else {
+      throw new Error('empty hooksPath');
     }
   } catch {
+    // core.hooksPath not configured — resolve via git rev-parse --git-dir
+    // This handles git worktrees correctly (unlike hardcoding .git/hooks)
+    try {
+      const gitDir = execFileSync('git', ['rev-parse', '--git-dir'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+      hooksDir = path.resolve(cwd, gitDir, 'hooks');
+    } catch {
+      hooksDir = path.join(cwd, '.git', 'hooks');
+    }
+  }
+
+  const missingHooks: string[] = [];
+  for (const hookName of REQUIRED_SYNC_HOOKS) {
+    const hookPath = path.join(hooksDir, hookName);
+    if (!fileExists(hookPath)) {
+      missingHooks.push(hookName);
+      continue;
+    }
+    try {
+      const content = storage.readSync(hookPath) ?? '';
+      if (!content.includes(SQUAD_SYNC_HOOK_MARKER)) {
+        missingHooks.push(hookName);
+      }
+    } catch {
+      missingHooks.push(hookName);
+    }
+  }
+
+  if (missingHooks.length > 0) {
     return {
-      name: '.github/agents/squad.agent.md',
-      status: 'warn',
-      message: "file is empty — run 'squad upgrade' to restore it",
+      name: 'git sync hooks installed',
+      status: 'fail',
+      message:
+        `Missing squad sync hooks for '${stateBackend}' backend: ${missingHooks.join(', ')}. ` +
+        `Run 'squad install-hooks' to install them.`,
     };
   }
+
   return {
-    name: '.github/agents/squad.agent.md',
+    name: 'git sync hooks installed',
     status: 'pass',
-    message: 'file present',
+    message: `squad sync hooks present for '${stateBackend}' backend`,
   };
 }
 
@@ -422,26 +634,36 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
 
   // 5–9 standard files (only if .squad/ exists)
   if (isDirectory(squadDir)) {
-    checks.push(checkTeamMd(squadDir));
-    checks.push(checkRoutingMd(squadDir));
-    checks.push(checkAgentsDir(squadDir));
-    checks.push(checkCastingRegistry(squadDir));
-    checks.push(checkDecisionsMd(squadDir));
+    // Resolve effective state dir for externalized files
+    const stateDir = resolveStateDir(squadDir);
+    checks.push(checkTeamMd(stateDir));
+    checks.push(checkRoutingMd(stateDir));
+    checks.push(checkAgentsDir(stateDir));
+    checks.push(checkCastingRegistry(stateDir));
+    checks.push(checkDecisionsMd(stateDir));
     const rateLimitCheck = checkRateLimitStatus(squadDir);
     if (rateLimitCheck) checks.push(rateLimitCheck);
+
+    // Hook presence check (only for two-layer / orphan backends)
+    const hookCheck = checkGitSyncHooks(resolvedCwd, squadDir);
+    if (hookCheck) checks.push(hookCheck);
   }
 
-  // 10. Agent discovery file
+  // 10. Copilot agent discovery file (relative to cwd, not squadDir)
   checks.push(checkSquadAgentMd(resolvedCwd));
 
-  // 11. Node.js version
+  // 11. Node.js version (node:sqlite availability)
   checks.push(checkNodeVersion());
 
-  // 12. Gemini API key (async — validates connectivity)
-  checks.push(await checkGeminiAuth());
+  // 11-12. ESM compatibility (Node 22/24+)
+  checks.push(checkVscodeJsonrpcExports(resolvedCwd));
+  checks.push(checkCopilotSdkSessionPatch(resolvedCwd));
 
-  // 13. Local bundle (airlock mode)
-  checks.push(checkBundle(resolvedCwd));
+  // 13. Copilot CLI availability (needed by watch capabilities)
+  checks.push(await checkCopilotCli());
+
+  // 14. Gemini API key (async — validates connectivity)
+  checks.push(await checkGeminiAuth());
 
   return checks;
 }

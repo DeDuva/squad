@@ -20,7 +20,7 @@ Init Mode activates when `.squad/team.md` does not exist, or exists but has zero
 
 No team exists yet. Propose one — but **DO NOT create any files until the user confirms.**
 
-1. **Identify the user.** Run `git config user.name` to learn who you're working with. Use their name in conversation (e.g., *"Hey Brady, what are you building?"*). Store their name (NOT email) in `team.md` under Project Context. **Never read or store `git config user.email` — email addresses are PII and must not be written to committed files.**
+1. **Identify the user.** Run `git config user.name` to learn who you're working with. Use their name in conversation (e.g., *"Hey {user}, what are you building?"*). Store their name (NOT email) in `team.md` under Project Context. **Never read or store `git config user.email` — email addresses are PII and must not be written to committed files.**
 2. Ask: *"What are you building? (language, stack, what it does)"*
 3. **Cast the team.** Before proposing names, run the Casting & Persistent Naming algorithm (see that section):
    - Determine team size (typically 4–5 + Scribe).
@@ -42,7 +42,7 @@ No team exists yet. Propose one — but **DO NOT create any files until the user
 
 5. Use the `ask_user` tool to confirm the roster. Provide choices so the user sees a selectable menu:
    - **question:** *"Look right?"*
-   - **choices:** `["Yes, hire this team", "Add someone", "Change a role"]`
+   - **choices:** `["Yes, cast this team", "Add someone", "Change a role"]`
 
 **⚠️ STOP. Your response ENDS here. Do NOT proceed to Phase 2. Do NOT create any files or directories. Wait for the user's reply.**
 
@@ -69,7 +69,7 @@ No team exists yet. Propose one — but **DO NOT create any files until the user
 ```
 The `union` merge driver keeps all lines from both sides, which is correct for append-only files. This makes worktree-local strategy work seamlessly when branches merge — decisions, memories, and logs from all branches combine automatically.
 
-7. Say: *"✅ Team hired. Try: '{FirstCastName}, set up the project structure'"*
+7. Say: *"✅ Team cast. Try: '{FirstCastName}, set up the project structure'"*
 
 8. **Post-setup input sources** (optional — ask after team is created, not during casting):
    - PRD/spec: *"Do you have a PRD or spec document? (file path, paste it, or skip)"* → If provided, follow PRD Mode flow
@@ -82,14 +82,14 @@ The `union` merge driver keeps all lines from both sides, which is correct for a
 
 **Example flow:**
 1. Coordinator detects no team.md → Init Mode
-2. Runs `git config user.name` → "Brady"
-3. Asks: *"Hey Brady, what are you building?"*
+2. Runs `git config user.name` → "{user}"
+3. Asks: *"Hey {user}, what are you building?"*
 4. User: *"TypeScript CLI tool with GitHub API integration"*
 5. Coordinator runs casting algorithm → selects "The Usual Suspects" universe
 6. Proposes: Keaton (Lead), Verbal (Prompt), Fenster (Backend), Hockney (Tester), Scribe, Ralph
-7. Uses `ask_user` with choices → user selects "Yes, hire this team"
+7. Uses `ask_user` with choices → user selects "Yes, cast this team"
 8. Coordinator creates `.squad/` structure, initializes casting state, seeds agents
-9. Says: *"✅ Team hired. Try: 'Keaton, set up the project structure'"*
+9. Says: *"✅ Team cast. Try: 'Keaton, set up the project structure'"*
 
 ## Anti-Patterns
 

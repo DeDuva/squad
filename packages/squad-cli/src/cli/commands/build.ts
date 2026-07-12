@@ -22,6 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { FSStorageProvider } from '@deduvafork/squad-sdk';
 import { success, warn, info, dim, BOLD, RESET, YELLOW, GREEN, RED } from '../core/output.js';
 import { fatal } from '../core/errors.js';
+import { effectiveSquadDir } from '../core/effective-squad-dir.js';
 
 import type {
   SquadSDKConfig,
@@ -271,7 +272,7 @@ function generateCeremoniesDispatchTable(ceremonies: readonly CeremonyDefinition
     const schedule = c.schedule ?? '—';
     const participants = c.participants?.join(', ') ?? '—';
     const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const skillPath = `.squad/skills/ceremony-${slug}/SKILL.md`;
+    const skillPath = `.github/skills/ceremony-${slug}/SKILL.md`;
     lines.push(`| ${c.name} | ${trigger} | ${schedule} | ${participants} | \`${skillPath}\` |`);
   }
 
@@ -383,7 +384,7 @@ function buildFilePlan(config: SquadSDKConfig): GeneratedFile[] {
       for (const c of config.ceremonies) {
         const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         files.push({
-          relPath: `.squad/skills/ceremony-${slug}/SKILL.md`,
+          relPath: `.github/skills/ceremony-${slug}/SKILL.md`,
           content: generateCeremonySkillFile(c),
         });
       }
@@ -400,7 +401,7 @@ function buildFilePlan(config: SquadSDKConfig): GeneratedFile[] {
   if (config.skills && config.skills.length > 0) {
     for (const skill of config.skills) {
       files.push({
-        relPath: `.squad/skills/${skill.name}/SKILL.md`,
+        relPath: `.github/skills/${skill.name}/SKILL.md`,
         content: generateSkillFile(skill),
       });
     }
@@ -430,7 +431,7 @@ interface BuildResult {
   drifted: string[];
 }
 
-function writeFiles(cwd: string, files: GeneratedFile[]): BuildResult {
+function writeFiles(cwd: string, files: GeneratedFile[], stateDir?: string): BuildResult {
   const storage = new FSStorageProvider();
   let written = 0;
   let skipped = 0;
@@ -442,7 +443,14 @@ function writeFiles(cwd: string, files: GeneratedFile[]): BuildResult {
       continue;
     }
 
-    const absPath = path.join(cwd, file.relPath);
+    // When state is externalized, .squad/ paths are written to the external dir
+    const baseDir = (stateDir && file.relPath.startsWith('.squad/'))
+      ? path.join(stateDir, file.relPath.slice('.squad/'.length))
+      : path.join(cwd, file.relPath);
+
+    const absPath = (stateDir && file.relPath.startsWith('.squad/'))
+      ? baseDir
+      : path.join(cwd, file.relPath);
 
     storage.writeSync(absPath, file.content);
     written++;
@@ -451,7 +459,7 @@ function writeFiles(cwd: string, files: GeneratedFile[]): BuildResult {
   return { files, written, skipped, drifted };
 }
 
-function checkDrift(cwd: string, files: GeneratedFile[]): { drifted: string[]; clean: string[] } {
+function checkDrift(cwd: string, files: GeneratedFile[], stateDir?: string): { drifted: string[]; clean: string[] } {
   const storage = new FSStorageProvider();
   const drifted: string[] = [];
   const clean: string[] = [];
@@ -459,7 +467,10 @@ function checkDrift(cwd: string, files: GeneratedFile[]): { drifted: string[]; c
   for (const file of files) {
     if (isProtected(file.relPath)) continue;
 
-    const absPath = path.join(cwd, file.relPath);
+    const absPath = (stateDir && file.relPath.startsWith('.squad/'))
+      ? path.join(stateDir, file.relPath.slice('.squad/'.length))
+      : path.join(cwd, file.relPath);
+
     const existing = storage.readSync(absPath);
     if (existing === undefined) {
       drifted.push(file.relPath);
@@ -500,6 +511,18 @@ export async function runBuild(cwd: string, options: BuildOptions = {}): Promise
     return;
   }
 
+  // Resolve effective state directory (respects externalized state)
+  let stateDir: string | undefined;
+  try {
+    const dirs = effectiveSquadDir(cwd);
+    if (dirs.stateDir !== dirs.local.path) {
+      stateDir = dirs.stateDir;
+      dim(`  State dir: ${stateDir} (externalized)`);
+    }
+  } catch {
+    // No .squad/ found — build will proceed with default cwd-relative writes
+  }
+
   // Load config
   const { config, source } = await loadSquadConfig(cwd);
   dim(`  Config: ${path.relative(cwd, source) || source}`);
@@ -514,7 +537,7 @@ export async function runBuild(cwd: string, options: BuildOptions = {}): Promise
 
   // --check mode
   if (options.check) {
-    const { drifted, clean } = checkDrift(cwd, files);
+    const { drifted, clean } = checkDrift(cwd, files, stateDir);
     if (drifted.length === 0) {
       success(`All ${clean.length} generated files match disk — no drift detected.`);
       return;
@@ -542,7 +565,7 @@ export async function runBuild(cwd: string, options: BuildOptions = {}): Promise
   }
 
   // Default: write files
-  const result = writeFiles(cwd, files);
+  const result = writeFiles(cwd, files, stateDir);
 
   success(`squad build complete — generated ${result.written} file(s)`);
   if (result.skipped > 0) {

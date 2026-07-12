@@ -33,6 +33,7 @@ export {
 } from './core/version.js';
 export * from './core/workflows.js';
 export * from './core/team-md.js';
+export { runStateMcp, printStateMcpHelp } from './commands/state-mcp.js';
 export { runCost } from './commands/cost.js';
 export { runDoctor, doctorCommand, type DoctorCheck, type DoctorMode } from './commands/doctor.js';
 export { runExport } from './commands/export.js';

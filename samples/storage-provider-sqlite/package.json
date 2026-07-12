@@ -1,7 +1,7 @@
 {
   "name": "storage-provider-sqlite-sample",
   "version": "1.0.0",
-  "description": "Demonstrates using SQLiteStorageProvider from @deduvafork/squad-sdk",
+  "description": "Demonstrates using SQLiteStorageProvider from @bradygaster/squad-sdk",
   "type": "module",
   "scripts": {
     "demo": "npx tsx index.ts",
@@ -9,10 +9,10 @@
     "clean": "rm -f squad-demo.db"
   },
   "dependencies": {
-    "@deduvafork/squad-sdk": "file:../../packages/squad-sdk",
+    "@bradygaster/squad-sdk": "file:../../packages/squad-sdk",
     "sql.js": "^1.11.0"
   },
   "devDependencies": {
-    "tsx": "^4.0.0"
+    "tsx": "^4.22.4"
   }
 }

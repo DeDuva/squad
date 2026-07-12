@@ -8,6 +8,8 @@ import path from 'node:path';
 import type { WatchCapability, WatchContext, PreflightResult, CapabilityResult } from '../types.js';
 import type { MachineCapabilities } from '@deduvafork/squad-sdk/ralph/capabilities';
 import { createVerboseLogger } from '../verbose.js';
+import { loadAgentCharter } from '../../../shell/spawn.js';
+import { withAdditionalMcpConfig } from '../../../core/copilot-invocation.js';
 
 /** Normalized work item for execution. */
 export interface ExecutableWorkItem {
@@ -56,10 +58,11 @@ function buildAgentCommand(
     const args = [...parts.slice(1), '-p', prompt];
     return { cmd, args };
   }
-  throw new Error(
-    'squad triage --execute requires --agent-cmd. No default runner is configured.\n' +
-    'Example: --agent-cmd "gemini-cli" --agent-flags "--model gemini-2.5-pro"',
-  );
+  const args = ['-p', prompt];
+  if (context.copilotFlags) {
+    args.push(...context.copilotFlags.trim().split(/\s+/));
+  }
+  return { cmd: 'copilot', args: withAdditionalMcpConfig('copilot', args, context.teamRoot) };
 }
 
 /** Labels that indicate an issue should not be auto-executed. */
@@ -148,7 +151,18 @@ async function executeAll(
   timeoutMs: number,
 ): Promise<{ success: boolean; error?: string }> {
   const prompt = buildAgentPrompt(issues, context.teamRoot);
-  const { cmd, args } = buildAgentCommand(prompt, context);
+
+  // Load Ralph's charter to give the spawned session full specialist context.
+  let charterPrefix = '';
+  try {
+    const charter = await loadAgentCharter('ralph', context.teamRoot);
+    charterPrefix = `You are an AI agent on a software development team.\n\nYOUR CHARTER:\n${charter}\n\nADDITIONAL CONTEXT:\n`;
+  } catch {
+    // Fall back gracefully if no charter exists (e.g., fresh setup)
+  }
+
+  const fullPrompt = charterPrefix + prompt;
+  const { cmd, args } = buildAgentCommand(fullPrompt, context);
 
   return new Promise<{ success: boolean; error?: string }>((resolve) => {
     const cp: ChildProcess = execFile(
@@ -169,7 +183,7 @@ async function executeAll(
     // Track child PID for cleanup on exit/crash
     if (context.pidTracker && cp.pid) {
       const issueNums = issues.map(i => `#${i.number}`).join(',');
-      context.pidTracker.track(cp.pid, `agent-session-${issueNums}`);
+      context.pidTracker.track(cp.pid, `copilot-session-${issueNums}`);
     }
 
     cp.on('exit', () => {
@@ -201,7 +215,7 @@ export class ExecuteCapability implements WatchCapability {
     try {
       const timeout = ((context.config['timeout'] as number) ?? 30) * 60_000;
 
-      vlog.log(`Execute: agentCmd=${context.agentCmd ?? '(none)'}, timeout=${timeout / 60_000}m`);
+      vlog.log(`Execute: agentCmd=${context.agentCmd ?? 'copilot'}, timeout=${timeout / 60_000}m`);
 
       // Fetch open issues with squad label
       const sdkItems = await context.adapter.listWorkItems({ tags: ['squad'], state: 'open', limit: 50 });

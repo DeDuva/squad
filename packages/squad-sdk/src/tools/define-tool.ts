@@ -10,7 +10,7 @@ import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 const tracer = trace.getTracer('squad-sdk');
 
 /** Sensitive field patterns — strip before recording as span attributes. */
-const SENSITIVE_PATTERNS = /token|secret|password|key|auth/i;
+const SENSITIVE_PATTERNS = /^(content|query)$|token|secret|password|key|auth/i;
 
 /**
  * Sanitize tool arguments for OTel span attributes.

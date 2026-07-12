@@ -3,15 +3,16 @@
  *
  * Verifies the diagnostic command reports correct status
  * for healthy, empty, and remote-mode squad directories.
- * Doctor command inspired by @spboyer (Shayne Boyer)'s DeDuva/squad#131.
+ * Doctor command inspired by @spboyer (Shayne Boyer)'s PR bradygaster/squad#131.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import { execFileSync } from 'child_process';
 import { randomBytes } from 'crypto';
-import { runDoctor, getDoctorMode, checkNodeVersion } from '@deduvafork/squad-cli/commands/doctor';
+import { runDoctor, getDoctorMode, checkNodeVersion, checkGitSyncHooks } from '@deduvafork/squad-cli/commands/doctor';
 import type { DoctorCheck } from '@deduvafork/squad-cli/commands/doctor';
 
 const TEST_ROOT = join(process.cwd(), `.test-doctor-${randomBytes(4).toString('hex')}`);
@@ -41,7 +42,7 @@ describe('squad doctor', () => {
     }
     await mkdir(TEST_ROOT, { recursive: true });
 
-    // Provide a dummy key and mock fetch so Gemini auth check passes in tests
+    // Provide a dummy key and mock fetch so the Gemini auth check passes in tests
     process.env['GEMINI_API_KEY'] = 'test-key-for-doctor-tests';
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
@@ -63,16 +64,17 @@ describe('squad doctor', () => {
 
     const checks = await runDoctor(TEST_ROOT);
 
-    // squad.js bundle check fails in test env (no build artifacts in TEST_ROOT) — that's expected
-    const failed = checks.filter((c: DoctorCheck) => c.status === 'fail' && c.name !== 'squad.js bundle');
+    const failed = checks.filter((c: DoctorCheck) => c.status === 'fail');
     expect(failed).toEqual([]);
     expect(checks.some((c: DoctorCheck) => c.name === '.squad/ directory exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'team.md found with ## Members header' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'agents/ directory exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'casting/registry.json exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'decisions.md exists' && c.status === 'pass')).toBe(true);
-    expect(checks.some((c: DoctorCheck) => c.name === 'Gemini API key')).toBe(true);
-    expect(checks.some((c: DoctorCheck) => c.name === 'squad.js bundle')).toBe(true);
+    // ESM checks return 'warn' (not fail) when node_modules absent from test dir
+    expect(checks.some((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field')).toBe(true);
+    expect(checks.some((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch')).toBe(true);
+    expect(checks.some((c: DoctorCheck) => c.name === 'Gemini API key' && c.status === 'pass')).toBe(true);
   });
 
   it('reports failures on an empty directory', async () => {
@@ -80,8 +82,8 @@ describe('squad doctor', () => {
 
     const squadDirCheck = checks.find((c: DoctorCheck) => c.name === '.squad/ directory exists');
     expect(squadDirCheck?.status).toBe('fail');
-    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + Gemini API key + squad.js bundle
-    expect(checks.length).toBe(5);
+    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI + Gemini API key
+    expect(checks.length).toBe(7);
   });
 
   it('detects remote mode from config.json with teamRoot', async () => {
@@ -113,9 +115,9 @@ describe('squad doctor', () => {
     expect(mode).toBe('local');
   });
 
-  it('reports Node.js version check as pass on current Node version', async () => {
+  it('reports node:sqlite check as pass on current Node version', async () => {
     const checks = await runDoctor(TEST_ROOT);
-    const nodeCheck = checks.find((c: DoctorCheck) => c.name === 'Node.js ≥22.5.0');
+    const nodeCheck = checks.find((c: DoctorCheck) => c.name.includes('node:sqlite'));
     expect(nodeCheck).toBeDefined();
     // Tests run on Node >= 22.5.0 — should always pass in CI
     expect(nodeCheck?.status).toBe('pass');
@@ -222,25 +224,26 @@ describe('squad doctor', () => {
 
   // ── #565 — Actionable resolution hints in warnings ────────────────
 
-  it('Gemini API key check passes when key is valid', async () => {
+  it('vscode-jsonrpc info says "expected for global installs" when not in node_modules', async () => {
     await scaffold(TEST_ROOT);
 
     const checks = await runDoctor(TEST_ROOT);
-    const geminiCheck = checks.find((c: DoctorCheck) => c.name === 'Gemini API key');
-    expect(geminiCheck).toBeDefined();
-    expect(geminiCheck?.status).toBe('pass');
-    expect(geminiCheck?.message).toContain('valid');
+    const jsonrpcCheck = checks.find((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field');
+    expect(jsonrpcCheck).toBeDefined();
+    expect(jsonrpcCheck?.status).toBe('warn');
+    expect(jsonrpcCheck?.severity).toBe('info');
+    expect(jsonrpcCheck?.message).toContain('expected for global installs');
   });
 
-  it('squad.js bundle check is skipped in user projects (not a source checkout)', async () => {
+  it('copilot-sdk info says "expected for global installs" when not in node_modules', async () => {
     await scaffold(TEST_ROOT);
 
     const checks = await runDoctor(TEST_ROOT);
-    const bundleCheck = checks.find((c: DoctorCheck) => c.name === 'squad.js bundle');
-    expect(bundleCheck).toBeDefined();
-    // In a user project (no packages/squad-cli/package.json), the check is skipped
-    expect(bundleCheck?.status).toBe('pass');
-    expect(bundleCheck?.message).toContain('skipped');
+    const sdkCheck = checks.find((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch');
+    expect(sdkCheck).toBeDefined();
+    expect(sdkCheck?.status).toBe('warn');
+    expect(sdkCheck?.severity).toBe('info');
+    expect(sdkCheck?.message).toContain('expected for global installs');
   });
 
   it('absolute teamRoot warning includes "Edit .squad/config.json"', async () => {
@@ -301,5 +304,140 @@ describe('squad doctor', () => {
     expect(agentMdCheck).toBeDefined();
     expect(agentMdCheck?.status).toBe('fail');
     expect(agentMdCheck?.message).toContain('squad upgrade');
+  });
+
+  // ── #1185 — git sync hooks check for two-layer / orphan backends ──
+
+  it('does not include hook check when stateBackend is absent', async () => {
+    await scaffold(TEST_ROOT);
+    const checks = await runDoctor(TEST_ROOT);
+    const hookCheck = checks.find((c: DoctorCheck) => c.name === 'git sync hooks installed');
+    expect(hookCheck).toBeUndefined();
+  });
+
+  it('does not include hook check when stateBackend=local', async () => {
+    await scaffold(TEST_ROOT);
+    await writeFile(join(TEST_ROOT, '.squad', 'config.json'), JSON.stringify({ stateBackend: 'local' }));
+    const checks = await runDoctor(TEST_ROOT);
+    const hookCheck = checks.find((c: DoctorCheck) => c.name === 'git sync hooks installed');
+    expect(hookCheck).toBeUndefined();
+  });
+  it('reports FAIL when stateBackend=two-layer and squad hooks are missing', async () => {
+    const squadDir = join(TEST_ROOT, '.squad');
+    await mkdir(squadDir, { recursive: true });
+    execFileSync('git', ['init', '--quiet', '-b', 'main'], { cwd: TEST_ROOT });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'two-layer' }));
+    await mkdir(join(TEST_ROOT, '.git', 'hooks'), { recursive: true });
+
+    const result = checkGitSyncHooks(TEST_ROOT, squadDir);
+    expect(result).toBeDefined();
+    expect(result?.status).toBe('fail');
+    expect(result?.message).toContain('squad install-hooks');
+  });
+
+  it('reports FAIL when stateBackend=orphan and squad hooks are missing', async () => {
+    const squadDir = join(TEST_ROOT, '.squad');
+    await mkdir(squadDir, { recursive: true });
+    execFileSync('git', ['init', '--quiet', '-b', 'main'], { cwd: TEST_ROOT });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'orphan' }));
+    await mkdir(join(TEST_ROOT, '.git', 'hooks'), { recursive: true });
+
+    const result = checkGitSyncHooks(TEST_ROOT, squadDir);
+    expect(result).toBeDefined();
+    expect(result?.status).toBe('fail');
+  });
+
+  it('reports PASS when stateBackend=two-layer and all squad sync hooks are present', async () => {
+    const squadDir = join(TEST_ROOT, '.squad');
+    await mkdir(squadDir, { recursive: true });
+    execFileSync('git', ['init', '--quiet', '-b', 'main'], { cwd: TEST_ROOT });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'two-layer' }));
+    const hooksDir = join(TEST_ROOT, '.git', 'hooks');
+    await mkdir(hooksDir, { recursive: true });
+    for (const hookName of ['pre-push', 'post-merge', 'post-rewrite', 'post-checkout']) {
+      await writeFile(
+        join(hooksDir, hookName),
+        `#!/bin/sh\n# --- squad-sync-hook ---\n# squad sync hook\n`,
+      );
+    }
+
+    const result = checkGitSyncHooks(TEST_ROOT, squadDir);
+    expect(result?.status).toBe('pass');
+    expect(result?.message).toContain('two-layer');
+  });
+
+  it('checkGitSyncHooks returns FAIL when hook file lacks squad marker', async () => {
+    const squadDir = join(TEST_ROOT, '.squad');
+    const hooksDir = join(TEST_ROOT, '.git', 'hooks');
+    await mkdir(squadDir, { recursive: true });
+    execFileSync('git', ['init', '--quiet', '-b', 'main'], { cwd: TEST_ROOT });
+    await mkdir(hooksDir, { recursive: true });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'two-layer' }));
+    for (const hookName of ['pre-push', 'post-merge', 'post-rewrite', 'post-checkout']) {
+      await writeFile(join(hooksDir, hookName), '#!/bin/sh\necho "no squad marker here"\n');
+    }
+
+    const result = checkGitSyncHooks(TEST_ROOT, squadDir);
+    expect(result).toBeDefined();
+    expect(result?.status).toBe('fail');
+    expect(result?.message).toContain('pre-push');
+  });
+});
+
+// ── Finding 2 regression: git rev-parse --git-dir for worktree repos ─────────
+
+describe('checkGitSyncHooks — git rev-parse --git-dir resolution', () => {
+  let repoDir: string;
+
+  beforeEach(() => {
+    repoDir = join(process.cwd(), `.test-doctor-gitdir-${randomBytes(4).toString('hex')}`);
+    mkdirSync(repoDir, { recursive: true });
+    execFileSync('git', ['init', '--quiet', '-b', 'main'], { cwd: repoDir });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repoDir });
+    execFileSync('git', ['config', 'user.name', 'Squad Test'], { cwd: repoDir });
+  });
+
+  afterEach(async () => {
+    await rm(repoDir, { recursive: true, force: true });
+  });
+
+  it('reports PASS when hooks are installed in the real git-dir (git rev-parse --git-dir)', async () => {
+    const squadDir = join(repoDir, '.squad');
+    await mkdir(squadDir, { recursive: true });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'two-layer' }));
+
+    // Install squad hooks in the actual .git/hooks dir (same as git rev-parse --git-dir → '.git')
+    const hooksDir = join(repoDir, '.git', 'hooks');
+    await mkdir(hooksDir, { recursive: true });
+    for (const hookName of ['pre-push', 'post-merge', 'post-rewrite', 'post-checkout']) {
+      await writeFile(
+        join(hooksDir, hookName),
+        `#!/bin/sh\n# --- squad-sync-hook ---\n# squad sync hook\n`,
+      );
+    }
+
+    const result = checkGitSyncHooks(repoDir, squadDir);
+    expect(result?.status).toBe('pass');
+  });
+
+  it('reports FAIL when hooks exist under a fake path but not the real git-dir', async () => {
+    const squadDir = join(repoDir, '.squad');
+    await mkdir(squadDir, { recursive: true });
+    await writeFile(join(squadDir, 'config.json'), JSON.stringify({ stateBackend: 'two-layer' }));
+
+    // Write hooks to a fake hooks directory (not where git rev-parse --git-dir would point)
+    const fakeHooksDir = join(repoDir, 'fake-git', 'hooks');
+    await mkdir(fakeHooksDir, { recursive: true });
+    for (const hookName of ['pre-push', 'post-merge', 'post-rewrite', 'post-checkout']) {
+      await writeFile(
+        join(fakeHooksDir, hookName),
+        `#!/bin/sh\n# --- squad-sync-hook ---\n`,
+      );
+    }
+    // Real .git/hooks is empty
+    await mkdir(join(repoDir, '.git', 'hooks'), { recursive: true });
+
+    const result = checkGitSyncHooks(repoDir, squadDir);
+    expect(result?.status).toBe('fail');
   });
 });

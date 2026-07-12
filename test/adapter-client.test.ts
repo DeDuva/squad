@@ -9,19 +9,24 @@ import { SquadClient } from '@deduvafork/squad-sdk/client';
 
 vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
-    GeminiClient: vi.fn().mockImplementation(() => ({
-      start: vi.fn().mockResolvedValue(undefined),
-      stop: vi.fn().mockResolvedValue([]),
-      isStarted: vi.fn().mockReturnValue(true),
-      createSession: vi.fn().mockReturnValue({
-        sessionId: 'session-1',
-        sendMessage: vi.fn().mockResolvedValue(undefined),
-        on: vi.fn(),
-        off: vi.fn(),
-        close: vi.fn().mockResolvedValue(undefined),
-      }),
-      getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
-    })),
+    // Regular function expression, not an arrow function — SquadClient calls
+    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // constructors (Reflect.construct on one throws "is not a constructor").
+    GeminiClient: vi.fn().mockImplementation(function () {
+      return {
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockResolvedValue([]),
+        isStarted: vi.fn().mockReturnValue(true),
+        createSession: vi.fn().mockReturnValue({
+          sessionId: 'session-1',
+          sendMessage: vi.fn().mockResolvedValue(undefined),
+          on: vi.fn(),
+          off: vi.fn(),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+        getAuthStatus: vi.fn().mockResolvedValue({ isAuthenticated: true, authType: 'api-key' }),
+      };
+    }),
   };
 });
 

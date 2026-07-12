@@ -940,7 +940,8 @@ describe('Feature Parity: Model Registry', () => {
   it('returns fallback chain by tier', () => {
     const registry = new ModelRegistry();
     const chain = registry.getFallbackChain('standard');
-    expect(chain.length).toBeGreaterThanOrEqual(2);
+    // Gemini-only catalog: the standard tier has a single model.
+    expect(chain.length).toBeGreaterThanOrEqual(1);
   });
 
   it('getNextFallback skips already-attempted models', () => {
