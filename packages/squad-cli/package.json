@@ -173,7 +173,7 @@
     "postinstall": "node scripts/patch-ink-rendering.mjs",
     "prepublishOnly": "npm run build",
     "build": "tsc -p tsconfig.json && npm run postbuild && npm run bundle",
-    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true})\"",
+    "postbuild": "node -e \"require('fs').cpSync('src/remote-ui', 'dist/remote-ui', {recursive: true}); require('fs').cpSync('../squad-sdk/dist/presets/builtin', 'dist/presets/builtin', {recursive: true})\"",
     "bundle": "node scripts/bundle.mjs"
   },
   "engines": {

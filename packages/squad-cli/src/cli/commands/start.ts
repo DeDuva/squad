@@ -12,9 +12,9 @@
 import path from 'node:path';
 // createReadStream retained — streaming not in StorageProvider scope
 import { createReadStream } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { FSStorageProvider, RemoteBridge } from '@deduvafork/squad-sdk';
 import { withAdditionalMcpConfig } from '../core/copilot-invocation.js';
+import { resolveRemoteUiDir } from '../core/remote-ui-dir.js';
 
 const storage = new FSStorageProvider();
 import type { RemoteBridgeConfig } from '@deduvafork/squad-sdk';
@@ -93,7 +93,7 @@ export async function runStart(cwd: string, options: StartOptions): Promise<void
 
   // PWA static files
   bridge.setStaticHandler((req, res) => {
-    const uiDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../remote-ui');
+    const uiDir = resolveRemoteUiDir();
     let decodedUrl: string;
     try {
       const parsed = new URL(req.url || '/', `http://${req.headers.host}`);
