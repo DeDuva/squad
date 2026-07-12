@@ -67,13 +67,27 @@ export function getSDKTemplatesDir(storage: StorageProvider = new FSStorageProvi
   // Use fileURLToPath for cross-platform compatibility (handles Windows drive letters, URL encoding)
   const currentDir = dirname(fileURLToPath(import.meta.url));
 
-  // Try relative to this file (in dist/)
+  // Try relative to this file, assuming it's squad-sdk's own dist/config/init.js
+  // (true when squad-sdk runs unbundled, e.g. as a normal node_modules dependency).
   const distPath = join(currentDir, '../../templates');
   if (storage.existsSync(distPath)) {
     return distPath;
   }
 
-  // Try relative to package root (for dev)
+  // Try one level up from this file. When squad-sdk's source is esbuild-bundled
+  // into squad-cli's single-file dist/squad.js (airgap build), import.meta.url
+  // points at squad-cli/dist/ instead of squad-sdk/dist/config/ — the two extra
+  // path segments above no longer apply. squad-cli ships its own synced copy of
+  // the templates dir as a sibling of dist/ (both npm-packaged and in this repo),
+  // so check that location before falling back further.
+  const siblingPath = join(currentDir, '../templates');
+  if (storage.existsSync(siblingPath)) {
+    return siblingPath;
+  }
+
+  // Try relative to package root (monorepo dev fallback). Checked last: in a
+  // monorepo checkout this can also match an unrelated legacy templates/ dir
+  // at the repo root, so it must not take priority over the two checks above.
   const pkgPath = join(currentDir, '../../../templates');
   if (storage.existsSync(pkgPath)) {
     return pkgPath;
