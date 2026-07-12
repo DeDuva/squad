@@ -73,7 +73,7 @@ export interface SquadClientOptions {
 }
 
 /**
- * SquadClient — thin lifecycle wrapper around GeminiClient.
+ * SquadClient — thin lifecycle wrapper around a SquadBackendClient (AiSdkClient).
  *
  * @example
  * ```typescript
