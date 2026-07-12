@@ -88,6 +88,44 @@ export const MODEL_CATALOG: ModelInfo[] = [
     cost: 3,
     speed: 8,
   },
+
+  // -------------------------------------------------------------------------
+  // Anthropic — second provider (M3: AI SDK multi-provider backend)
+  // -------------------------------------------------------------------------
+
+  {
+    id: 'claude-opus-4-8',
+    tier: 'premium',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['architecture proposals', 'security audits', 'complex design', 'deep reasoning'],
+    cost: 9,
+    speed: 3,
+    pricing: { inputPerToken: 5 / 1_000_000, outputPerToken: 25 / 1_000_000 },
+  },
+  {
+    id: 'claude-sonnet-5',
+    tier: 'standard',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['code generation', 'refactoring', 'test writing'],
+    cost: 5,
+    speed: 6,
+    pricing: { inputPerToken: 3 / 1_000_000, outputPerToken: 15 / 1_000_000 },
+  },
+  {
+    id: 'claude-haiku-4-5',
+    tier: 'fast',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['simple fixes', 'triage', 'boilerplate'],
+    cost: 2,
+    speed: 9,
+    pricing: { inputPerToken: 1 / 1_000_000, outputPerToken: 5 / 1_000_000 },
+  },
 ];
 
 /**
@@ -95,9 +133,9 @@ export const MODEL_CATALOG: ModelInfo[] = [
  * Gemini models are the default — all tiers fall back within the Gemini family.
  */
 export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> = {
-  premium:  ['gemini-pro-latest', 'gemini-flash-latest'],
-  standard: ['gemini-flash-latest'],
-  fast:     ['gemini-flash-latest'],
+  premium:  ['gemini-pro-latest', 'claude-opus-4-8', 'gemini-flash-latest'],
+  standard: ['gemini-flash-latest', 'claude-sonnet-5'],
+  fast:     ['gemini-flash-latest', 'claude-haiku-4-5'],
 };
 
 /**
@@ -355,6 +393,7 @@ export function estimateCost(model: string, inputTokens: number, outputTokens: n
 export const ECONOMY_MODEL_MAP: Record<string, string> = {
   // Premium → flash downgrade
   'gemini-pro-latest': 'gemini-flash-latest',
+  'claude-opus-4-8': 'claude-haiku-4-5',
 };
 
 /**
