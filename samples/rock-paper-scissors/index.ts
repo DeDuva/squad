@@ -9,16 +9,24 @@
 
 import { StreamingPipeline } from '@deduvafork/squad-sdk';
 import { SquadClientWithPool } from '@deduvafork/squad-sdk/client';
+import type { SquadSession } from '@deduvafork/squad-sdk/client';
 import { PLAYERS, SCOREKEEPER_PROMPT, type PlayerStrategy } from './prompts.js';
 
 // ── Game State ───────────────────────────────────────────────────────
 
 interface PlayerInfo extends PlayerStrategy {
   sessionId: string;
+  session: SquadSession;
   wins: number;
   losses: number;
   draws: number;
   moveHistory: Array<'rock' | 'paper' | 'scissors'>;
+}
+
+interface ScorekeeperInfo {
+  name: string;
+  sessionId: string;
+  session: SquadSession;
 }
 
 interface MatchHistory {
@@ -78,6 +86,7 @@ async function main(): Promise<void> {
     players.push({
       ...strategy,
       sessionId: session.sessionId,
+      session,
       wins: 0,
       losses: 0,
       draws: 0,
@@ -90,9 +99,10 @@ async function main(): Promise<void> {
     streaming: true,
     systemMessage: { mode: 'append', content: SCOREKEEPER_PROMPT },
   });
-  const scorekeeper = {
+  const scorekeeper: ScorekeeperInfo = {
     name: 'Verbal',
     sessionId: scorekeeperSession.sessionId,
+    session: scorekeeperSession,
   };
 
   pipeline.onDelta((event) => {
@@ -131,7 +141,6 @@ async function main(): Promise<void> {
     matchCount++;
 
     await playMatch(
-      client,
       pipeline,
       players[aIdx],
       players[bIdx],
@@ -142,7 +151,7 @@ async function main(): Promise<void> {
 
     // Leaderboard every 10 matches
     if (matchCount % 10 === 0) {
-      await printLeaderboard(client, pipeline, scorekeeper, players);
+      await printLeaderboard(pipeline, scorekeeper, players);
     }
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -152,11 +161,10 @@ async function main(): Promise<void> {
 // ── Play Single Match ────────────────────────────────────────────────
 
 async function playMatch(
-  client: SquadClientWithPool,
   pipeline: StreamingPipeline,
   playerA: PlayerInfo,
   playerB: PlayerInfo,
-  scorekeeper: { name: string; sessionId: string },
+  scorekeeper: ScorekeeperInfo,
   matchHistory: MatchHistory,
   matchNumber: number,
 ): Promise<void> {
@@ -164,8 +172,8 @@ async function playMatch(
 
   // Get moves from both players simultaneously
   const [resultA, resultB] = await Promise.all([
-    getPlayerMove(client, playerA, playerB, matchHistory),
-    getPlayerMove(client, playerB, playerA, matchHistory),
+    getPlayerMove(playerA, playerB, matchHistory),
+    getPlayerMove(playerB, playerA, matchHistory),
   ]);
 
   const moveA = resultA.move;
@@ -216,7 +224,6 @@ async function playMatch(
 
   // Get scorekeeper commentary
   await announceResult(
-    client,
     pipeline,
     scorekeeper,
     playerA,
@@ -231,7 +238,6 @@ async function playMatch(
 // ── Get Player Move ──────────────────────────────────────────────────
 
 async function getPlayerMove(
-  client: SquadClientWithPool,
   player: PlayerInfo,
   opponent: PlayerInfo,
   matchHistory: MatchHistory,
@@ -257,7 +263,7 @@ async function getPlayerMove(
     prompt = 'What do you throw?';
   }
 
-  const session = await client.resumeSession(player.sessionId);
+  const session = player.session;
   let response = '';
 
   const handler = (event: { type: string; [key: string]: unknown }) => {
@@ -353,9 +359,8 @@ function determineWinner(
 // ── Announce Result via Scorekeeper ──────────────────────────────────
 
 async function announceResult(
-  client: SquadClientWithPool,
   pipeline: StreamingPipeline,
-  scorekeeper: { name: string; sessionId: string },
+  scorekeeper: ScorekeeperInfo,
   playerA: PlayerInfo,
   moveA: Move | null,
   playerB: PlayerInfo,
@@ -363,7 +368,7 @@ async function announceResult(
 ): Promise<void> {
   const prompt = `${playerA.name} threw ${moveA || 'nothing (forfeit)'}, ${playerB.name} threw ${moveB || 'nothing (forfeit)'}. Who wins? Give me one sentence of commentary.`;
 
-  const session = await client.resumeSession(scorekeeper.sessionId);
+  const session = scorekeeper.session;
 
   pipeline.markMessageStart(scorekeeper.sessionId);
 
@@ -416,9 +421,8 @@ async function announceResult(
 // ── Print Leaderboard ────────────────────────────────────────────────
 
 async function printLeaderboard(
-  client: SquadClientWithPool,
   pipeline: StreamingPipeline,
-  scorekeeper: { name: string; sessionId: string },
+  scorekeeper: ScorekeeperInfo,
   players: PlayerInfo[],
 ): Promise<void> {
   // Sort by wins (descending), then by win rate
@@ -448,7 +452,7 @@ async function printLeaderboard(
   
   const prompt = `Current top 3: ${statsText}. Give me one sentence of leaderboard commentary.`;
 
-  const session = await client.resumeSession(scorekeeper.sessionId);
+  const session = scorekeeper.session;
 
   pipeline.markMessageStart(scorekeeper.sessionId);
 
