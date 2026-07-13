@@ -32,6 +32,7 @@ import type {
   SquadToolResultObject,
 } from './types.js';
 import { wrapAiSdkError } from './ai-sdk-errors.js';
+import { SquadError, RuntimeError } from './errors.js';
 
 export type SquadProviderId = 'google' | 'anthropic';
 
@@ -280,7 +281,14 @@ export class AiSdkSession implements SquadSession {
       const responseMessages = await result.responseMessages;
       this.history.push(...responseMessages);
     } catch (err) {
-      const wrapped = wrapAiSdkError(err, { sessionId: this.sessionId, model: this.model, operation: 'sendMessage' });
+      // err may already be a SquadError thrown by the 'error' stream-part
+      // branch above (via wrapAiSdkError) — re-wrapping it here would lose
+      // its specific subclass/fields (e.g. RateLimitError.retryAfter), since
+      // wrapAiSdkError's fallback (ErrorFactory.wrap) only pattern-matches
+      // on the message string, not the original error's classification.
+      const wrapped = err instanceof SquadError
+        ? err
+        : wrapAiSdkError(err, { sessionId: this.sessionId, model: this.model, operation: 'sendMessage' });
       this.emit({ type: 'error', error: wrapped.message });
       throw wrapped;
     } finally {
@@ -295,9 +303,10 @@ export class AiSdkSession implements SquadSession {
     // provider-side stop) to the depth guard. Mirrors GeminiSession's
     // handleToolCalls throwing once toolCallRound exceeds maxToolCallRounds.
     if (finishReason === 'other' && stepCount >= this.maxToolCallRounds) {
-      throw new Error(
+      throw new RuntimeError(
         `Tool call depth exceeded maxToolCallRounds (${this.maxToolCallRounds}). ` +
         `This usually means a tool is returning function calls in a loop.`,
+        { sessionId: this.sessionId, model: this.model, operation: 'sendMessage', timestamp: new Date() },
       );
     }
 

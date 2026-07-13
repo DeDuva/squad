@@ -57,6 +57,14 @@ function isProviderName(value: string): value is ProviderName {
   return value === 'gemini' || value === 'anthropic';
 }
 
+/** Reads a flag's value, supporting both `--flag value` and `--flag=value` forms. */
+function getFlagValue(args: string[], flag: string): string | undefined {
+  const inlineIdx = args.findIndex(a => a.startsWith(`${flag}=`));
+  if (inlineIdx !== -1) return args[inlineIdx]!.slice(flag.length + 1);
+  const idx = args.indexOf(flag);
+  return idx !== -1 ? args[idx + 1] : undefined;
+}
+
 function loadStoredKey(provider: ProviderAuthConfig): string | undefined {
   try {
     if (!existsSync(provider.configFile)) return undefined;
@@ -77,8 +85,7 @@ export async function runAuth(args: string[]): Promise<void> {
   const subcommand = args[0] ?? 'status';
 
   if (subcommand === 'setup') {
-    const providerIdx = args.indexOf('--provider');
-    const providerName = providerIdx !== -1 ? args[providerIdx + 1] : 'gemini';
+    const providerName = getFlagValue(args, '--provider') ?? 'gemini';
 
     if (!providerName || !isProviderName(providerName)) {
       console.error(`✗ Unsupported provider: ${providerName}. Supported providers: gemini, anthropic.`);
@@ -89,8 +96,7 @@ export async function runAuth(args: string[]): Promise<void> {
     const label = providerName === 'gemini' ? 'Gemini' : 'Anthropic';
 
     // Read key from --key flag, env var, or stored config
-    const keyIdx = args.indexOf('--key');
-    let apiKey = keyIdx !== -1 ? args[keyIdx + 1] : undefined;
+    let apiKey = getFlagValue(args, '--key');
 
     if (!apiKey) {
       apiKey = process.env[provider.envVar];
@@ -159,8 +165,7 @@ export async function runAuth(args: string[]): Promise<void> {
   }
 
   if (subcommand === 'logout') {
-    const providerIdx = args.indexOf('--provider');
-    const providerName = providerIdx !== -1 ? args[providerIdx + 1] : 'gemini';
+    const providerName = getFlagValue(args, '--provider') ?? 'gemini';
 
     if (!providerName || !isProviderName(providerName)) {
       console.error(`✗ Unsupported provider: ${providerName}. Supported providers: gemini, anthropic.`);

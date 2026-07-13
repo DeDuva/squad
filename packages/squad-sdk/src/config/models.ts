@@ -353,6 +353,12 @@ export function getModelInfo(id: ModelId): ModelInfo | null {
 
 /**
  * Gets fallback chain for a tier (convenience function).
+ *
+ * Returns the raw DEFAULT_FALLBACK_CHAINS order (no provider preference) —
+ * for a caller that only has a Gemini key configured, this list may include
+ * Anthropic models before the next Gemini fallback. Prefer
+ * `ModelRegistry.getFallbackChain(tier, preferSameProvider, currentModel)`
+ * directly when the caller's available providers matter.
  */
 export function getFallbackChain(tier: ModelTier): ModelId[] {
   return defaultRegistry.getFallbackChain(tier);
