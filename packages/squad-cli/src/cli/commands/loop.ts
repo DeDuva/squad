@@ -259,7 +259,7 @@ async function checkCopilotCli(): Promise<void> {
 async function checkAgentCli(agentCmd: string): Promise<void> {
   const bin = agentCmd.trim().split(/\s+/)[0]!;
   return new Promise<void>((resolve, reject) => {
-    execFile(bin, ['--version'], (err) => {
+    execFile(bin, ['--version'], { shell: process.platform === 'win32', timeout: 5000 }, (err) => {
       if (err) reject(err);
       else resolve();
     });
