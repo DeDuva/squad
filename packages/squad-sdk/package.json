@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-sdk",
-  "version": "0.11.0-build.4",
+  "version": "0.11.0",
   "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
