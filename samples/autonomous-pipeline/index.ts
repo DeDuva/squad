@@ -32,13 +32,18 @@ import {
 } from '@deduvafork/squad-sdk';
 import type {
   CastMember,
-  AgentRole,
   ResponseTier,
   SquadConfig,
   TierContext,
   SquadTelemetryHandle,
 } from '@deduvafork/squad-sdk';
 import chalk from 'chalk';
+
+// CastMember['role'] is the casting engine's persona role (e.g. also includes
+// 'prompt-engineer', 'security', ...), distinct from the SDK's top-level
+// AgentRole (runtime agent roles). Tasks are matched against CastMember.role,
+// so derive the type from there rather than the unrelated AgentRole export.
+type PersonaRole = CastMember['role'];
 
 // ============================================================================
 // Types
@@ -51,7 +56,7 @@ interface PipelineTask {
   id: string;
   title: string;
   description: string;
-  requiredRole: AgentRole;
+  requiredRole: PersonaRole;
   complexity: number; // 1-5, drives simulated duration
   status: TaskStatus;
   assignedTo?: string;
@@ -509,7 +514,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function findNextTask(tasks: PipelineTask[], role: AgentRole): PipelineTask | undefined {
+function findNextTask(tasks: PipelineTask[], role: PersonaRole): PipelineTask | undefined {
   return tasks.find((t) => t.status === 'queued' && t.requiredRole === role);
 }
 
