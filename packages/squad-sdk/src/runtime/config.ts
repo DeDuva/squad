@@ -11,7 +11,7 @@ import { join, resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { FSStorageProvider } from '../storage/fs-storage-provider.js';
 import { MODELS } from './constants.js';
-import type { AgentRole } from './constants.js';
+import type { ModelRoutingRole } from './constants.js';
 
 const storage = new FSStorageProvider();
 
@@ -47,7 +47,7 @@ export type WorkType =
 /**
  * Agent role for model selection (re-exported from constants).
  */
-export type { AgentRole } from './constants.js';
+export type { ModelRoutingRole } from './constants.js';
 
 /**
  * Task output type for model selection.
@@ -116,7 +116,7 @@ export interface TaskToModelRule {
  */
 export interface RoleToModelMapping {
   /** Agent role */
-  role: AgentRole;
+  role: ModelRoutingRole;
   
   /** Default model for this role */
   model: ModelId;

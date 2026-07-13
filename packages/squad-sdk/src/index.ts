@@ -23,7 +23,7 @@ export type { ResponseTier, TierName, TierContext, ModelTierSuggestion } from '.
 export { loadConfig, loadConfigSync } from './runtime/config.js';
 export type { ConfigLoadResult, ConfigValidationError } from './runtime/config.js';
 export { MODELS, TIMEOUTS, AGENT_ROLES } from './runtime/constants.js';
-export type { AgentRole } from './runtime/constants.js';
+export type { ModelRoutingRole } from './runtime/constants.js';
 export * from './runtime/streaming.js';
 export * from './runtime/cost-tracker.js';
 export * from './runtime/telemetry.js';
