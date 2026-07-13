@@ -37,7 +37,7 @@ export type { ModelSelectionConfig } from './runtime/config.js';
 export type { ModelTier } from './runtime/config.js';
 export type { ModelId } from './runtime/config.js';
 export type { WorkType } from './runtime/config.js';
-export type { AgentRole } from './runtime/config.js';
+export type { ModelRoutingRole } from './runtime/config.js';
 export type { TaskOutputType } from './runtime/config.js';
 export type { TaskToModelRule } from './runtime/config.js';
 export type { RoleToModelMapping } from './runtime/config.js';

@@ -56,4 +56,5 @@ export const TIMEOUTS = {
 // ============================================================================
 
 export const AGENT_ROLES = ['lead', 'developer', 'tester', 'designer', 'scribe', 'coordinator'] as const;
-export type AgentRole = typeof AGENT_ROLES[number];
+/** Role used for model-selection routing — distinct from casting's persona `AgentRole` (see casting-engine.ts). */
+export type ModelRoutingRole = typeof AGENT_ROLES[number];
