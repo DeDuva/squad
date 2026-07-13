@@ -11,6 +11,7 @@
 import { CastingEngine, StreamingPipeline } from '@deduvafork/squad-sdk';
 import type { StreamDelta } from '@deduvafork/squad-sdk';
 import { SquadClientWithPool } from '@deduvafork/squad-sdk/client';
+import type { SquadSession } from '@deduvafork/squad-sdk/client';
 
 // ── Agent Setup ──────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ interface AgentInfo {
   role: string;
   systemPrompt: string;
   sessionId?: string;
+  session?: SquadSession;
 }
 
 const TELLER_PROMPT = `You are a comedian performing knock-knock jokes. When prompted, tell ONE knock-knock joke. Keep the format: "Knock knock!" then wait for the response, then deliver the setup and punchline. Be creative and funny. Keep responses short — just the joke, no commentary.`;
@@ -89,6 +91,7 @@ async function main(): Promise<void> {
       onPermissionRequest: () => ({ kind: 'approve-once' }),
     });
     agent.sessionId = session.sessionId;
+    agent.session = session;
     pipeline.attachToSession(session.sessionId);
   }
 
@@ -104,31 +107,31 @@ async function main(): Promise<void> {
 
     // Turn 1: Teller opens with "Knock knock!"
     process.stdout.write(`🎭 ${teller.name}: `);
-    const opener = await sendAndCapture(client, pipeline, teller, 'Start a new knock-knock joke. Just say "Knock knock!"');
+    const opener = await sendAndCapture(pipeline, teller, 'Start a new knock-knock joke. Just say "Knock knock!"');
     console.log();
     await pause(800);
 
     // Turn 2: Responder says "Who's there?"
     process.stdout.write(`🎭 ${responder.name}: `);
-    const whoseThere = await sendAndCapture(client, pipeline, responder, opener);
+    const whoseThere = await sendAndCapture(pipeline, responder, opener);
     console.log();
     await pause(800);
 
     // Turn 3: Teller gives the setup name
     process.stdout.write(`🎭 ${teller.name}: `);
-    const setup = await sendAndCapture(client, pipeline, teller, whoseThere);
+    const setup = await sendAndCapture(pipeline, teller, whoseThere);
     console.log();
     await pause(800);
 
     // Turn 4: Responder says "[setup] who?"
     process.stdout.write(`🎭 ${responder.name}: `);
-    const setupWho = await sendAndCapture(client, pipeline, responder, setup);
+    const setupWho = await sendAndCapture(pipeline, responder, setup);
     console.log();
     await pause(800);
 
     // Turn 5: Teller delivers the punchline
     process.stdout.write(`🎭 ${teller.name}: `);
-    await sendAndCapture(client, pipeline, teller, setupWho);
+    await sendAndCapture(pipeline, teller, setupWho);
     console.log('\n');
 
     // Swap roles for next joke
@@ -142,19 +145,15 @@ async function main(): Promise<void> {
 // ── Helper: Send message and capture full response ──────────────────
 
 async function sendAndCapture(
-  client: SquadClientWithPool,
   pipeline: StreamingPipeline,
   agent: AgentInfo,
   message: string,
 ): Promise<string> {
   const sessionId = agent.sessionId!;
+  const session = agent.session!;
   let captured = '';
 
   pipeline.markMessageStart(sessionId);
-
-  const session = await client.resumeSession(sessionId, {
-    onPermissionRequest: () => ({ kind: 'approve-once' }),
-  });
 
   const handler = (event: { type: string; [key: string]: unknown }) => {
     if (event.type === 'message_delta') {
