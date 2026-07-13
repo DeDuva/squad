@@ -107,10 +107,32 @@ async function injectStoredGeminiKey(): Promise<void> {
   } catch { /* ignore malformed config */ }
 }
 
+/**
+ * Load the Anthropic API key from the stored config file and inject it into
+ * process.env so the SDK's SquadClient finds it via ANTHROPIC_API_KEY.
+ * Only runs when the env var is not already set (env var wins).
+ */
+async function injectStoredAnthropicKey(): Promise<void> {
+  if (process.env['ANTHROPIC_API_KEY']) return;
+  const { join } = await import('node:path');
+  const { homedir } = await import('node:os');
+  const { existsSync, readFileSync } = await import('node:fs');
+  const configFile = join(homedir(), '.config', 'squad', 'anthropic.json');
+  if (!existsSync(configFile)) return;
+  try {
+    const parsed = JSON.parse(readFileSync(configFile, 'utf-8'));
+    if (typeof parsed.apiKey === 'string' && parsed.apiKey) {
+      process.env['ANTHROPIC_API_KEY'] = parsed.apiKey;
+      process.env['SQUAD_ANTHROPIC_KEY_SOURCE'] = configFile;
+    }
+  } catch { /* ignore malformed config */ }
+}
+
 async function main(): Promise<void> {
-  // Inject stored Gemini key into env so SquadClient and all subcommands can
-  // find it via process.env['GEMINI_API_KEY'] without each reading the file.
+  // Inject stored provider keys into env so SquadClient and all subcommands
+  // can find them without each reading the config files.
   await injectStoredGeminiKey();
+  await injectStoredAnthropicKey();
 
   const args = process.argv.slice(2);
 

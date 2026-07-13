@@ -523,6 +523,66 @@ async function checkGeminiAuth(): Promise<DoctorCheck> {
   }
 }
 
+// ── anthropic auth check ─────────────────────────────────────────────
+
+/**
+ * Check whether an Anthropic API key is configured (env var or stored
+ * config). Anthropic is an additive second provider — a missing key warns
+ * rather than fails, since Gemini remains the required default provider.
+ */
+async function checkAnthropicAuth(): Promise<DoctorCheck> {
+  const { homedir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { existsSync, readFileSync } = await import('node:fs');
+
+  let apiKey = process.env['ANTHROPIC_API_KEY'];
+
+  if (!apiKey) {
+    const configFile = join(homedir(), '.config', 'squad', 'anthropic.json');
+    if (existsSync(configFile)) {
+      try {
+        const parsed = JSON.parse(readFileSync(configFile, 'utf-8'));
+        if (typeof parsed.apiKey === 'string') apiKey = parsed.apiKey;
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (!apiKey) {
+    return {
+      name: 'Anthropic API key',
+      status: 'warn',
+      message: 'not configured (optional) — run: squad auth setup --provider=anthropic --key YOUR_KEY',
+    };
+  }
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/models', {
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    });
+    if (res.ok) {
+      const source = process.env['SQUAD_ANTHROPIC_KEY_SOURCE']
+        ? process.env['SQUAD_ANTHROPIC_KEY_SOURCE']
+        : process.env['ANTHROPIC_API_KEY']
+          ? 'ANTHROPIC_API_KEY env var'
+          : '~/.config/squad/anthropic.json';
+      return { name: 'Anthropic API key', status: 'pass', message: `valid (source: ${source})` };
+    }
+    return {
+      name: 'Anthropic API key',
+      status: 'fail',
+      message: `key found but validation failed (HTTP ${res.status}) — run: squad auth setup --provider=anthropic --key YOUR_KEY`,
+    };
+  } catch (err) {
+    return {
+      name: 'Anthropic API key',
+      status: 'warn',
+      message: `key found but connectivity check failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // ── git sync hooks check ─────────────────────────────────────────────
 
 const SQUAD_SYNC_HOOK_MARKER = '# --- squad-sync-hook ---';
@@ -664,6 +724,9 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
 
   // 14. Gemini API key (async — validates connectivity)
   checks.push(await checkGeminiAuth());
+
+  // 15. Anthropic API key (async — validates connectivity, optional provider)
+  checks.push(await checkAnthropicAuth());
 
   return checks;
 }

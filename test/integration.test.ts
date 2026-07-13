@@ -34,12 +34,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
+vi.mock('../packages/squad-sdk/dist/adapter/ai-sdk-client.js', () => {
   return {
     // Regular function expression, not an arrow function — SquadClient calls
-    // `new GeminiClient(...)`, and arrow functions cannot be used as
+    // `new AiSdkClient(...)`, and arrow functions cannot be used as
     // constructors (Reflect.construct on one throws "is not a constructor").
-    GeminiClient: vi.fn().mockImplementation(function () {
+    AiSdkClient: vi.fn().mockImplementation(function () {
       return {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue([]),

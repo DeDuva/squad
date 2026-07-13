@@ -3,15 +3,16 @@
  *
  * Validates the full path from "LLM returns a tool call" → tool executes for
  * real → result is fed back to the LLM → session completes. The LLM layer is
- * mocked via vi.stubGlobal('fetch') so no API key or network access is needed.
+ * mocked via MockLanguageModelV4 so no API key or network access is needed.
  * Workstation tool handlers run against a real tmpDir with actual fs/child_process.
  *
- * This gives CI confidence that the plumbing between GeminiSession ↔ ToolRegistry
+ * This gives CI confidence that the plumbing between AiSdkSession ↔ ToolRegistry
  * ↔ workstation tools works correctly without the non-determinism of a live model.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GeminiSession } from '../packages/squad-sdk/dist/adapter/gemini-client.js';
+import { MockLanguageModelV4, simulateReadableStream } from 'ai/test';
+import { AiSdkSession } from '../packages/squad-sdk/dist/adapter/ai-sdk-session.js';
 import type { SquadSessionConfig, SquadTool } from '@deduvafork/squad-sdk/adapter';
 import { createWorkstationTools } from '@deduvafork/squad-sdk/workstation-tools';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
@@ -20,50 +21,47 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 // ---------------------------------------------------------------------------
-// SSE helpers (same pattern as gemini-session-hooks.test.ts)
+// Mock model helpers
 // ---------------------------------------------------------------------------
 
-function sseChunk(data: object): string {
-  return `data: ${JSON.stringify(data)}\n\n`;
-}
-
-function makeStream(...chunks: string[]): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
-      controller.close();
-    },
-  });
-}
-
-/** Terminates cleanly after the tool response round. */
-const TEXT_TERMINATOR = makeStream(
-  sseChunk({ candidates: [{ content: { role: 'model', parts: [{ text: 'Done.' }] }, finishReason: 'STOP' }] }),
-  sseChunk({ usageMetadata: { promptTokenCount: 15, candidatesTokenCount: 3 } }),
-);
-
-/**
- * Build a fetch mock that returns `toolCallStream` on the first call and
- * `TEXT_TERMINATOR` on all subsequent calls (the post-tool-result continuation).
- */
-function fetchReturning(toolCallStream: ReadableStream<Uint8Array>) {
-  let calls = 0;
-  return vi.fn().mockImplementation(() => {
-    calls++;
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      body: calls === 1 ? toolCallStream : TEXT_TERMINATOR,
-    });
-  });
+function v4Usage(inputTokens: number, outputTokens: number) {
+  return {
+    inputTokens: { total: inputTokens, noCache: inputTokens, cacheRead: undefined, cacheWrite: undefined },
+    outputTokens: { total: outputTokens, text: outputTokens, reasoning: undefined },
+  };
 }
 
 function toolCallStream(toolName: string, args: Record<string, unknown>) {
-  return makeStream(
-    sseChunk({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: toolName, args } }] } }] }),
-    sseChunk({ usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 } }),
-  );
+  return simulateReadableStream({
+    chunks: [
+      { type: 'stream-start', warnings: [] },
+      { type: 'tool-call', toolCallId: 'call-1', toolName, input: JSON.stringify(args) },
+      { type: 'finish', finishReason: 'tool-calls', usage: v4Usage(10, 5) },
+    ],
+  });
+}
+
+function textTerminatorStream() {
+  return simulateReadableStream({
+    chunks: [
+      { type: 'stream-start', warnings: [] },
+      { type: 'text-start', id: 't1' },
+      { type: 'text-delta', id: 't1', delta: 'Done.' },
+      { type: 'text-end', id: 't1' },
+      { type: 'finish', finishReason: 'stop', usage: v4Usage(15, 3) },
+    ],
+  });
+}
+
+/** Model that returns a tool-call on the first doStream call, plain text after. */
+function modelReturning(toolName: string, args: Record<string, unknown>) {
+  let calls = 0;
+  return new MockLanguageModelV4({
+    doStream: async () => {
+      calls++;
+      return { stream: calls === 1 ? toolCallStream(toolName, args) : textTerminatorStream() };
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -81,8 +79,8 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-function makeSession(tools: SquadTool<any>[]) {
-  return new GeminiSession('fake-key', { tools } as SquadSessionConfig);
+function makeSession(tools: SquadTool<any>[], model: MockLanguageModelV4) {
+  return new AiSdkSession('google', 'fake-key', { tools } as SquadSessionConfig, model);
 }
 
 // ---------------------------------------------------------------------------
@@ -92,12 +90,12 @@ function makeSession(tools: SquadTool<any>[]) {
 describe('workstation tool-call pipeline — write + read', () => {
   it('workstation_write_file: LLM tool call creates file on disk', async () => {
     const tools = createWorkstationTools({ rootDir: tmpDir });
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_write_file', {
+    const model = modelReturning('workstation_write_file', {
       path: join(tmpDir, 'hello.txt'),
       content: 'written by agent',
-    })));
+    });
 
-    await makeSession(tools).sendMessage({ prompt: 'write a file' });
+    await makeSession(tools, model).sendMessage({ prompt: 'write a file' });
 
     expect(existsSync(join(tmpDir, 'hello.txt'))).toBe(true);
     expect(await readFile(join(tmpDir, 'hello.txt'), 'utf-8')).toBe('written by agent');
@@ -105,14 +103,14 @@ describe('workstation tool-call pipeline — write + read', () => {
 
   it('workstation_write_file: path-traversal attempt is blocked, file NOT created', async () => {
     const tools = createWorkstationTools({ rootDir: tmpDir });
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_write_file', {
+    const model = modelReturning('workstation_write_file', {
       path: join(tmpDir, '..', 'evil.txt'),
       content: 'escaped',
-    })));
+    });
 
     // Session should complete without throwing — the tool returns a failure result
     // which the (mocked) LLM receives and then says "Done."
-    await makeSession(tools).sendMessage({ prompt: 'write outside root' });
+    await makeSession(tools, model).sendMessage({ prompt: 'write outside root' });
 
     expect(existsSync(join(tmpDir, '..', 'evil.txt'))).toBe(false);
   });
@@ -134,11 +132,9 @@ describe('workstation tool-call pipeline — write + read', () => {
       return result;
     };
 
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_read_file', {
-      path: join(tmpDir, 'seed.txt'),
-    })));
+    const model = modelReturning('workstation_read_file', { path: join(tmpDir, 'seed.txt') });
 
-    await makeSession(tools).sendMessage({ prompt: 'read the file' });
+    await makeSession(tools, model).sendMessage({ prompt: 'read the file' });
 
     expect(readResultSpy).toHaveBeenCalledOnce();
     const result = readResultSpy.mock.calls[0][0] as any;
@@ -163,11 +159,9 @@ describe('workstation tool-call pipeline — list + find', () => {
       return result;
     };
 
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_list_dir', {
-      path: tmpDir,
-    })));
+    const model = modelReturning('workstation_list_dir', { path: tmpDir });
 
-    await makeSession(tools).sendMessage({ prompt: 'list the directory' });
+    await makeSession(tools, model).sendMessage({ prompt: 'list the directory' });
 
     expect(listResultSpy).toHaveBeenCalledOnce();
     const result = listResultSpy.mock.calls[0][0] as any;
@@ -192,12 +186,9 @@ describe('workstation tool-call pipeline — list + find', () => {
       return result;
     };
 
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_find_files', {
-      pattern: '**/*.ts',
-      cwd: tmpDir,
-    })));
+    const model = modelReturning('workstation_find_files', { pattern: '**/*.ts', cwd: tmpDir });
 
-    await makeSession(tools).sendMessage({ prompt: 'find TypeScript files' });
+    await makeSession(tools, model).sendMessage({ prompt: 'find TypeScript files' });
 
     expect(findResultSpy).toHaveBeenCalledOnce();
     const result = findResultSpy.mock.calls[0][0] as any;
@@ -221,11 +212,11 @@ describe('workstation tool-call pipeline — bash', () => {
       return result;
     };
 
-    vi.stubGlobal('fetch', fetchReturning(toolCallStream('workstation_bash', {
+    const model = modelReturning('workstation_bash', {
       command: IS_WINDOWS ? 'echo pipeline-ok' : 'echo pipeline-ok',
-    })));
+    });
 
-    await makeSession(tools).sendMessage({ prompt: 'run a command' });
+    await makeSession(tools, model).sendMessage({ prompt: 'run a command' });
 
     expect(bashResultSpy).toHaveBeenCalledOnce();
     const result = bashResultSpy.mock.calls[0][0] as any;
@@ -234,33 +225,19 @@ describe('workstation tool-call pipeline — bash', () => {
     expect(result.textResultForLlm).toContain('Exit code: 0');
   });
 
-  it('workstation_bash: tool result is returned to the LLM in function response', async () => {
+  it('workstation_bash: tool result is returned to the LLM in the next model call', async () => {
     const tools = createWorkstationTools({ rootDir: tmpDir });
+    const model = modelReturning('workstation_bash', {
+      command: IS_WINDOWS ? 'echo hello-llm' : 'echo hello-llm',
+    });
 
-    // Capture what fetch receives on the second call (the function response round)
-    const fetchBodies: string[] = [];
-    let calls = 0;
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
-      calls++;
-      if (calls > 1 && init?.body) {
-        fetchBodies.push(typeof init.body === 'string' ? init.body : JSON.stringify(init.body));
-      }
-      return {
-        ok: true,
-        status: 200,
-        body: calls === 1
-          ? toolCallStream('workstation_bash', { command: IS_WINDOWS ? 'echo hello-llm' : 'echo hello-llm' })
-          : TEXT_TERMINATOR,
-      };
-    }));
+    await makeSession(tools, model).sendMessage({ prompt: 'run command and return result to LLM' });
 
-    await makeSession(tools).sendMessage({ prompt: 'run command and return result to LLM' });
-
-    // The second fetch call should contain a functionResponse with the tool output
-    expect(fetchBodies.length).toBeGreaterThanOrEqual(1);
-    const body = fetchBodies[0];
-    expect(body).toContain('functionResponse');
-    expect(body).toContain('workstation_bash');
-    expect(body).toContain('hello-llm');
+    // The second doStream call's prompt should contain a tool-result message
+    // with the tool's output.
+    expect(model.doStreamCalls.length).toBeGreaterThanOrEqual(2);
+    const secondCallPrompt = JSON.stringify(model.doStreamCalls[1]!.prompt);
+    expect(secondCallPrompt).toContain('workstation_bash');
+    expect(secondCallPrompt).toContain('hello-llm');
   });
 });

@@ -177,9 +177,13 @@ describe('estimateCost()', () => {
 
 describe('MODEL_CATALOG pricing', () => {
   it('latest-alias models have no static pricing (resolved at runtime)', () => {
-    // -latest aliases do not carry hardcoded pricing; estimateCost returns 0
+    // -latest aliases do not carry hardcoded pricing; estimateCost returns 0.
+    // Fixed-version models (e.g. Anthropic's claude-*) are not aliases and do
+    // carry static pricing.
     for (const model of MODEL_CATALOG) {
-      expect(model.pricing).toBeUndefined();
+      if (model.id.endsWith('-latest')) {
+        expect(model.pricing).toBeUndefined();
+      }
     }
   });
 });

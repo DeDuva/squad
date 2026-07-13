@@ -82,8 +82,8 @@ describe('squad doctor', () => {
 
     const squadDirCheck = checks.find((c: DoctorCheck) => c.name === '.squad/ directory exists');
     expect(squadDirCheck?.status).toBe('fail');
-    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI + Gemini API key
-    expect(checks.length).toBe(7);
+    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI + Gemini API key + Anthropic API key
+    expect(checks.length).toBe(8);
   });
 
   it('detects remote mode from config.json with teamRoot', async () => {
