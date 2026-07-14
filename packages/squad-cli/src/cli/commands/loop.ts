@@ -255,6 +255,17 @@ async function checkCopilotCli(): Promise<void> {
   });
 }
 
+/** Verify the configured custom agent CLI binary is available. */
+async function checkAgentCli(agentCmd: string): Promise<void> {
+  const bin = agentCmd.trim().split(/\s+/)[0]!;
+  return new Promise<void>((resolve, reject) => {
+    execFile(bin, ['--version'], { shell: process.platform === 'win32', timeout: 5000 }, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 // ── Main Entry Point ─────────────────────────────────────────────
 
 /**
@@ -314,8 +325,14 @@ export async function runLoop(dest: string, options: LoopConfig): Promise<void> 
     fatal('timeout must be a positive number of minutes');
   }
 
-  // Preflight: verify copilot CLI is available (skip if user overrides the agent command)
-  if (!options.agentCmd) {
+  // Preflight: verify the configured agent CLI is available
+  if (options.agentCmd) {
+    try {
+      await checkAgentCli(options.agentCmd);
+    } catch {
+      fatal(`Agent command not found: ${options.agentCmd}`);
+    }
+  } else {
     try {
       await checkCopilotCli();
     } catch {

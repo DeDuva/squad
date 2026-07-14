@@ -396,6 +396,11 @@ describe('runLoop', () => {
     ).rejects.toThrow('test-sentinel');
 
     // execFile should have been called once for the agent preflight check
-    expect(execFile).toHaveBeenCalledWith('custom-agent', ['--version'], expect.any(Function));
+    expect(execFile).toHaveBeenCalledWith(
+      'custom-agent',
+      ['--version'],
+      expect.objectContaining({ timeout: 5000 }),
+      expect.any(Function),
+    );
   });
 });

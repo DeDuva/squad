@@ -186,26 +186,6 @@ describe('CLI: rc command', () => {
     });
   });
 
-  describe('Agent passthrough path resolution', () => {
-    it('validates agentCmd option field exists', () => {
-      const rcSource = fs.readFileSync(
-        path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
-        'utf-8'
-      );
-
-      expect(rcSource).toContain('agentCmd?');
-    });
-
-    it('validates agent spawning is conditional on agentCmd', () => {
-      const rcSource = fs.readFileSync(
-        path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
-        'utf-8'
-      );
-
-      expect(rcSource).toContain('options.agentCmd');
-    });
-  });
-
   describe('RemoteBridge callbacks', () => {
     it('validates onPrompt callback signature in source', () => {
       const rcSource = fs.readFileSync(
@@ -320,18 +300,18 @@ describe('CLI: rc command', () => {
         'utf-8'
       );
 
-      expect(rcSource).toContain('agentProc?.kill()');
+      expect(rcSource).toContain('copilotProc?.kill()');
     });
   });
 
-  describe('Agent passthrough integration', () => {
-    it('validates agent spawn uses agentBin', () => {
+  describe('Copilot passthrough integration', () => {
+    it('validates agent spawn uses copilotCmd', () => {
       const rcSource = fs.readFileSync(
         path.join(process.cwd(), 'packages', 'squad-cli', 'src', 'cli', 'commands', 'rc.ts'),
         'utf-8'
       );
 
-      expect(rcSource).toContain('spawnChild(agentBin');
+      expect(rcSource).toContain('spawnChild(copilotCmd');
     });
 
     it('validates stdio piping configuration', () => {
@@ -350,7 +330,7 @@ describe('CLI: rc command', () => {
       );
 
       expect(rcSource).toContain('createInterface');
-      expect(rcSource).toContain('agentProc.stdout');
+      expect(rcSource).toContain('copilotProc.stdout');
     });
 
     it('validates passthrough bidirectional flow', () => {
@@ -369,8 +349,8 @@ describe('CLI: rc command', () => {
         'utf-8'
       );
 
-      expect(rcSource).toContain('agentProc.on(\'error\'');
-      expect(rcSource).toContain('agentProc.on(\'exit\'');
+      expect(rcSource).toContain('copilotProc.on(\'error\'');
+      expect(rcSource).toContain('copilotProc.on(\'exit\'');
     });
   });
 
