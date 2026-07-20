@@ -190,7 +190,7 @@
     "@types/react": "^19.2.17",
     "typescript": "^6.0.3",
     "ink-testing-library": "^4.0.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.28.1"
   },
   "keywords": [
     "gemini",
