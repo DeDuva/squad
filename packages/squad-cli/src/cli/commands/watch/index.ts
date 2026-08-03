@@ -820,6 +820,7 @@ export async function runWatch(dest: string, options: WatchOptions | WatchConfig
     round: 0,
     roster: roster.map(r => ({ name: r.name, label: r.label, expertise: [] as string[] })),
     config: {},
+    executeLabel: config.executeLabel,
     agentCmd: config.agentCmd,
     copilotFlags: config.copilotFlags,
     verbose: config.verbose,

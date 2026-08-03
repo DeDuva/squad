@@ -20,6 +20,8 @@ export interface WatchConfig {
   maxConcurrent: number;
   timeout: number;
   copilotFlags?: string;
+  /** Issue label that opts work in to autonomous execution. Defaults to `squad`. */
+  executeLabel?: string;
   /** Hidden — fully override the agent command. */
   agentCmd?: string;
   /** Dispatch mode: 'task' (default 1:1), 'fleet' (batch read-only), 'hybrid' (auto-classify). */

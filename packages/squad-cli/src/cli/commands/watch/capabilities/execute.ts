@@ -233,7 +233,10 @@ export class ExecuteCapability implements WatchCapability {
       vlog.log(`Execute: agentCmd=${context.agentCmd ?? 'copilot'}, timeout=${timeout / 60_000}m`);
 
       // Fetch open issues with squad label
-      const sdkItems = await context.adapter.listWorkItems({ tags: ['squad'], state: 'open', limit: 50 });
+      // Defaults to `squad` so existing setups are unaffected. A repo that
+      // wants `squad` to stay a human-triage label sets a narrower one.
+      const executeLabel = context.executeLabel ?? 'squad';
+      const sdkItems = await context.adapter.listWorkItems({ tags: [executeLabel], state: 'open', limit: 50 });
       const issues: ExecutableWorkItem[] = sdkItems.map(wi => ({
         number: wi.id,
         title: wi.title,
