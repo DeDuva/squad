@@ -11,10 +11,57 @@ export interface ErrorGuidance {
 }
 
 /** Returns true when an error message indicates a missing or invalid Gemini API key. */
-export function isAuthError(message: string): boolean {
+export function isGeminiAuthError(message: string): boolean {
   return /GEMINI_API_KEY.*not set|auth.*setup|api.?key.*not.*set|not.*set.*api.?key/i.test(message)
     || /Gemini.*authentication failed|authentication failed.*Gemini/i.test(message)
     || /Gemini API.*returned 40[13]/i.test(message);
+}
+
+/**
+ * Returns true when an error indicates an Anthropic credential problem.
+ *
+ * Phrasings come from the Agent SDK and the `claude` CLI it wraps, which
+ * report auth failures in their own words rather than squad's.
+ */
+export function isAnthropicAuthError(message: string): boolean {
+  return /invalid.*api.?key|authentication_error/i.test(message)
+    || /please run\s*\/login|not logged in|no credentials/i.test(message)
+    || /credit balance is too low|insufficient credit/i.test(message)
+    || /oauth token.*expired|token.*has expired/i.test(message);
+}
+
+/** Returns true when an error indicates a credential problem on any backend. */
+export function isAuthError(message: string): boolean {
+  return isGeminiAuthError(message) || isAnthropicAuthError(message);
+}
+
+/**
+ * Guidance for an Anthropic credential problem.
+ *
+ * squad stores no Anthropic credential of its own — the SDK inherits
+ * whatever the local `claude` CLI is signed in with — so the recovery is to
+ * fix that, not to hand squad a key.
+ */
+export function anthropicAuthGuidance(): ErrorGuidance {
+  return {
+    message: 'Anthropic credentials are missing or invalid. Squad uses whatever your local `claude` CLI is signed in with.',
+    recovery: [
+      'Run: claude  (then /login) to sign in',
+      'Or set env var: export ANTHROPIC_API_KEY=YOUR_KEY',
+      "Then run: squad doctor  to verify",
+      'To use Gemini instead: squad config provider gemini',
+    ],
+  };
+}
+
+/**
+ * Guidance for a credential problem, picked to match the active backend.
+ *
+ * Showing Gemini instructions to someone on Anthropic (the default) sends
+ * them to get a key they don't need and can't use.
+ */
+export function authGuidance(provider: 'anthropic' | 'gemini'): ErrorGuidance {
+  return provider === 'anthropic' ? anthropicAuthGuidance() : missingApiKeyGuidance();
 }
 
 /** Gemini API key missing or invalid */

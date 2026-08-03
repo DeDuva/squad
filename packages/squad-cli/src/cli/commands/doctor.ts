@@ -290,120 +290,7 @@ export function checkNodeVersion(nodeVersion?: string): DoctorCheck {
   };
 }
 
-/**
- * Check that vscode-jsonrpc has the `exports` field needed for Node 22/24+
- * strict ESM subpath resolution. Without it, `import('vscode-jsonrpc/node')`
- * fails with ERR_PACKAGE_PATH_NOT_EXPORTED.
- */
-function checkVscodeJsonrpcExports(cwd: string): DoctorCheck {
-  const possiblePaths = [
-    path.join(cwd, 'node_modules', 'vscode-jsonrpc', 'package.json'),
-    path.join(cwd, 'packages', 'squad-cli', 'node_modules', 'vscode-jsonrpc', 'package.json'),
-  ];
 
-  for (const pkgPath of possiblePaths) {
-    if (!fileExists(pkgPath)) continue;
-
-    const pkg = tryReadJson(pkgPath) as Record<string, unknown> | undefined;
-    if (!pkg) {
-      return {
-        name: 'vscode-jsonrpc exports field',
-        status: 'fail',
-        message: 'package.json found but not valid JSON',
-      };
-    }
-
-    if (pkg['exports'] && typeof pkg['exports'] === 'object') {
-      const exports = pkg['exports'] as Record<string, unknown>;
-      if (exports['./node']) {
-        return {
-          name: 'vscode-jsonrpc exports field',
-          status: 'pass',
-          message: 'exports field present with ./node subpath',
-        };
-      }
-    }
-
-    return {
-      name: 'vscode-jsonrpc exports field',
-      status: 'fail',
-      message: 'missing exports field — run postinstall or reinstall (see #449)',
-    };
-  }
-
-  // Detect whether we're in a local dev context (node_modules exists) or global install
-  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
-  if (hasNodeModules) {
-    return {
-      name: 'vscode-jsonrpc exports field',
-      status: 'warn',
-      message: 'not found in node_modules — run npm install or check dependencies',
-    };
-  }
-
-  return {
-    name: 'vscode-jsonrpc exports field',
-    status: 'warn',
-    severity: 'info',
-    message: 'not found in node_modules (expected for global installs)',
-  };
-}
-
-/**
- * Check that @github/copilot-sdk session.js has the .js extension fix
- * on its vscode-jsonrpc/node import (defense-in-depth behind the exports patch).
- */
-function checkCopilotSdkSessionPatch(cwd: string): DoctorCheck {
-  const possiblePaths = [
-    path.join(cwd, 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
-    path.join(cwd, 'packages', 'squad-cli', 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js'),
-  ];
-
-  for (const sessionPath of possiblePaths) {
-    if (!fileExists(sessionPath)) continue;
-
-    try {
-      const content = storage.readSync(sessionPath) ?? '';
-
-      if (/from\s+["']vscode-jsonrpc\/node["']/.test(content)) {
-        return {
-          name: 'copilot-sdk session.js ESM patch',
-          status: 'fail',
-          message: 'session.js has extensionless vscode-jsonrpc/node import — run postinstall (see #449)',
-        };
-      }
-
-      return {
-        name: 'copilot-sdk session.js ESM patch',
-        status: 'pass',
-        message: 'session.js imports use .js extension',
-      };
-    } catch {
-      return {
-        name: 'copilot-sdk session.js ESM patch',
-        status: 'warn',
-        message: 'could not read session.js',
-      };
-    }
-  }
-
-  // Detect whether we're in a local dev context (node_modules exists) or global install
-  const hasNodeModules = isDirectory(path.join(cwd, 'node_modules'));
-  if (hasNodeModules) {
-    return {
-      name: 'copilot-sdk session.js ESM patch',
-      status: 'warn',
-      message: 'not found in node_modules — run npm install or check dependencies',
-    };
-  }
-
-  return {
-    name: 'copilot-sdk session.js ESM patch',
-    status: 'warn',
-    severity: 'info',
-    message: 'not found in node_modules (expected for global installs)',
-  };
-}
 
 function checkSquadAgentMd(cwd: string): DoctorCheck {
   const agentMdPath = path.join(cwd, '.github', 'agents', 'squad.agent.md');
@@ -443,24 +330,36 @@ function checkSquadAgentMd(cwd: string): DoctorCheck {
  * Check that the Copilot CLI is reachable (needed by watch capabilities).
  * Tests `copilot --version` with shell:true for Windows compatibility.
  */
-function checkCopilotCli(): Promise<DoctorCheck> {
+/**
+ * Check the harness squad shells out to for real work.
+ *
+ * Previously this only ever looked for `copilot`, so a working Anthropic
+ * setup reported a warning about a CLI it does not use — and a genuinely
+ * broken one reported nothing at all.
+ */
+function checkAgentCli(): Promise<DoctorCheck> {
+  const name = 'Agent CLI available';
   return new Promise((resolve) => {
-    execFile('copilot', ['--version'], { shell: true, timeout: 5000 }, (err) => {
-      if (err) {
-        resolve({
-          name: 'Copilot CLI available',
-          status: 'warn',
-          message:
-            "'copilot --version' failed — watch capabilities (monitor-teams, monitor-email, retro, decision-hygiene) require the Copilot CLI. " +
-            "If you installed the GitHub CLI extension, ensure 'copilot' is also available on your PATH, or set --agent-cmd to override.",
-        });
-      } else {
-        resolve({
-          name: 'Copilot CLI available',
-          status: 'pass',
-          message: 'copilot CLI reachable',
-        });
+    execFile('claude', ['--version'], { shell: true, timeout: 5000 }, (err, stdout) => {
+      if (!err) {
+        resolve({ name, status: 'pass', message: `claude CLI reachable (${(stdout ?? '').trim().split('\n')[0]})` });
+        return;
       }
+      // Fall back to copilot before failing: a squad configured for the
+      // legacy harness is still a working squad.
+      execFile('copilot', ['--version'], { shell: true, timeout: 5000 }, (copilotErr) => {
+        resolve(
+          copilotErr
+            ? {
+                name,
+                status: 'warn',
+                message:
+                  "Neither 'claude' nor 'copilot' is on PATH — `squad triage --execute` has nothing to run. " +
+                  'Install the Claude Code CLI, or set --agent-cmd to point at another agent.',
+              }
+            : { name, status: 'pass', message: 'copilot CLI reachable (legacy harness)' },
+        );
+      });
     });
   });
 }
@@ -598,11 +497,9 @@ export async function runDoctor(cwd?: string): Promise<DoctorCheck[]> {
   checks.push(checkNodeVersion());
 
   // 11-12. ESM compatibility (Node 22/24+)
-  checks.push(checkVscodeJsonrpcExports(resolvedCwd));
-  checks.push(checkCopilotSdkSessionPatch(resolvedCwd));
 
   // 13. Copilot CLI availability (needed by watch capabilities)
-  checks.push(await checkCopilotCli());
+  checks.push(await checkAgentCli());
 
   return checks;
 }
