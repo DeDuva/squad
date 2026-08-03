@@ -16,6 +16,14 @@ export interface BackendSelection {
   anthropicApiKey?: string;
   /** `.squad/` directory, for the persisted preference. */
   squadDir?: string;
+  /**
+   * Environment to read `SQUAD_PROVIDER` / `GEMINI_API_KEY` from.
+   *
+   * Injectable so tests never have to mutate `process.env` — vitest shares a
+   * process across test files, so a global mutation here leaks into whatever
+   * else is running concurrently.
+   */
+  env?: Record<string, string | undefined>;
 }
 
 /**
@@ -39,7 +47,8 @@ export function resolveProvider(options: BackendSelection): SquadProvider {
     if (fromConfig) return fromConfig;
   }
 
-  const fromEnv = asProvider(process.env['SQUAD_PROVIDER']);
+  const env = options.env ?? process.env;
+  const fromEnv = asProvider(env['SQUAD_PROVIDER']);
   if (fromEnv) return fromEnv;
 
   return 'anthropic';
@@ -63,6 +72,7 @@ export async function createBackend(options: BackendSelection): Promise<{
     return { provider, backend: new AnthropicClient(options.anthropicApiKey) };
   }
 
-  const apiKey = options.geminiApiKey ?? process.env['GEMINI_API_KEY'] ?? '';
+  const env = options.env ?? process.env;
+  const apiKey = options.geminiApiKey ?? env['GEMINI_API_KEY'] ?? '';
   return { provider, backend: new GeminiClient(apiKey) };
 }

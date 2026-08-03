@@ -24,6 +24,7 @@ import {
   readTextDelta,
   readToolUseStart,
 } from './anthropic/normalize.js';
+import { buildSquadMcpServer } from './anthropic/tool-bridge.js';
 import type { SquadBackend } from './backend.js';
 import type {
   SquadSession,
@@ -38,6 +39,17 @@ import type {
 
 /** Default ceiling for `sendAndWait` when a caller gives none. */
 const DEFAULT_TURN_TIMEOUT_MS = 300_000;
+
+/**
+ * Built-in SDK tools a worker session gets alongside squad's own.
+ *
+ * These are the SDK's native file and shell tools. squad has hand-rolled
+ * equivalents (`workstation_*`), but the native ones have materially better
+ * ergonomics — Edit's stale-read detection, Bash's timeout and background
+ * handling, Grep's ripgrep backend — and offering both would give the model
+ * two overlapping toolsets to pick between.
+ */
+const DEFAULT_WORKER_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'];
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -166,7 +178,7 @@ export class AnthropicSession implements SquadSession {
   // Options
   // -------------------------------------------------------------------------
 
-  private buildOptions(): Record<string, unknown> {
+  private async buildOptions(): Promise<Record<string, unknown>> {
     const c = this.config;
 
     const options: Record<string, unknown> = {
@@ -186,8 +198,25 @@ export class AnthropicSession implements SquadSession {
     if (c.workingDirectory) options['cwd'] = c.workingDirectory;
     // squad's reasoning-effort union is a strict subset of the SDK's.
     if (c.reasoningEffort) options['effort'] = c.reasoningEffort;
-    if (c.availableTools) options['allowedTools'] = c.availableTools;
     if (c.excludedTools) options['disallowedTools'] = c.excludedTools;
+
+    // Bridge squad's own tools, and decide what the model may reach for.
+    //
+    // `tools: []` disables the SDK's built-ins outright (verified). That is
+    // what preserves the coordinator's design: it routes work and must not
+    // touch the filesystem, and simply omitting `tools` would leave every
+    // built-in enabled by default rather than none.
+    const squadTools = c.tools ?? [];
+    const bridged = await buildSquadMcpServer(squadTools as never[], this.sessionId);
+
+    if (bridged) {
+      options['mcpServers'] = { squad: bridged.server };
+      options['allowedTools'] = c.availableTools ?? [...DEFAULT_WORKER_TOOLS, ...bridged.toolNames];
+    } else {
+      // No squad tools: a coordinator or init session. Deny everything.
+      options['tools'] = [];
+      options['allowedTools'] = c.availableTools ?? [];
+    }
 
     const system = c.systemMessage;
     if (system?.content) {
@@ -206,7 +235,7 @@ export class AnthropicSession implements SquadSession {
 
   private async start(): Promise<void> {
     const sdk = await loadAgentSdk();
-    this.query = sdk.query({ prompt: this.inputStream(), options: this.buildOptions() });
+    this.query = sdk.query({ prompt: this.inputStream(), options: await this.buildOptions() });
     this.pump = this.runPump();
   }
 
