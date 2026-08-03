@@ -16,6 +16,8 @@ import {
   writeModelPreference,
   readAgentModelOverrides,
   writeAgentModelOverrides,
+  readProviderPreference,
+  writeProviderPreference,
   MODEL_CATALOG,
 } from '@deduvafork/squad-sdk/config';
 import { fatal } from '../core/errors.js';
@@ -80,6 +82,45 @@ function parseFlags(args: string[]): { clear: boolean; agent: string | null; pos
     }
   }
   return { clear, agent, positional };
+}
+
+
+/** Backends `squad config provider` accepts. */
+const PROVIDERS = ['anthropic', 'gemini'] as const;
+
+async function runProviderSubcommand(squadDir: string, subArgs: string[]): Promise<void> {
+  const { clear, positional } = parseFlags(subArgs);
+
+  if (clear) {
+    writeProviderPreference(squadDir, null);
+    console.log(`${GREEN}\u2713${RESET} Provider override cleared (reverted to auto-selection).`);
+    return;
+  }
+
+  const arg = positional[0]?.toLowerCase() ?? null;
+
+  if (arg) {
+    if (!(PROVIDERS as readonly string[]).includes(arg)) {
+      console.error(`${RED}\u2717${RESET} Unknown provider: ${BOLD}${arg}${RESET}`);
+      console.error(`       Known providers: ${PROVIDERS.join(', ')}`);
+      process.exit(1);
+    }
+    writeProviderPreference(squadDir, arg as 'anthropic' | 'gemini');
+    console.log(`${GREEN}\u2713${RESET} Provider set to ${BOLD}${arg}${RESET}.`);
+    if (arg === 'anthropic') {
+      console.log(`  Uses whatever credentials your local \`claude\` CLI is signed in with,`);
+      console.log(`  or ANTHROPIC_API_KEY when one is set.`);
+    }
+    return;
+  }
+
+  // --- Show current ---
+  const configured = readProviderPreference(squadDir);
+  const fromEnv = process.env['SQUAD_PROVIDER'];
+  console.log(`\n${BOLD}Provider${RESET}\n`);
+  console.log(`  configured : ${configured ?? `${DIM}(unset)${RESET}`}`);
+  if (fromEnv) console.log(`  SQUAD_PROVIDER : ${fromEnv}`);
+  console.log(`  effective  : ${BOLD}${configured ?? (fromEnv && (PROVIDERS as readonly string[]).includes(fromEnv) ? fromEnv : 'anthropic')}${RESET}\n`);
 }
 
 async function runModelSubcommand(squadDir: string, subArgs: string[]): Promise<void> {
@@ -167,11 +208,19 @@ export async function runConfig(cwd: string, subArgs: string[]): Promise<void> {
     return;
   }
 
+  if (sub === 'provider') {
+    await runProviderSubcommand(squadDir, subArgs.slice(1));
+    return;
+  }
+
   // No subcommand or unknown — show usage
   console.log(`\n${BOLD}squad config${RESET} — manage squad configuration\n`);
   console.log(`  ${BOLD}squad config model${RESET}                          — show current model config`);
   console.log(`  ${BOLD}squad config model <model>${RESET}                  — set default model`);
   console.log(`  ${BOLD}squad config model <model> --agent <name>${RESET}   — pin model to agent`);
   console.log(`  ${BOLD}squad config model --clear${RESET}                  — clear default model`);
-  console.log(`  ${BOLD}squad config model --clear --agent <name>${RESET}   — clear agent override\n`);
+  console.log(`  ${BOLD}squad config model --clear --agent <name>${RESET}   — clear agent override`);
+  console.log(`  ${BOLD}squad config provider${RESET}                       — show current backend`);
+  console.log(`  ${BOLD}squad config provider <anthropic|gemini>${RESET}    — set backend`);
+  console.log(`  ${BOLD}squad config provider --clear${RESET}               — clear backend override\n`);
 }

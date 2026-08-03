@@ -455,6 +455,71 @@ export interface ModelPreferenceConfig {
   economyMode?: boolean;
   defaultReasoningEffort?: string;
   agentReasoningEffortOverrides?: Record<string, string>;
+  /** Which backend sessions run on. See `adapter/backend-factory.ts`. */
+  provider?: string;
+}
+
+/** Backends squad can talk to. Mirrors `SquadProvider` in `adapter/backend.ts`. */
+const KNOWN_PROVIDERS = ['anthropic', 'gemini'] as const;
+
+/** Narrow an arbitrary string to a known provider, or null. */
+export function asProvider(value: unknown): 'anthropic' | 'gemini' | null {
+  return typeof value === 'string' && (KNOWN_PROVIDERS as readonly string[]).includes(value)
+    ? (value as 'anthropic' | 'gemini')
+    : null;
+}
+
+/**
+ * Reads the persistent provider preference from `.squad/config.json`.
+ *
+ * Returns null when unset or unrecognized — an unknown provider name falls
+ * through to the next resolution layer rather than failing the session, since
+ * the likeliest cause is a config written by a newer squad.
+ */
+export function readProviderPreference(
+  squadDir: string,
+  storage: StorageProvider = new FSStorageProvider(),
+): 'anthropic' | 'gemini' | null {
+  const configPath = join(squadDir, 'config.json');
+  if (!storage.existsSync(configPath)) return null;
+  try {
+    const raw = storage.readSync(configPath);
+    if (raw === undefined) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object') return null;
+    return asProvider(parsed.provider);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes the provider preference to `.squad/config.json`.
+ * Merges with existing config — does not overwrite other fields.
+ */
+export function writeProviderPreference(
+  squadDir: string,
+  provider: 'anthropic' | 'gemini' | null,
+  storage: StorageProvider = new FSStorageProvider(),
+): void {
+  const configPath = join(squadDir, 'config.json');
+  let config: Record<string, unknown> = {};
+  if (storage.existsSync(configPath)) {
+    try {
+      const raw = storage.readSync(configPath);
+      if (raw !== undefined) {
+        const parsed = JSON.parse(raw);
+        if (parsed !== null && typeof parsed === 'object') config = parsed;
+      }
+    } catch {
+      // Unreadable config is replaced rather than blocking the write.
+    }
+  }
+
+  if (provider === null) delete config['provider'];
+  else config['provider'] = provider;
+
+  storage.writeSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 /**

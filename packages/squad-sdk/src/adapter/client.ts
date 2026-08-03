@@ -7,8 +7,8 @@
  * @module adapter/client
  */
 
-import { GeminiClient } from './gemini-client.js';
 import type { SquadBackend, SquadProvider } from './backend.js';
+import { createBackend, resolveProvider } from './backend-factory.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import { recordSessionCreated, recordSessionClosed, recordSessionError, recordTokenUsage } from '../runtime/otel-metrics.js';
 import { estimateCost } from '../config/models.js';
@@ -40,10 +40,29 @@ export type SquadConnectionState = 'disconnected' | 'connecting' | 'reconnecting
  */
 export interface SquadClientOptions {
   /**
+   * Backend to run on. When omitted, resolved from `.squad/config.json`,
+   * then `SQUAD_PROVIDER`, then the default. See `resolveProvider`.
+   */
+  provider?: SquadProvider;
+
+  /**
    * Gemini API key.
    * Falls back to process.env.GEMINI_API_KEY when not provided.
+   *
+   * @deprecated Prefer `provider: 'gemini'`. Passing a key still works and
+   * still implies the Gemini backend.
    */
   geminiApiKey?: string;
+
+  /**
+   * Anthropic API key. Optional — when absent the Agent SDK falls back to
+   * the credentials the local `claude` CLI is signed in with, which is the
+   * normal path.
+   */
+  anthropicApiKey?: string;
+
+  /** `.squad/` directory, for the persisted provider preference. */
+  squadDir?: string;
 
   /**
    * Automatically connect when creating a session.
@@ -74,20 +93,37 @@ export interface SquadClientOptions {
  * ```
  */
 export class SquadClient {
-  private backend: SquadBackend;
+  /**
+   * Constructed on first `connect()`, not in the constructor.
+   *
+   * Selecting a backend can require a dynamic import, which a constructor
+   * cannot await. `createSession()` already calls `connect()` first, so the
+   * laziness is invisible to callers.
+   */
+  private backend: SquadBackend | null = null;
   /** Which backend is in use — for error messages and status fallbacks. */
-  private readonly provider: SquadProvider;
+  private provider: SquadProvider;
   private state: SquadConnectionState = 'disconnected';
   private connectPromise: Promise<void> | null = null;
   private readonly autoStart: boolean;
   private readonly eventBus: EventBus | undefined;
+  private readonly options: SquadClientOptions;
 
   constructor(options: SquadClientOptions = {}) {
-    const apiKey = options.geminiApiKey ?? process.env['GEMINI_API_KEY'] ?? '';
-    this.provider = 'gemini';
-    this.backend = new GeminiClient(apiKey);
+    this.options = options;
+    // Resolved eagerly so error messages and getStatus() can name the backend
+    // before anything has connected. Constructing it is what waits.
+    this.provider = resolveProvider(options);
     this.autoStart = options.autoStart ?? true;
     this.eventBus = options.eventBus;
+  }
+
+  /** The backend, once connected. Throws if used before `connect()`. */
+  private get connected(): SquadBackend {
+    if (!this.backend) {
+      throw new Error('Client not connected. Call connect() first.');
+    }
+    return this.backend;
   }
 
   // ---------------------------------------------------------------------------
@@ -119,6 +155,11 @@ export class SquadClient {
     this.connectPromise = (async () => {
       const startTime = Date.now();
       try {
+        if (!this.backend) {
+          const selected = await createBackend(this.options);
+          this.provider = selected.provider;
+          this.backend = selected.backend;
+        }
         await this.backend.start();
         this.state = 'connected';
         span.setAttribute('connection.duration_ms', Date.now() - startTime);
@@ -142,7 +183,7 @@ export class SquadClient {
   async disconnect(): Promise<Error[]> {
     const span = tracer.startSpan('squad.client.disconnect');
     try {
-      const errors = await this.backend.stop();
+      const errors = await this.connected.stop();
       this.state = 'disconnected';
       return errors;
     } catch (err) {
@@ -155,7 +196,7 @@ export class SquadClient {
   }
 
   async forceDisconnect(): Promise<void> {
-    await this.backend.stop();
+    await this.connected.stop();
     this.state = 'disconnected';
   }
 
@@ -173,7 +214,7 @@ export class SquadClient {
         throw new Error('Client not connected. Call connect() first.');
       }
 
-      const session = this.backend.createSession(config);
+      const session = this.connected.createSession(config);
       if (session.sessionId) {
         span.setAttribute('session.id', session.sessionId);
       }
@@ -187,7 +228,15 @@ export class SquadClient {
           const inputTokens = typeof event['inputTokens'] === 'number' ? event['inputTokens'] : 0;
           const outputTokens = typeof event['outputTokens'] === 'number' ? event['outputTokens'] : 0;
           const model = typeof event['model'] === 'string' ? event['model'] : 'unknown';
-          const cost = estimateCost(model, inputTokens, outputTokens);
+          // A backend that knows what the turn actually cost is always more
+          // accurate than a catalog estimate: it accounts for cache reads and
+          // writes, and it reports the model that truly served the turn
+          // (which may be a dated id the catalog has no entry for).
+          const reported = event['costUsd'];
+          const cost =
+            typeof reported === 'number' && Number.isFinite(reported)
+              ? reported
+              : estimateCost(model, inputTokens, outputTokens);
           void bus.emit({
             type: 'session:message',
             sessionId: sid,
@@ -233,11 +282,11 @@ export class SquadClient {
   }
 
   async listSessions(): Promise<SquadSessionMetadata[]> {
-    return (await this.backend.listSessions?.()) ?? [];
+    return (await this.connected.listSessions?.()) ?? [];
   }
 
   async getLastSessionId(): Promise<string | undefined> {
-    return this.backend.getLastSessionId?.();
+    return this.connected.getLastSessionId?.();
   }
 
   // ---------------------------------------------------------------------------
@@ -245,11 +294,11 @@ export class SquadClient {
   // ---------------------------------------------------------------------------
 
   async getAuthStatus(): Promise<SquadGetAuthStatusResponse> {
-    return this.backend.getAuthStatus();
+    return this.connected.getAuthStatus();
   }
 
   async getStatus(): Promise<SquadGetStatusResponse> {
-    return (await this.backend.getStatus?.()) ?? { version: this.provider, protocolVersion: 1 };
+    return (await this.backend?.getStatus?.()) ?? { version: this.provider, protocolVersion: 1 };
   }
 
   async ping(msg?: string): Promise<{ message: string; timestamp: number; protocolVersion: number }> {
@@ -257,7 +306,7 @@ export class SquadClient {
   }
 
   async listModels(): Promise<SquadModelInfo[]> {
-    return (await this.backend.listModels?.()) ?? [];
+    return (await this.backend?.listModels?.()) ?? [];
   }
 
   // ---------------------------------------------------------------------------
@@ -403,7 +452,7 @@ export class SquadClient {
     eventTypeOrHandler: SquadClientEventType | SquadClientEventHandler,
     handler?: (event: SquadClientEvent) => void,
   ): () => void {
-    if (!this.backend.on) return () => {};
+    if (!this.backend?.on) return () => {};
     // Overloaded: either (eventType, handler) or (handler) for all events.
     if (typeof eventTypeOrHandler === 'function') {
       return this.backend.on('session.created', eventTypeOrHandler);
