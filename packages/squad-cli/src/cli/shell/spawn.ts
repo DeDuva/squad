@@ -5,6 +5,7 @@
  */
 
 import { resolveSquad } from '@deduvafork/squad-sdk/resolution';
+import { resolveModel } from '@deduvafork/squad-sdk/config';
 import { SquadClient } from '@deduvafork/squad-sdk/client';
 import type { SquadSession } from '@deduvafork/squad-sdk/client';
 import type { SquadTool } from '@deduvafork/squad-sdk/adapter';
@@ -18,6 +19,25 @@ function debugLog(...args: unknown[]): void {
   if (process.env['SQUAD_DEBUG'] === '1') {
     console.error('[SQUAD_DEBUG]', ...args);
   }
+}
+
+/**
+ * Resolve the model a session should run on.
+ *
+ * `resolveModel` implements the documented 5-layer hierarchy but had no
+ * callers, so `squad config model <id>` wrote `.squad/config.json` and nothing
+ * ever read it back — every session silently used the backend's own
+ * constructor default. Routing session creation through here is what makes
+ * the persisted preference (and per-agent overrides) take effect.
+ *
+ * @param teamRoot - repo root; `.squad/` hangs off it
+ * @param agentName - when set, per-agent overrides in config.json apply
+ */
+export function resolveSessionModel(teamRoot: string, agentName?: string): string {
+  return resolveModel({
+    ...(agentName ? { agentName } : {}),
+    squadDir: join(teamRoot, '.squad'),
+  });
 }
 
 export interface SpawnOptions {
@@ -153,6 +173,7 @@ export async function spawnAgent(
 
     const session: SquadSession = await options.client.createSession({
       streaming: true,
+      model: resolveSessionModel(teamRoot, name),
       systemMessage: { mode: 'append', content: systemPrompt },
       workingDirectory: teamRoot,
       tools: buildAgentTools(teamRoot),
@@ -161,7 +182,10 @@ export async function spawnAgent(
     // Accumulate streamed response
     let accumulated = '';
     const onDelta = (event: { type: string; [key: string]: unknown }): void => {
-      const val = event['delta'] ?? event['content'];
+      // Match the shell's extractDelta() candidate list. Reading only
+      // `delta`/`content` silently accumulated nothing against a backend that
+      // emits `text`, so a dispatched agent returned an empty response.
+      const val = event['deltaContent'] ?? event['delta'] ?? event['content'] ?? event['text'];
       if (typeof val === 'string') accumulated += val;
     };
 

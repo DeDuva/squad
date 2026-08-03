@@ -8,6 +8,7 @@
  */
 
 import { GeminiClient } from './gemini-client.js';
+import type { SquadBackend, SquadProvider } from './backend.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import { recordSessionCreated, recordSessionClosed, recordSessionError, recordTokenUsage } from '../runtime/otel-metrics.js';
 import { estimateCost } from '../config/models.js';
@@ -59,7 +60,7 @@ export interface SquadClientOptions {
 }
 
 /**
- * SquadClient — thin lifecycle wrapper around GeminiClient.
+ * SquadClient — lifecycle wrapper and tracing shim over a {@link SquadBackend}.
  *
  * @example
  * ```typescript
@@ -73,7 +74,9 @@ export interface SquadClientOptions {
  * ```
  */
 export class SquadClient {
-  private backend: GeminiClient;
+  private backend: SquadBackend;
+  /** Which backend is in use — for error messages and status fallbacks. */
+  private readonly provider: SquadProvider;
   private state: SquadConnectionState = 'disconnected';
   private connectPromise: Promise<void> | null = null;
   private readonly autoStart: boolean;
@@ -81,6 +84,7 @@ export class SquadClient {
 
   constructor(options: SquadClientOptions = {}) {
     const apiKey = options.geminiApiKey ?? process.env['GEMINI_API_KEY'] ?? '';
+    this.provider = 'gemini';
     this.backend = new GeminiClient(apiKey);
     this.autoStart = options.autoStart ?? true;
     this.eventBus = options.eventBus;
@@ -121,7 +125,7 @@ export class SquadClient {
       } catch (error) {
         this.state = 'error';
         const wrapped = new Error(
-          `Failed to connect to Gemini API: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to connect to ${this.provider} backend: ${error instanceof Error ? error.message : String(error)}`,
         );
         span.setStatus({ code: SpanStatusCode.ERROR, message: wrapped.message });
         span.recordException(wrapped);
@@ -228,13 +232,12 @@ export class SquadClient {
     }
   }
 
-  // Gemini is stateless — no server-side session list
   async listSessions(): Promise<SquadSessionMetadata[]> {
-    return [];
+    return (await this.backend.listSessions?.()) ?? [];
   }
 
   async getLastSessionId(): Promise<string | undefined> {
-    return undefined;
+    return this.backend.getLastSessionId?.();
   }
 
   // ---------------------------------------------------------------------------
@@ -246,16 +249,15 @@ export class SquadClient {
   }
 
   async getStatus(): Promise<SquadGetStatusResponse> {
-    return { version: 'gemini', protocolVersion: 1 };
+    return (await this.backend.getStatus?.()) ?? { version: this.provider, protocolVersion: 1 };
   }
 
   async ping(msg?: string): Promise<{ message: string; timestamp: number; protocolVersion: number }> {
     return { message: msg ?? 'pong', timestamp: Date.now(), protocolVersion: 1 };
   }
 
-  // Gemini models come from local catalog; live listing not needed for airlock
   async listModels(): Promise<SquadModelInfo[]> {
-    return [];
+    return (await this.backend.listModels?.()) ?? [];
   }
 
   // ---------------------------------------------------------------------------
@@ -388,13 +390,25 @@ export class SquadClient {
   }
 
   // ---------------------------------------------------------------------------
-  // Client-level events (no-op stubs — Gemini has no server-push lifecycle events)
+  // Client-level lifecycle events
   // ---------------------------------------------------------------------------
 
+  /**
+   * Subscribe to client-level lifecycle events, returning an unsubscribe fn.
+   *
+   * Backends without a server-push channel omit `on`, in which case this
+   * returns a no-op unsubscribe — callers never have to null-check.
+   */
   on(
-    _eventTypeOrHandler: SquadClientEventType | SquadClientEventHandler,
-    _handler?: (event: SquadClientEvent) => void,
+    eventTypeOrHandler: SquadClientEventType | SquadClientEventHandler,
+    handler?: (event: SquadClientEvent) => void,
   ): () => void {
-    return () => {};
+    if (!this.backend.on) return () => {};
+    // Overloaded: either (eventType, handler) or (handler) for all events.
+    if (typeof eventTypeOrHandler === 'function') {
+      return this.backend.on('session.created', eventTypeOrHandler);
+    }
+    if (!handler) return () => {};
+    return this.backend.on(eventTypeOrHandler, handler);
   }
 }

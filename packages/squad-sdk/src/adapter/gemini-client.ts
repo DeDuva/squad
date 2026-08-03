@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import type { SquadBackend } from './backend.js';
 import type {
   SquadSession,
   SquadSessionConfig,
@@ -18,6 +19,9 @@ import type {
   SquadTool,
   SquadReasoningEffort,
   SquadGetAuthStatusResponse,
+  SquadSessionMetadata,
+  SquadGetStatusResponse,
+  SquadModelInfo,
   SquadSessionHooks,
   SquadPreToolUseHookInput,
   SquadPostToolUseHookInput,
@@ -324,7 +328,11 @@ export class GeminiSession implements SquadSession {
         for (const part of parts) {
           if (part.text !== undefined && !part.thought) {
             modelParts.push({ text: part.text });
-            this.emit({ type: 'message_delta', text: part.text });
+            // Consumers disagree on which key carries the text: the shell reads
+            // `deltaContent ?? delta ?? content ?? text`, while spawnAgent reads
+            // `delta ?? content`. Emitting all three keeps both working no
+            // matter which key a given caller reaches for first.
+            this.emit({ type: 'message_delta', delta: part.text, text: part.text, content: part.text });
           }
 
           if (part.functionCall) {
@@ -509,7 +517,7 @@ export class GeminiSession implements SquadSession {
 // GeminiClient — validates the API key and creates sessions
 // ---------------------------------------------------------------------------
 
-export class GeminiClient {
+export class GeminiClient implements SquadBackend {
   private apiKey: string;
   private connected = false;
 
@@ -563,5 +571,29 @@ export class GeminiClient {
         statusMessage: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  // --- Optional SquadBackend members --------------------------------------
+  // These used to live as hardcoded returns inside SquadClient, which made
+  // "Gemini is stateless" read as a fact about squad. They are Gemini's
+  // answers, so they belong to Gemini.
+
+  /** Gemini is stateless — there is no server-side session list to fetch. */
+  async listSessions(): Promise<SquadSessionMetadata[]> {
+    return [];
+  }
+
+  /** No server-side sessions means no "last" one. */
+  async getLastSessionId(): Promise<string | undefined> {
+    return undefined;
+  }
+
+  async getStatus(): Promise<SquadGetStatusResponse> {
+    return { version: 'gemini', protocolVersion: 1 };
+  }
+
+  /** The local catalog is authoritative in airlock mode; no live listing needed. */
+  async listModels(): Promise<SquadModelInfo[]> {
+    return [];
   }
 }
