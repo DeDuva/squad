@@ -46,6 +46,36 @@ export function parseGitHubRemote(url: string): GitHubRemoteInfo | null {
 }
 
 /**
+ * Parse a git remote URL into owner/repo without requiring the literal
+ * `github.com` host — for GitHub-API-compatible backends (GitHub Enterprise
+ * Server, or a host emulating GitHub's REST/GraphQL surface) reachable at
+ * some other domain.
+ *
+ * Deliberately NOT folded into `parseGitHubRemote`: that function is relied
+ * on to reject GitLab/Bitbucket-shaped URLs (see its tests), which are
+ * structurally indistinguishable from a self-hosted GitHub-compatible host —
+ * the URL alone can't tell them apart. Callers should only reach for this
+ * once something *outside* the URL has already disambiguated intent (see
+ * `GH_HOST` handling in `platform/index.ts`).
+ *
+ * Supports the same HTTPS/SSH shapes as `parseGitHubRemote`, including
+ * embedded userinfo (e.g. `http://x-access-token:TOKEN@host/owner/repo.git`).
+ */
+export function parseGenericGitHubHostRemote(url: string): GitHubRemoteInfo | null {
+  const httpsMatch = url.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/@]+@)?[^/]+\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (httpsMatch) {
+    return { owner: httpsMatch[1]!, repo: httpsMatch[2]! };
+  }
+
+  const sshMatch = url.match(/^[^@/]+@[^:/]+:([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return { owner: sshMatch[1]!, repo: sshMatch[2]! };
+  }
+
+  return null;
+}
+
+/**
  * Parse an Azure DevOps remote URL into org/project/repo.
  * Supports multiple formats:
  *   https://dev.azure.com/org/project/_git/repo

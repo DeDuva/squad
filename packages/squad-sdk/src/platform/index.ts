@@ -22,7 +22,7 @@ export { createCommunicationAdapter } from './comms.js';
 import { join } from 'node:path';
 import { FSStorageProvider } from '../storage/fs-storage-provider.js';
 import type { PlatformAdapter } from './types.js';
-import { detectPlatform, getRemoteUrl, parseGitHubRemote, parseAzureDevOpsRemote } from './detect.js';
+import { detectPlatform, getRemoteUrl, parseGitHubRemote, parseGenericGitHubHostRemote, parseAzureDevOpsRemote } from './detect.js';
 import { GitHubAdapter } from './github.js';
 import { AzureDevOpsAdapter } from './azure-devops.js';
 import type { AdoWorkItemConfig } from './azure-devops.js';
@@ -92,7 +92,15 @@ export function createPlatformAdapter(repoRoot: string): PlatformAdapter {
     return new AzureDevOpsAdapter(info.org, info.project, info.repo, adoConfig);
   }
 
-  const info = parseGitHubRemote(remoteUrl);
+  // GH_HOST set to something other than github.com is an explicit signal —
+  // the same one `gh` itself uses — that this remote's host is intended as a
+  // GitHub-API-compatible backend, not merely an unrecognized one. Only then
+  // is it safe to parse owner/repo without the literal `github.com` anchor;
+  // without that signal, a GitLab/Bitbucket remote would be indistinguishable
+  // from a self-hosted GitHub-compatible one from the URL alone.
+  const ghHost = process.env['GH_HOST'];
+  const info = parseGitHubRemote(remoteUrl)
+    ?? (ghHost && ghHost !== 'github.com' ? parseGenericGitHubHostRemote(remoteUrl) : null);
   if (!info) {
     throw new Error(`Could not parse GitHub remote URL: ${remoteUrl}`);
   }

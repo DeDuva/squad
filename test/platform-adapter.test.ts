@@ -2,10 +2,11 @@
  * Platform adapter tests — detection, parsing, commands, and type mapping.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   detectPlatformFromUrl,
   parseGitHubRemote,
+  parseGenericGitHubHostRemote,
   parseAzureDevOpsRemote,
 } from '../packages/squad-sdk/src/platform/detect.js';
 import { detectWorkItemSource } from '../packages/squad-sdk/src/platform/detect.js';
@@ -110,6 +111,50 @@ describe('parseGitHubRemote', () => {
   it('parses SSH repo name containing dots', () => {
     const result = parseGitHubRemote('git@github.com:org/api.service.git');
     expect(result).toEqual({ owner: 'org', repo: 'api.service' });
+  });
+});
+
+// ─── Generic GitHub-compatible-host Remote Parsing ────────────────────
+
+describe('parseGenericGitHubHostRemote', () => {
+  it('parses an HTTPS URL on a non-github.com host', () => {
+    const result = parseGenericGitHubHostRemote('http://localhost:3000/squad-m3/widget.git');
+    expect(result).toEqual({ owner: 'squad-m3', repo: 'widget' });
+  });
+
+  it('parses an HTTPS URL with embedded userinfo credentials', () => {
+    const result = parseGenericGitHubHostRemote(
+      'http://x-access-token:sometoken@localhost:3000/squad-m3/widget.git',
+    );
+    expect(result).toEqual({ owner: 'squad-m3', repo: 'widget' });
+  });
+
+  it('parses a URL without a .git suffix', () => {
+    const result = parseGenericGitHubHostRemote('https://ghe.example.com/owner/repo');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo' });
+  });
+
+  it('parses an SSH URL on a non-github.com host', () => {
+    const result = parseGenericGitHubHostRemote('git@ghe.example.com:owner/repo.git');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo' });
+  });
+
+  it('parses a repo name containing dots', () => {
+    const result = parseGenericGitHubHostRemote('http://localhost:3000/owner/my.repo.name.git');
+    expect(result).toEqual({ owner: 'owner', repo: 'my.repo.name' });
+  });
+
+  it('still parses ordinary github.com URLs (host-agnostic)', () => {
+    const result = parseGenericGitHubHostRemote('https://github.com/bradygaster/squad.git');
+    expect(result).toEqual({ owner: 'bradygaster', repo: 'squad' });
+  });
+
+  it('returns null for a malformed URL with no owner/repo path', () => {
+    expect(parseGenericGitHubHostRemote('http://localhost:3000/')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(parseGenericGitHubHostRemote('')).toBeNull();
   });
 });
 
@@ -1208,5 +1253,52 @@ describe('createPlatformAdapter with .squad/config.json github override', () => 
     } finally {
       cleanup();
     }
+  });
+});
+
+// ─── createPlatformAdapter with GH_HOST-gated generic host parsing ─────
+
+describe('createPlatformAdapter with a non-github.com remote', () => {
+  let tempDir: string;
+  const originalGhHost = process.env['GH_HOST'];
+
+  function setupTempRepo(remoteUrl: string): string {
+    tempDir = mkdtempSync(join(tmpdir(), 'squad-test-'));
+    execSync('git init', { cwd: tempDir, stdio: 'ignore' });
+    execSync(`git remote add origin ${remoteUrl}`, { cwd: tempDir, stdio: 'ignore' });
+    return tempDir;
+  }
+
+  afterEach(() => {
+    if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+    if (originalGhHost === undefined) delete process.env['GH_HOST'];
+    else process.env['GH_HOST'] = originalGhHost;
+  });
+
+  it('parses owner/repo when GH_HOST names the non-github.com host', async () => {
+    process.env['GH_HOST'] = 'localhost:3000';
+    const repoRoot = setupTempRepo('http://x-access-token:tok@localhost:3000/squad-m3/widget.git');
+
+    const { createPlatformAdapter } = await import('../packages/squad-sdk/src/platform/index.js');
+    const adapter = createPlatformAdapter(repoRoot);
+
+    expect((adapter as any).owner).toBe('squad-m3');
+    expect((adapter as any).repo).toBe('widget');
+  });
+
+  it('still throws when GH_HOST is unset (no signal to disambiguate from GitLab/Bitbucket)', async () => {
+    delete process.env['GH_HOST'];
+    const repoRoot = setupTempRepo('http://localhost:3000/squad-m3/widget.git');
+
+    const { createPlatformAdapter } = await import('../packages/squad-sdk/src/platform/index.js');
+    expect(() => createPlatformAdapter(repoRoot)).toThrow('Could not parse GitHub remote URL');
+  });
+
+  it('still throws when GH_HOST is explicitly github.com', async () => {
+    process.env['GH_HOST'] = 'github.com';
+    const repoRoot = setupTempRepo('http://localhost:3000/squad-m3/widget.git');
+
+    const { createPlatformAdapter } = await import('../packages/squad-sdk/src/platform/index.js');
+    expect(() => createPlatformAdapter(repoRoot)).toThrow('Could not parse GitHub remote URL');
   });
 });
