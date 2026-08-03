@@ -755,17 +755,27 @@ export async function runWatch(dest: string, options: WatchOptions | WatchConfig
     fatal('No squad members found in team.md');
   }
 
-  // Pre-create squad member labels so addTag never fails on missing labels
+  // Pre-create squad member labels so addTag never fails on missing labels.
+  // Best-effort: a failure here doesn't block the round, but the summary
+  // line must reflect what actually happened, not what was attempted.
   if (adapter.ensureTag) {
+    let ensured = 0;
+    const total = roster.length + 1;
     for (const member of roster) {
       try {
         await adapter.ensureTag(member.label, { color: 'd4c5f9', description: `Squad triage: ${member.name}` });
+        ensured++;
       } catch { /* best-effort — continue if label creation fails */ }
     }
     try {
       await adapter.ensureTag('squad:copilot', { color: 'd4c5f9', description: 'Squad triage: Copilot coding agent' });
+      ensured++;
     } catch { /* best-effort */ }
-    console.log(`${DIM}Labels: ensured ${roster.length + 1} squad labels exist${RESET}`);
+    if (ensured === total) {
+      console.log(`${DIM}Labels: ensured ${total} squad labels exist${RESET}`);
+    } else {
+      console.log(`${DIM}Labels: ensured ${ensured}/${total} squad labels exist (${total - ensured} failed — platform may not support labels)${RESET}`);
+    }
   }
 
   const hasCopilot = content.includes('🤖 Coding Agent') || content.includes('@copilot');
