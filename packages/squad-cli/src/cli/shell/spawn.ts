@@ -161,7 +161,10 @@ export async function spawnAgent(
     // Accumulate streamed response
     let accumulated = '';
     const onDelta = (event: { type: string; [key: string]: unknown }): void => {
-      const val = event['delta'] ?? event['content'];
+      // Match the shell's extractDelta() candidate list. Reading only
+      // `delta`/`content` silently accumulated nothing against a backend that
+      // emits `text`, so a dispatched agent returned an empty response.
+      const val = event['deltaContent'] ?? event['delta'] ?? event['content'] ?? event['text'];
       if (typeof val === 'string') accumulated += val;
     };
 
