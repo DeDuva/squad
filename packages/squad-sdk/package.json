@@ -1,7 +1,7 @@
 {
   "name": "@deduvafork/squad-sdk",
   "version": "0.11.0-build.2",
-  "description": "Squad SDK — Programmable multi-agent runtime powered by Gemini",
+  "description": "Squad SDK \u2014 Programmable multi-agent runtime powered by Gemini",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -277,5 +277,17 @@
     "type": "git",
     "url": "git+https://github.com/bradygaster/squad.git",
     "directory": "packages/squad-sdk"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.220",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   }
 }
