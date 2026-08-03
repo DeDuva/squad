@@ -10,6 +10,7 @@ import type { MachineCapabilities } from '@deduvafork/squad-sdk/ralph/capabiliti
 import { createVerboseLogger } from '../verbose.js';
 import { loadAgentCharter } from '../../../shell/spawn.js';
 import { withAdditionalMcpConfig } from '../../../core/copilot-invocation.js';
+import { resolveAgentCommand, parseHarnessOutput } from '../../../core/agent-invocation.js';
 
 /** Normalized work item for execution. */
 export interface ExecutableWorkItem {
@@ -52,17 +53,16 @@ function buildAgentCommand(
   prompt: string,
   context: WatchContext,
 ): { cmd: string; args: string[] } {
-  if (context.agentCmd) {
-    const parts = context.agentCmd.trim().split(/\s+/);
-    const cmd = parts[0]!;
-    const args = [...parts.slice(1), '-p', prompt];
-    return { cmd, args };
-  }
-  const args = ['-p', prompt];
-  if (context.copilotFlags) {
-    args.push(...context.copilotFlags.trim().split(/\s+/));
-  }
-  return { cmd: 'copilot', args: withAdditionalMcpConfig('copilot', args, context.teamRoot) };
+  const resolved = resolveAgentCommand(prompt, {
+    ...(context.agentCmd ? { agentCmd: context.agentCmd } : {}),
+    ...(context.copilotFlags ? { copilotFlags: context.copilotFlags } : {}),
+  });
+  // The copilot MCP-config injection is a no-op for any other command, but
+  // routing through it keeps the legacy harness working unchanged.
+  return {
+    cmd: resolved.cmd,
+    args: withAdditionalMcpConfig(resolved.cmd, resolved.args, context.teamRoot),
+  };
 }
 
 /** Labels that indicate an issue should not be auto-executed. */
@@ -169,11 +169,26 @@ async function executeAll(
       cmd,
       args,
       { cwd: context.teamRoot, timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 },
-      (err) => {
+      (err, stdout) => {
+        // stdout used to be discarded outright, so an unattended run could
+        // spend real money and leave no record of what it did. With
+        // --output-format json the harness reports its own result, cost, and
+        // turn count; surface them.
+        const summary = parseHarnessOutput(stdout ?? '');
+        if (summary) {
+          const parts: string[] = [];
+          if (typeof summary.numTurns === 'number') parts.push(`${summary.numTurns} turns`);
+          if (typeof summary.totalCostUsd === 'number') parts.push(`$${summary.totalCostUsd.toFixed(4)}`);
+          if (parts.length > 0) console.log(`  Harness: ${parts.join(', ')}`);
+        }
+
         if (err) {
           const execErr = err as Error & { killed?: boolean };
           const msg = execErr.killed ? `Timed out` : execErr.message;
           resolve({ success: false, error: msg });
+        } else if (summary?.isError) {
+          // A harness can exit 0 while reporting its own failure.
+          resolve({ success: false, error: summary.result ?? 'agent reported an error' });
         } else {
           resolve({ success: true });
         }
