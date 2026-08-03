@@ -132,11 +132,12 @@ export class GitHubAdapter implements PlatformAdapter {
     const args = ['label', 'create', tag, '--repo', this.repoFlag, '--force'];
     if (options?.color) args.push('--color', options.color);
     if (options?.description) args.push('--description', options.description);
-    try {
-      this.gh(args);
-    } catch {
-      // Label already exists or creation failed — continue either way
-    }
+    // --force means gh already treats "label exists" as success (it updates
+    // it in place), so a thrown error here is a real failure — a host that
+    // doesn't support labels at all, a permissions problem, etc. — not a
+    // benign duplicate. Let it propagate; callers decide whether ensuring
+    // labels is load-bearing enough to report.
+    this.gh(args);
   }
 
   async removeTag(workItemId: number, tag: string): Promise<void> {
@@ -189,13 +190,25 @@ export class GitHubAdapter implements PlatformAdapter {
       '--head', options.sourceBranch,
       '--base', options.targetBranch,
       '--title', options.title,
-      '--json', 'number,title,headRefName,baseRefName,state,isDraft,reviewDecision,author,url',
     ];
     if (options.description) {
       args.push('--body', options.description);
     }
 
-    const output = this.gh(args);
+    // gh pr create doesn't support --json (unlike pr list/view); it prints
+    // the PR URL to stdout, same as issue create above. Parse the number out
+    // of it, then fetch the full record with a follow-up `pr view`.
+    const url = this.gh(args);
+    const match = url.match(/\/pulls?\/(\d+)\s*$/);
+    if (!match) {
+      throw new Error(`Could not parse PR number from gh output: ${url}`);
+    }
+    const prNumber = parseInt(match[1]!, 10);
+
+    const output = this.gh([
+      'pr', 'view', String(prNumber), '--repo', this.repoFlag,
+      '--json', 'number,title,headRefName,baseRefName,state,isDraft,reviewDecision,author,url',
+    ]);
     const pr = parseJson<{
       number: number;
       title: string;
