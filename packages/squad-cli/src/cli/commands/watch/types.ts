@@ -34,6 +34,14 @@ export interface WatchContext {
   roster: Array<{ name: string; label: string; expertise: string[] }>;
   /** This capability's config from config.json. */
   config: Record<string, unknown>;
+  /**
+   * Issue label that opts work in to autonomous execution.
+   *
+   * Defaults to `squad`. Narrowing it (e.g. to `squad:auto`) lets a repo keep
+   * `squad` as a human-triage label without every issue carrying it becoming
+   * eligible for an unattended agent to pick up and open PRs against.
+   */
+  executeLabel?: string;
   /** Hidden --agent-cmd override. */
   agentCmd?: string;
   copilotFlags?: string;
