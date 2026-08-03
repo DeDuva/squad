@@ -177,9 +177,25 @@ describe('estimateCost()', () => {
 
 describe('MODEL_CATALOG pricing', () => {
   it('latest-alias models have no static pricing (resolved at runtime)', () => {
-    // -latest aliases do not carry hardcoded pricing; estimateCost returns 0
-    for (const model of MODEL_CATALOG) {
+    // A `-latest` alias moves with each stable release, so any rate pinned
+    // here would be wrong the moment it does. estimateCost returns 0 for them.
+    const aliases = MODEL_CATALOG.filter(m => m.id.endsWith('-latest'));
+
+    expect(aliases.length).toBeGreaterThan(0);
+    for (const model of aliases) {
       expect(model.pricing).toBeUndefined();
+    }
+  });
+
+  it('version-pinned models do carry static pricing', () => {
+    // The counterpart to the rule above: a pinned ID names one model whose
+    // rate card is stable enough to hardcode. Without pricing on these,
+    // cost tracking silently reports $0 — which is what it did before.
+    const pinned = MODEL_CATALOG.filter(m => !m.id.endsWith('-latest'));
+
+    expect(pinned.length).toBeGreaterThan(0);
+    for (const model of pinned) {
+      expect(model.pricing).toBeDefined();
     }
   });
 });

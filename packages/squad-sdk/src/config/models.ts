@@ -57,12 +57,68 @@ export interface ModelInfo {
 
 /**
  * Full model catalog.
- * Gemini models are the primary backend (airlock mode — no Copilot broker).
+ *
+ * Anthropic is the default provider; Gemini remains selectable behind the
+ * provider switch (see `adapter/backend-factory.ts`).
  */
 export const MODEL_CATALOG: ModelInfo[] = [
   // -------------------------------------------------------------------------
-  // Gemini — primary provider
+  // Anthropic — default provider
+  // Pricing is per-token USD, converted from the published per-million rates.
+  // -------------------------------------------------------------------------
+
+  // Premium tier
+  {
+    id: 'claude-opus-5',
+    tier: 'premium',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['architecture proposals', 'security audits', 'complex design', 'deep reasoning', 'reviewer gates', 'long context', 'long-horizon agentic work'],
+    cost: 8,
+    speed: 5,
+    // $5 / $25 per million tokens.
+    pricing: { inputPerToken: 5e-6, outputPerToken: 25e-6 },
+  },
+
+  // Standard tier
+  {
+    id: 'claude-sonnet-5',
+    tier: 'standard',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['code generation', 'test writing', 'refactoring', 'agentic coding', 'code review', 'boilerplate'],
+    cost: 5,
+    speed: 7,
+    // $3 / $15 per million tokens. An introductory rate of $2 / $10 runs
+    // through 2026-08-31; the standard rate is used here so estimates don't
+    // silently under-report once the promotion ends.
+    pricing: { inputPerToken: 3e-6, outputPerToken: 15e-6 },
+  },
+
+  // Fast tier
+  {
+    id: 'claude-haiku-4-5',
+    tier: 'fast',
+    provider: 'anthropic',
+    family: 'claude',
+    vision: true,
+    useCases: ['triage', 'classification', 'changelogs', 'simple fixes', 'summarization'],
+    cost: 2,
+    speed: 9,
+    // $1 / $5 per million tokens.
+    pricing: { inputPerToken: 1e-6, outputPerToken: 5e-6 },
+  },
+
+  // -------------------------------------------------------------------------
+  // Gemini — selectable via `squad config provider gemini`
   // Version-free aliases that always resolve to the latest stable build.
+  //
+  // Deliberately unpriced: the alias moves with each stable release, so any
+  // rate hardcoded here is wrong the moment it does. `estimateCost` returns 0
+  // for these, which is the pre-existing behaviour. The Anthropic path does
+  // not depend on this — its backend reports real spend per turn.
   // -------------------------------------------------------------------------
 
   // Premium tier
@@ -91,14 +147,33 @@ export const MODEL_CATALOG: ModelInfo[] = [
 ];
 
 /**
- * Default fallback chains per tier.
- * Gemini models are the default — all tiers fall back within the Gemini family.
+ * Default fallback chains per tier, per provider.
+ *
+ * Chains never cross providers: a session is bound to one backend, so falling
+ * back from a Claude model to a Gemini one would fail at the transport layer
+ * rather than degrade gracefully.
  */
-export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> = {
-  premium:  ['gemini-pro-latest', 'gemini-flash-latest'],
-  standard: ['gemini-flash-latest'],
-  fast:     ['gemini-flash-latest'],
+export const FALLBACK_CHAINS_BY_PROVIDER: Record<'anthropic' | 'gemini', Record<ModelTier, ModelId[]>> = {
+  anthropic: {
+    premium:  ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'],
+    standard: ['claude-sonnet-5', 'claude-haiku-4-5'],
+    fast:     ['claude-haiku-4-5'],
+  },
+  gemini: {
+    premium:  ['gemini-pro-latest', 'gemini-flash-latest'],
+    standard: ['gemini-flash-latest'],
+    fast:     ['gemini-flash-latest'],
+  },
 };
+
+/**
+ * Default fallback chains per tier.
+ *
+ * Kept pointing at the Gemini chains so existing callers and tests see no
+ * behaviour change; provider-aware callers should read
+ * {@link FALLBACK_CHAINS_BY_PROVIDER} instead.
+ */
+export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> = FALLBACK_CHAINS_BY_PROVIDER.gemini;
 
 /**
  * Model registry for lookups and availability checking.
@@ -355,6 +430,12 @@ export function estimateCost(model: string, inputTokens: number, outputTokens: n
 export const ECONOMY_MODEL_MAP: Record<string, string> = {
   // Premium → flash downgrade
   'gemini-pro-latest': 'gemini-flash-latest',
+
+  // Anthropic: one step down the tier ladder, never across providers.
+  // Haiku is already the cheapest Claude model, so it maps to itself by
+  // omission rather than being listed.
+  'claude-opus-5': 'claude-sonnet-5',
+  'claude-sonnet-5': 'claude-haiku-4-5',
 };
 
 /**
@@ -892,8 +973,8 @@ export function resolveReasoningEffort(options: {
  *   Layer 0: Persistent config (.squad/config.json defaultModel)
  *   Layer 1: Session-wide user directive ("always use gemini-pro")
  *   Layer 2: Charter preference (agent's ## Model section)
- *   Layer 3: Task-aware auto-selection (code → gemini-flash, docs → gemini-flash)
- *   Layer 4: Default (gemini-flash-latest)
+ *   Layer 3: Task-aware auto-selection (code → flash/sonnet, docs → flash/sonnet)
+ *   Layer 4: Default (the `provider`'s standard-tier model)
  *
  * Per-agent overrides from config.json take priority over the global defaultModel.
  *
@@ -914,6 +995,15 @@ export function resolveModel(options: {
   economyMode?: boolean;
   /** Storage provider for config file access. */
   storage?: StorageProvider;
+  /**
+   * Backend the resolved model must belong to. Only affects Layer 4 — every
+   * earlier layer is an explicit choice the caller already made, and silently
+   * rewriting those to match the provider would hide a real misconfiguration
+   * behind a model that happens to load.
+   * @default 'gemini' (preserves pre-existing behaviour for callers that
+   *          haven't been made provider-aware yet)
+   */
+  provider?: 'anthropic' | 'gemini';
 }): string {
   const { agentName, squadDir, sessionDirective, charterPreference, taskModel } = options;
   const storage = options.storage ?? new FSStorageProvider();
@@ -955,7 +1045,8 @@ export function resolveModel(options: {
     return isEconomy ? applyEconomyMode(taskModel) : taskModel;
   }
 
-  // Layer 4: Default (economy mode applies)
-  const defaultModel = 'gemini-flash-latest';
+  // Layer 4: Default (economy mode applies). Provider-aware — the standard
+  // tier of whichever backend the session will actually run on.
+  const defaultModel = FALLBACK_CHAINS_BY_PROVIDER[options.provider ?? 'gemini'].standard[0]!;
   return isEconomy ? applyEconomyMode(defaultModel) : defaultModel;
 }

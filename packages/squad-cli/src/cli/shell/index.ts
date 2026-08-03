@@ -27,7 +27,7 @@ import type { UsageEvent } from '@deduvafork/squad-sdk';
 import { enableShellMetrics, recordShellSessionDuration, recordAgentResponseLatency, recordShellError } from './shell-metrics.js';
 import { parseAgentFromDescription } from './agent-name-parser.js';
 import { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, hasRosterEntries } from './coordinator.js';
-import { loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
+import { loadAgentCharter, buildAgentPrompt, buildAgentTools, resolveSessionModel } from './spawn.js';
 import { createSession, saveSession, loadLatestSession, type SessionData } from './session-store.js';
 import { parseDispatchTargets, type ParsedInput } from './router.js';
 import { agentSessionGuidance, genericGuidance, rateLimitGuidance, extractRetryAfter, formatGuidance, isAuthError, missingApiKeyGuidance } from './error-messages.js';
@@ -39,7 +39,7 @@ export type { StreamBridgeOptions } from './stream-bridge.js';
 export { ShellRenderer } from './render.js';
 export { ShellLifecycle } from './lifecycle.js';
 export type { LifecycleOptions, DiscoveredAgent } from './lifecycle.js';
-export { spawnAgent, loadAgentCharter, buildAgentPrompt, buildAgentTools } from './spawn.js';
+export { spawnAgent, loadAgentCharter, buildAgentPrompt, buildAgentTools, resolveSessionModel } from './spawn.js';
 export type { SpawnOptions, SpawnResult, ToolDefinition } from './spawn.js';
 export { buildCoordinatorPrompt, buildInitModePrompt, parseCoordinatorResponse, formatConversationContext, hasRosterEntries } from './coordinator.js';
 export type { CoordinatorConfig, RoutingDecision } from './coordinator.js';
@@ -292,6 +292,7 @@ export async function runShell(): Promise<void> {
       const systemPrompt = await buildCoordinatorPrompt({ teamRoot });
       coordinatorSession = await client.createSession({
         streaming: true,
+        model: resolveSessionModel(teamRoot),
         systemMessage: { mode: 'append', content: systemPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,
@@ -449,6 +450,7 @@ export async function runShell(): Promise<void> {
 
       session = await client.createSession({
         streaming: true,
+        model: resolveSessionModel(teamRoot, agentName),
         systemMessage: { mode: 'append', content: systemPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,
@@ -631,6 +633,7 @@ export async function runShell(): Promise<void> {
       const systemPrompt = await buildCoordinatorPrompt({ teamRoot });
       coordinatorSession = await client.createSession({
         streaming: true,
+        model: resolveSessionModel(teamRoot),
         systemMessage: { mode: 'append', content: systemPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,
@@ -917,6 +920,7 @@ export async function runShell(): Promise<void> {
       const initSysPrompt = buildInitModePrompt({ teamRoot, useBaseRoles });
       initSession = await client.createSession({
         streaming: true,
+        model: resolveSessionModel(teamRoot),
         systemMessage: { mode: 'append', content: initSysPrompt },
         workingDirectory: teamRoot,
         onPermissionRequest: approveAllPermissions,

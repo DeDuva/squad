@@ -9,7 +9,10 @@ import {
   DEFAULT_FALLBACK_CHAINS,
   getModelInfo,
   getFallbackChain,
-  isModelAvailable
+  isModelAvailable,
+  estimateCost,
+  resolveModel,
+  FALLBACK_CHAINS_BY_PROVIDER
 } from '@deduvafork/squad-sdk/config';
 
 describe('MODEL_CATALOG', () => {
@@ -125,8 +128,19 @@ describe('ModelRegistry', () => {
       expect(models.some(m => m.id.includes('gemini'))).toBe(true);
     });
 
-    it('returns empty array for unknown provider', () => {
+    it('returns anthropic models', () => {
       const models = registry.getModelsByProvider('anthropic');
+
+      expect(models.length).toBeGreaterThan(0);
+      expect(models.every(m => m.provider === 'anthropic')).toBe(true);
+      expect(models.every(m => m.family === 'claude')).toBe(true);
+    });
+
+    it('returns empty array for a provider with no catalog entries', () => {
+      // 'openai' is in the ModelInfo provider union but has no entries — this
+      // asserts the empty-result path, which used to be covered by 'anthropic'
+      // back when the catalog was Gemini-only.
+      const models = registry.getModelsByProvider('openai');
 
       expect(models.length).toBe(0);
     });
@@ -238,5 +252,96 @@ describe('convenience functions', () => {
   it('isModelAvailable works', () => {
     expect(isModelAvailable('gemini-pro-latest')).toBe(true);
     expect(isModelAvailable('nonexistent-model')).toBe(false);
+  });
+});
+
+describe('Anthropic catalog entries', () => {
+  const anthropicIds = ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'];
+
+  it.each(anthropicIds)('%s is in the catalog and is priced', (id) => {
+    const info = getModelInfo(id);
+
+    expect(info).toBeDefined();
+    expect(info!.provider).toBe('anthropic');
+    expect(info!.pricing).toBeDefined();
+    expect(info!.pricing!.inputPerToken).toBeGreaterThan(0);
+    expect(info!.pricing!.outputPerToken).toBeGreaterThan(0);
+  });
+
+  it('prices output above input for every priced model', () => {
+    // True of every Anthropic and Gemini rate card. A model where this
+    // inverts is far more likely a transcription slip than a real price.
+    for (const m of MODEL_CATALOG.filter(m => m.pricing)) {
+      expect(m.pricing!.outputPerToken).toBeGreaterThan(m.pricing!.inputPerToken);
+    }
+  });
+
+  it('orders the tiers by cost: opus > sonnet > haiku', () => {
+    const price = (id: string) => getModelInfo(id)!.pricing!.inputPerToken;
+
+    expect(price('claude-opus-5')).toBeGreaterThan(price('claude-sonnet-5'));
+    expect(price('claude-sonnet-5')).toBeGreaterThan(price('claude-haiku-4-5'));
+  });
+});
+
+describe('estimateCost', () => {
+  it('returns a real, non-zero cost for a priced model', () => {
+    // 1M in + 1M out on opus-5 at $5/$25 per MTok.
+    expect(estimateCost('claude-opus-5', 1_000_000, 1_000_000)).toBeCloseTo(30, 6);
+  });
+
+  it('scales linearly with token counts', () => {
+    const single = estimateCost('claude-sonnet-5', 1000, 500);
+    const double = estimateCost('claude-sonnet-5', 2000, 1000);
+
+    expect(double).toBeCloseTo(single * 2, 10);
+  });
+
+  it('returns 0 for an unpriced model rather than throwing', () => {
+    // The Gemini aliases are deliberately unpriced — see the catalog comment.
+    expect(estimateCost('gemini-flash-latest', 1000, 1000)).toBe(0);
+  });
+
+  it('returns 0 for an unknown model', () => {
+    expect(estimateCost('nonexistent-model', 1000, 1000)).toBe(0);
+  });
+});
+
+describe('FALLBACK_CHAINS_BY_PROVIDER', () => {
+  it('never crosses providers within a chain', () => {
+    // A session is bound to one backend, so a cross-provider fallback would
+    // fail at the transport layer instead of degrading.
+    for (const [provider, chains] of Object.entries(FALLBACK_CHAINS_BY_PROVIDER)) {
+      for (const chain of Object.values(chains)) {
+        for (const id of chain) {
+          expect(getModelInfo(id)?.provider).toBe(provider === 'gemini' ? 'google' : provider);
+        }
+      }
+    }
+  });
+
+  it('keeps DEFAULT_FALLBACK_CHAINS on the Gemini chains for back-compat', () => {
+    expect(DEFAULT_FALLBACK_CHAINS).toEqual(FALLBACK_CHAINS_BY_PROVIDER.gemini);
+  });
+});
+
+describe('resolveModel provider-awareness', () => {
+  it('defaults to the Gemini standard tier when no provider is given', () => {
+    expect(resolveModel({})).toBe('gemini-flash-latest');
+  });
+
+  it('defaults to the Anthropic standard tier for provider anthropic', () => {
+    expect(resolveModel({ provider: 'anthropic' })).toBe('claude-sonnet-5');
+  });
+
+  it('downgrades the Anthropic default under economy mode', () => {
+    expect(resolveModel({ provider: 'anthropic', economyMode: true })).toBe('claude-haiku-4-5');
+  });
+
+  it('never rewrites an explicit choice to match the provider', () => {
+    // Layers 0-2 are the caller's explicit decision. Silently swapping them
+    // would hide a real misconfiguration behind a model that happens to load.
+    expect(resolveModel({ provider: 'anthropic', sessionDirective: 'gemini-pro-latest' }))
+      .toBe('gemini-pro-latest');
   });
 });
