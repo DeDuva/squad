@@ -181,13 +181,13 @@
   },
   "dependencies": {
     "@deduvafork/squad-sdk": "file:../squad-sdk",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "ink": "^7.1.1",
     "react": "^19.2.8"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
     "typescript": "^6.0.3",
     "ink-testing-library": "^4.0.0",
     "esbuild": "^0.28.1"

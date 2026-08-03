@@ -241,9 +241,9 @@
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "ai": "^7.0.37",
-    "@ai-sdk/anthropic": "^4.0.21",
-    "@ai-sdk/google": "^4.0.24",
+    "ai": "^7.0.44",
+    "@ai-sdk/anthropic": "^4.0.25",
+    "@ai-sdk/google": "^4.0.29",
     "@ai-sdk/provider-utils": "^5.0.7"
   },
   "optionalDependencies": {
@@ -260,7 +260,7 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "@types/sql.js": "^1.4.10",
     "@types/ws": "^8.5.13",
     "typedoc": "~0.28.20",
