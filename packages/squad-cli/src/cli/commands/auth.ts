@@ -38,8 +38,24 @@ export async function runAuth(args: string[]): Promise<void> {
     const providerIdx = args.indexOf('--provider');
     const provider = providerIdx !== -1 ? args[providerIdx + 1] : 'gemini';
 
+    if (provider === 'anthropic') {
+      // There is nothing to set up. squad stores no Anthropic credential —
+      // the Agent SDK inherits whatever the local `claude` CLI is signed in
+      // with, or ANTHROPIC_API_KEY when one is set. Saying so beats
+      // rejecting the command as unsupported.
+      if (process.env['ANTHROPIC_API_KEY']) {
+        console.log('✓ Anthropic is configured via ANTHROPIC_API_KEY.');
+      } else {
+        console.log('✓ Anthropic needs no setup here.');
+        console.log('  Squad uses whatever credentials your local `claude` CLI is signed in with.');
+        console.log('  Run `claude` and use /login if you are not signed in yet.');
+      }
+      console.log('  Verify with: squad doctor');
+      return;
+    }
+
     if (provider !== 'gemini') {
-      console.error(`✗ Unsupported provider: ${provider}. Only "gemini" is supported.`);
+      console.error(`✗ Unsupported provider: ${provider}. Supported: anthropic, gemini.`);
       process.exit(1);
     }
 

@@ -60,8 +60,6 @@ describe('squad doctor', () => {
     expect(checks.some((c: DoctorCheck) => c.name === 'casting/registry.json exists' && c.status === 'pass')).toBe(true);
     expect(checks.some((c: DoctorCheck) => c.name === 'decisions.md exists' && c.status === 'pass')).toBe(true);
     // ESM checks return 'warn' (not fail) when node_modules absent from test dir
-    expect(checks.some((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field')).toBe(true);
-    expect(checks.some((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch')).toBe(true);
   });
 
   it('reports failures on an empty directory', async () => {
@@ -69,8 +67,16 @@ describe('squad doctor', () => {
 
     const squadDirCheck = checks.find((c: DoctorCheck) => c.name === '.squad/ directory exists');
     expect(squadDirCheck?.status).toBe('fail');
-    // When .squad/ is missing the file checks are skipped — .squad/ + squad.agent.md + Node version + 2 ESM checks + Copilot CLI
-    expect(checks.length).toBe(6);
+    // When .squad/ is missing, the per-file checks are skipped and only the
+    // environment-level ones run. Asserted by name rather than by count: a
+    // bare number breaks whenever any check is added or removed, and says
+    // nothing about which one moved.
+    expect(checks.map((c: DoctorCheck) => c.name).sort()).toEqual([
+      '.squad/ directory exists',
+      '.github/agents/squad.agent.md',
+      'Agent CLI available',
+      'Node.js ≥22.5.0 (node:sqlite)',
+    ].sort());
   });
 
   it('detects remote mode from config.json with teamRoot', async () => {
@@ -211,27 +217,7 @@ describe('squad doctor', () => {
 
   // ── #565 — Actionable resolution hints in warnings ────────────────
 
-  it('vscode-jsonrpc info says "expected for global installs" when not in node_modules', async () => {
-    await scaffold(TEST_ROOT);
 
-    const checks = await runDoctor(TEST_ROOT);
-    const jsonrpcCheck = checks.find((c: DoctorCheck) => c.name === 'vscode-jsonrpc exports field');
-    expect(jsonrpcCheck).toBeDefined();
-    expect(jsonrpcCheck?.status).toBe('warn');
-    expect(jsonrpcCheck?.severity).toBe('info');
-    expect(jsonrpcCheck?.message).toContain('expected for global installs');
-  });
-
-  it('copilot-sdk info says "expected for global installs" when not in node_modules', async () => {
-    await scaffold(TEST_ROOT);
-
-    const checks = await runDoctor(TEST_ROOT);
-    const sdkCheck = checks.find((c: DoctorCheck) => c.name === 'copilot-sdk session.js ESM patch');
-    expect(sdkCheck).toBeDefined();
-    expect(sdkCheck?.status).toBe('warn');
-    expect(sdkCheck?.severity).toBe('info');
-    expect(sdkCheck?.message).toContain('expected for global installs');
-  });
 
   it('absolute teamRoot warning includes "Edit .squad/config.json"', async () => {
     await scaffold(TEST_ROOT);
