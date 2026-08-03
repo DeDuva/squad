@@ -6,6 +6,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { ExecuteCapability } from '../packages/squad-cli/src/cli/commands/watch/capabilities/execute.js';
 import type { WatchContext } from '../packages/squad-cli/src/cli/commands/watch/types.js';
 
@@ -54,5 +57,41 @@ describe('execute capability — opt-in label', () => {
     await new ExecuteCapability().execute(context);
 
     expect(calls[0]?.tags).toEqual(['squad:auto']);
+  });
+});
+
+describe('execute label — reaching the executor from config.json', () => {
+  it('survives the config loader', async () => {
+    // The capability honouring `executeLabel` is only half of it. The loader
+    // copies known keys explicitly, so a field it does not know about is
+    // dropped — and, because it is also absent from the reserved set, read as
+    // a capability name instead. A dry run caught exactly that: the label was
+    // set in config.json and the board still came back clear.
+    const { loadWatchConfig } = await import('../packages/squad-cli/src/cli/commands/watch/config.js');
+    const root = mkdtempSync(join(tmpdir(), 'squad-exec-label-'));
+    const squadDir = join(root, '.squad');
+    mkdirSync(squadDir, { recursive: true });
+    writeFileSync(join(squadDir, 'config.json'), JSON.stringify({ watch: { executeLabel: 'squad:auto' } }));
+
+    try {
+      const config = loadWatchConfig(root, {});
+
+      expect(config.executeLabel).toBe('squad:auto');
+      expect(Object.keys(config.capabilities)).not.toContain('executeLabel');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves executeLabel unset when config.json does not mention it', async () => {
+    const { loadWatchConfig } = await import('../packages/squad-cli/src/cli/commands/watch/config.js');
+    const root = mkdtempSync(join(tmpdir(), 'squad-exec-label-none-'));
+    mkdirSync(join(root, '.squad'), { recursive: true });
+
+    try {
+      expect(loadWatchConfig(root, {}).executeLabel).toBeUndefined();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
