@@ -9,7 +9,8 @@
  * @see https://github.com/bradygaster/squad/issues/923
  */
 
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { resolveAgentCommand, resolveCopilotCmd, _resetHarnessDetection } from '../../core/agent-invocation.js';
 import type { WatchContext } from './types.js';
 
 /** True when running on Windows — used to gate `shell: true`. */
@@ -46,46 +47,13 @@ export function escapeArgs(args: string[]): string[] {
 }
 
 /**
- * Cached result of copilot CLI detection.
- * `null` means we haven't checked yet.
+ * Copilot detection now lives in `cli/core/agent-invocation`. Re-exported
+ * here so existing importers keep working.
  */
-let _copilotResolved: { cmd: string; cmdPrefix: string[] } | null = null;
+export { resolveCopilotCmd };
 
-/**
- * Detect which copilot CLI is available at runtime.
- *
- * Tries standalone `copilot` first (modern default).  If that fails,
- * falls back to `gh copilot` (legacy).  The result is cached for the
- * lifetime of the process so we only shell-out once.
- *
- * @returns `{ cmd, cmdPrefix }` — e.g. `{ cmd: 'copilot', cmdPrefix: [] }`
- *          or `{ cmd: 'gh', cmdPrefix: ['copilot'] }`.
- */
-export function resolveCopilotCmd(): { cmd: string; cmdPrefix: string[] } {
-  if (_copilotResolved) return _copilotResolved;
-
-  try {
-    execFileSync('copilot', ['--version'], {
-      stdio: 'ignore',
-      timeout: 5_000,
-      shell: IS_WINDOWS,
-    });
-    _copilotResolved = { cmd: 'copilot', cmdPrefix: [] };
-  } catch {
-    // Standalone copilot not found — fall back to gh copilot
-    _copilotResolved = { cmd: 'gh', cmdPrefix: ['copilot'] };
-  }
-
-  return _copilotResolved;
-}
-
-/**
- * Reset the cached copilot detection.  Exported for testing only.
- * @internal
- */
-export function _resetCopilotDetection(): void {
-  _copilotResolved = null;
-}
+/** @internal */
+export const _resetCopilotDetection = _resetHarnessDetection;
 
 /**
  * Build the command + args array for an agent invocation.
@@ -100,20 +68,10 @@ export function buildAgentCommand(
   prompt: string,
   context: WatchContext,
 ): { cmd: string; args: string[] } {
-  if (context.agentCmd) {
-    const parts = context.agentCmd.trim().split(/\s+/);
-    const cmd = parts[0]!;
-    const args = [...parts.slice(1), '-p', prompt];
-    return { cmd, args };
-  }
-
-  // Default: detect available copilot CLI at runtime (cached)
-  const { cmd, cmdPrefix } = resolveCopilotCmd();
-  const args = [...cmdPrefix, '-p', prompt];
-  if (context.copilotFlags) {
-    args.push(...context.copilotFlags.trim().split(/\s+/));
-  }
-  return { cmd, args };
+  return resolveAgentCommand(prompt, {
+    ...(context.agentCmd ? { agentCmd: context.agentCmd } : {}),
+    ...(context.copilotFlags ? { copilotFlags: context.copilotFlags } : {}),
+  });
 }
 
 /**

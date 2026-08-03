@@ -7,7 +7,20 @@ await build({
   target: 'node22',
   format: 'esm',
   outfile: 'dist/squad.js',
-  external: ['node-pty', 'sql.js', '@opentelemetry/sdk-node', 'ws'],
+  // The Agent SDK must stay external: it resolves a native per-platform
+  // binary relative to its own file on disk, which inlining breaks — and it
+  // breaks at runtime, in the shipped bundle only, where no test would catch
+  // it. zod and the MCP SDK follow it out as its peers.
+  external: [
+    'node-pty',
+    'sql.js',
+    '@opentelemetry/sdk-node',
+    'ws',
+    '@anthropic-ai/claude-agent-sdk',
+    '@anthropic-ai/sdk',
+    '@modelcontextprotocol/sdk',
+    'zod',
+  ],
   banner: {
     js: [
       // esbuild preserves the entry file's own shebang (from cli-entry.ts) as
