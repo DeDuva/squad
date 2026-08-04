@@ -184,8 +184,13 @@ export class CostTracker {
   }
 
   /**
-   * Wire into an EventBus to receive real-time `session:message` events
-   * that carry usage payloads. Returns an unsubscribe function.
+   * Wire into an EventBus to receive real-time usage.
+   *
+   * Subscribes to `session:model_usage` — the event that says what a model
+   * invocation cost — and keeps listening to `session:message` for producers
+   * that still carry usage in a message payload. Only one of the two is emitted
+   * per turn, so nothing is counted twice; dropping the older subscription
+   * would have silently zeroed anyone still on it.
    */
   wireToEventBus(bus: EventBus): () => void {
     const handler = (event: SquadEvent) => {
@@ -209,7 +214,13 @@ export class CostTracker {
       }
     };
 
-    this.unsubscribe = bus.subscribe('session:message', handler);
+    const unsubscribers = [
+      bus.subscribe('session:model_usage', handler),
+      bus.subscribe('session:message', handler),
+    ];
+    this.unsubscribe = () => {
+      for (const off of unsubscribers) off();
+    };
     return () => {
       if (this.unsubscribe) {
         this.unsubscribe();

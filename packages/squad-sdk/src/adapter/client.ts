@@ -237,8 +237,14 @@ export class SquadClient {
             typeof reported === 'number' && Number.isFinite(reported)
               ? reported
               : estimateCost(model, inputTokens, outputTokens);
+          // `session:model_usage`, not `session:message`. These are the real
+          // token counts a backend reported for one model invocation, and
+          // filing them as a message meant the only way to tell what a turn
+          // cost from something an agent said was to sniff the payload for
+          // `inputTokens` — which is why they never reached ADP as model calls.
+          // CostTracker consumes both, so nothing that was counting stops.
           void bus.emit({
-            type: 'session:message',
+            type: 'session:model_usage',
             sessionId: sid,
             payload: { inputTokens, outputTokens, model, estimatedCost: cost },
             timestamp: new Date(),

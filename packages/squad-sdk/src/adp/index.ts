@@ -10,4 +10,7 @@
  */
 
 export * from './client.js';
+export * from './config.js';
 export * from './recorder.js';
+export * from './spool.js';
+export * from './assignment.js';

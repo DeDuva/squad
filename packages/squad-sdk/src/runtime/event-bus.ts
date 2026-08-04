@@ -27,6 +27,13 @@ export type SquadLifecycleEvent =
  */
 export type SquadOperationalEvent =
   | 'session:message'
+  /**
+   * One model invocation, with what it actually cost. Distinct from
+   * `session:message`, which usage events used to be smuggled through: a turn's
+   * token counts are not a message, and anything consuming the trajectory could
+   * only tell the two apart by sniffing the payload for `inputTokens`.
+   */
+  | 'session:model_usage'
   | 'session:tool_call'
   | 'agent:milestone'
   | 'coordinator:routing'

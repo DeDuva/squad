@@ -8,7 +8,11 @@
  * behaviour against a real server that actually hash-chains what it receives.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { EventBus } from '../packages/squad-sdk/src/runtime/event-bus.js';
 import { AdpClient } from '../packages/squad-sdk/src/adp/client.js';
 import { AdpRunRecorder } from '../packages/squad-sdk/src/adp/recorder.js';
@@ -66,20 +70,47 @@ class FakeAdp {
         this.failAppends -= 1;
         return json(503, { message: 'upstream unavailable' });
       }
-      this.appends.push({ sessionId, events: body.events });
       const landed = this.landed.get(sessionId) ?? [];
       const seen = new Set(landed.map((e) => e.client_event_id));
       const duplicates: string[] = [];
+      const fresh: Record<string, any>[] = [];
       for (const event of body.events as Record<string, any>[]) {
         if (event.client_event_id && seen.has(event.client_event_id)) {
           duplicates.push(event.client_event_id);
           continue;
         }
         if (event.client_event_id) seen.add(event.client_event_id);
-        landed.push(event);
+        fresh.push(event);
       }
-      this.landed.set(sessionId, landed);
-      return json(201, { session_id: sessionId, appended: body.events.length - duplicates.length, duplicates, count: landed.length, head: 'head' });
+
+      // Contiguity, checked after dedup exactly as the server checks it: a
+      // replayed batch whose events already landed is not a gap, but one that
+      // skips a number is rejected whole and told where to resume. A fake that
+      // accepted anything would let the recorder's replay path pass tests
+      // without ever exercising what it exists for.
+      const counted = fresh.filter((e) => typeof e.producer_seq === 'number');
+      if (counted.length > 0) {
+        const expected = this.acceptedThrough(sessionId) + 1;
+        for (const [i, event] of counted.entries()) {
+          if (event.producer_seq !== expected + i) {
+            return json(409, {
+              message: `producer_seq ${event.producer_seq} is not contiguous: this session expects ${expected + i}.`,
+              expected_next_seq: expected,
+            });
+          }
+        }
+      }
+
+      this.appends.push({ sessionId, events: body.events });
+      this.landed.set(sessionId, [...landed, ...fresh]);
+      return json(201, {
+        session_id: sessionId,
+        appended: fresh.length,
+        duplicates,
+        count: landed.length + fresh.length,
+        head: 'head',
+        accepted_through: this.acceptedThrough(sessionId),
+      });
     }
 
     const closeMatch = path.match(/\/runs\/([^/]+)\/close$/);
@@ -102,6 +133,14 @@ class FakeAdp {
 
   eventsFor(sessionId: string): Record<string, any>[] {
     return this.landed.get(sessionId) ?? [];
+  }
+
+  /** Highest producer_seq durably held for a session; 0 when untracked. */
+  acceptedThrough(sessionId: string): number {
+    const seqs = (this.landed.get(sessionId) ?? [])
+      .map((e) => e.producer_seq)
+      .filter((s): s is number => typeof s === 'number');
+    return seqs.length > 0 ? Math.max(...seqs) : 0;
   }
 
   sessionByHarness(match: string): string {
@@ -337,15 +376,16 @@ describe('AdpRunRecorder', () => {
 
     expect(errors).toHaveLength(1);
     expect(errors[0].context).toMatch(/flushing 1 events/);
-    // The batch is still buffered, not lost.
-    expect(adp.appends).toHaveLength(0);
 
-    await recorder.flush();
+    // The failed batch went back to the front of the buffer and was re-sent by
+    // the flush queued behind it — flushes are serialized per session, so the
+    // retry cannot race past the restore and find an empty buffer.
     expect(adp.appends).toHaveLength(1);
+    const sessionId = recorder.sessionsByAgent.get('Backend')!;
+    expect(adp.eventsFor(sessionId)).toHaveLength(1);
 
     // Re-sending the same client_event_id is a no-op at the server, which is why
     // a retry is safe rather than merely usually-harmless.
-    const sessionId = recorder.sessionsByAgent.get('Backend')!;
     const clientId = adp.appends[0].events[0].client_event_id;
     const replay = await client.appendEvents(sessionId, adp.appends[0].events as never);
     expect(replay.duplicates).toEqual([clientId]);
@@ -393,4 +433,197 @@ describe('AdpRunRecorder', () => {
     expect(adp.evals[0].gate_name).toBe('score');
     expect(adp.evals[0].score).toBe(0.9);
   });
+
+  // "Every model invocation." Until now the only model calls in a trajectory
+  // were the ones that *failed* into a fallback: the backend's real token
+  // counts were emitted onto the bus as `session:message`, so they landed in
+  // ADP as something an agent said rather than as what a turn consumed.
+  it('records a model usage event as a model_call with its tokens and cost', async () => {
+    await bus.emit({
+      type: 'session:model_usage',
+      sessionId: 'squad-a',
+      agentName: 'Backend',
+      payload: {
+        model: 'gemini-2.5-pro',
+        inputTokens: 1200,
+        outputTokens: 300,
+        // USD in, integer micro-USD out — money that gets summed across a
+        // million rows cannot stay a float.
+        estimatedCost: 0.0093,
+        durationMs: 2400,
+      },
+      timestamp: new Date('2026-08-04T10:00:20Z'),
+    });
+    await recorder.flush();
+
+    const events = adp.eventsFor(recorder.sessionsByAgent.get('Backend')!);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('model_call');
+    expect(events[0].model).toBe('gemini-2.5-pro');
+    expect(events[0].tokens_in).toBe(1200);
+    expect(events[0].tokens_out).toBe(300);
+    expect(events[0].cost_micro_usd).toBe(9300);
+    expect(events[0].duration_ms).toBe(2400);
+    expect(events[0].status).toBe('success');
+  });
+
+  it('numbers every event contiguously per session, and reports the ack mark', async () => {
+    for (const n of [1, 2, 3]) {
+      await bus.emit({
+        type: 'session:message',
+        sessionId: 'squad-a',
+        agentName: 'Backend',
+        payload: { message: `step ${n}` },
+        timestamp: new Date('2026-08-04T10:00:00Z'),
+      });
+    }
+    await recorder.flush();
+
+    const sessionId = recorder.sessionsByAgent.get('Backend')!;
+    expect(adp.eventsFor(sessionId).map((e) => e.producer_seq)).toEqual([1, 2, 3]);
+    expect(adp.acceptedThrough(sessionId)).toBe(3);
+    // Each session counts for itself. A counter shared across sessions would
+    // make one agent's numbering depend on how busy another agent was, and ADP
+    // checks contiguity per chain.
+    await bus.emit({
+      type: 'coordinator:routing',
+      payload: { phase: 'start', messageLength: 12 },
+      timestamp: new Date('2026-08-04T10:00:04Z'),
+    });
+    await recorder.flush();
+    expect(adp.eventsFor(adp.sessionByHarness('squad-coordinator')).map((e) => e.producer_seq)).toEqual([1]);
+  });
 });
+
+// The spool is the difference between "the recorder buffered it" and "the
+// recording survives the process". These tests kill the recorder rather than
+// simulating a kill: a second instance, same externalRef, same spool directory,
+// nothing shared in memory.
+describe('AdpRunRecorder durable spool', () => {
+  let adp: FakeAdp;
+  let client: AdpClient;
+  let bus: EventBus;
+  let spoolRoot: string;
+  let errors: { error: Error; context: string }[];
+
+  beforeEach(async () => {
+    adp = new FakeAdp();
+    client = new AdpClient({
+      baseUrl: 'http://adp.test',
+      token: 'token',
+      owner: 'acme',
+      repo: 'widget',
+      fetchImpl: adp.fetch,
+    });
+    bus = new EventBus();
+    errors = [];
+    spoolRoot = await mkdtemp(join(tmpdir(), 'squad-adp-spool-'));
+  });
+
+  afterEach(async () => {
+    await rm(spoolRoot, { recursive: true, force: true });
+  });
+
+  function makeRecorder(overrides: Record<string, unknown> = {}) {
+    return new AdpRunRecorder({
+      client,
+      intentId: 'intent-1',
+      externalRef: 'issue:42',
+      spoolRoot,
+      // Big batch + long timer: nothing reaches ADP until something asks it to,
+      // which is what lets the test decide exactly when the process "dies".
+      batchSize: 100,
+      flushIntervalMs: 60_000,
+      onError: (error: Error, context: string) => errors.push({ error, context }),
+      ...overrides,
+    });
+  }
+
+  it('replays what a dead process never sent, without duplicating what it did', async () => {
+    const first = makeRecorder();
+    await first.start(bus);
+    await first.recordCommit('Backend', 'a'.repeat(40));
+    await first.flush();
+
+    const sessionId = first.sessionsByAgent.get('Backend')!;
+    expect(adp.eventsFor(sessionId)).toHaveLength(1);
+
+    // Two more events are enqueued and spooled, and then the process dies
+    // before any flush — no close, no unsubscribe, nothing tidy.
+    await first.recordTestResult('Backend', { suite: 'vitest', passed: true });
+    await first.recordCommit('Backend', 'b'.repeat(40));
+    await first.settled();
+    expect(adp.eventsFor(sessionId)).toHaveLength(1);
+
+    const second = makeRecorder();
+    const rejoined = await second.start(bus);
+    expect(rejoined.id).toBe(first.runId);
+    // The same ADP session, not a second one: a restart that opened new
+    // sessions would split one agent's work across two chains, each of which
+    // looks complete on its own.
+    expect(second.sessionsByAgent.get('Backend')).toBe(sessionId);
+    await second.flush();
+
+    const landed = adp.eventsFor(sessionId);
+    expect(landed).toHaveLength(3);
+    // Contiguous and un-duplicated: the acknowledged event was not resent, and
+    // the two that were spooled but never acknowledged were.
+    expect(landed.map((e) => e.producer_seq)).toEqual([1, 2, 3]);
+    expect(landed.map((e) => e.kind)).toEqual(['commit', 'test_result', 'commit']);
+  });
+
+  it('replays from where ADP says the gap starts when a batch is rejected', async () => {
+    const recorder = makeRecorder();
+    await recorder.start(bus);
+    await recorder.recordCommit('Backend', 'a'.repeat(40));
+    await recorder.flush();
+    const sessionId = recorder.sessionsByAgent.get('Backend')!;
+
+    // ADP loses the second event entirely — the shape a dropped batch takes,
+    // and precisely what client_event_id cannot detect, since an event that
+    // never arrived has no id to deduplicate.
+    await recorder.recordTestResult('Backend', { suite: 'vitest', passed: true });
+    await recorder.settled();
+    loseLastLandedEvent(adp, sessionId);
+
+    await recorder.recordCommit('Backend', 'b'.repeat(40));
+    await recorder.flush();
+
+    // The recorder was told 'expected 2', found 2 and 3 in its own spool, and
+    // replayed both — so the chain ADP holds is whole rather than missing an
+    // event nobody would have known about.
+    const landed = adp.eventsFor(sessionId);
+    expect(landed.map((e) => e.producer_seq)).toEqual([1, 2, 3]);
+    expect(errors.some((e) => e.context.includes('replaying'))).toBe(true);
+  });
+
+  it('keeps the spool until the run is closed, then drops it', async () => {
+    const recorder = makeRecorder();
+    await recorder.start(bus);
+    await recorder.recordCommit('Backend', 'a'.repeat(40));
+    await recorder.settled();
+
+    const spoolPath = recorder.spoolPath!;
+    expect(existsSync(spoolPath)).toBe(true);
+
+    await recorder.close('a'.repeat(40));
+    // Only once ADP has attested to the trajectory is the local copy
+    // redundant. Dropping it earlier would discard the one record of anything
+    // still unsent.
+    expect(existsSync(spoolPath)).toBe(false);
+  });
+});
+
+/**
+ * Loses the last event a session landed, behind the recorder's back.
+ *
+ * This is a gap as the *server* experiences it — an event ADP no longer holds
+ * while the emitter believes it does. The emitter's next batch then numbers
+ * past what ADP has, which is exactly the condition producer_seq exists to
+ * catch and the one `client_event_id` cannot: a missing event has no id to
+ * deduplicate against.
+ */
+function loseLastLandedEvent(adp: FakeAdp, sessionId: string): void {
+  const landed = adp.landed.get(sessionId) ?? [];
+  adp.landed.set(sessionId, landed.slice(0, -1));
+}

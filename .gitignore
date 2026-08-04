@@ -50,3 +50,6 @@ artifacts/
 
 # NOTE: .squad/casting/* is AUTHORITATIVE IDENTITY and MUST be committed to main.
 # Do not add .squad/casting/ to this ignore list.
+
+# The ADP recorder's durable buffer: a crash-recovery log, never history.
+.squad/spool/

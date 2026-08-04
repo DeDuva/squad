@@ -23,7 +23,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { EventBus } from '../packages/squad-sdk/src/runtime/event-bus.js';
@@ -52,6 +52,7 @@ describe.skipIf(SKIP_REASON !== null)(
     let issueNumber: number;
     let finalSha: string;
     let workdir: string;
+    let spoolRoot: string;
     const recorderErrors: { error: Error; context: string }[] = [];
 
     async function rest(method: string, path: string, body?: unknown): Promise<any> {
@@ -91,12 +92,16 @@ describe.skipIf(SKIP_REASON !== null)(
       issueNumber = issue.number;
       intentId = issue.intent_id;
 
+      spoolRoot = mkdtempSync(join(tmpdir(), 'squad-adp-spool-'));
       recorder = new AdpRunRecorder({
         client,
         intentId,
         externalRef: `issue:${issueNumber}`,
         batchSize: 4,
         flushIntervalMs: 50,
+        // Durable buffer plus emitter numbering: this is the half of the
+        // guarantee the server cannot supply on its own.
+        spoolRoot,
         onError: (error, context) => recorderErrors.push({ error, context }),
       });
       await recorder.start(bus);
@@ -208,6 +213,19 @@ describe.skipIf(SKIP_REASON !== null)(
       expect(kinds).toContain('handoff');
       expect(kinds).toContain('commit');
       expect(kinds).toContain('test_result');
+
+      // Every event carries the emitter's own number, contiguous per session.
+      // This is what the append acknowledgement (`accepted_through`) advances
+      // against, and what makes a dropped batch detectable rather than merely
+      // unlikely.
+      const bySession = new Map<string, number[]>();
+      for (const event of trajectory.events as { session_id: string; producer_seq: number }[]) {
+        bySession.set(event.session_id, [...(bySession.get(event.session_id) ?? []), event.producer_seq]);
+      }
+      expect(bySession.size).toBeGreaterThan(0);
+      for (const seqs of bySession.values()) {
+        expect([...seqs].sort((a, b) => a - b)).toEqual(seqs.map((_, i) => i + 1));
+      }
     }, 120_000);
 
     it('exposes the handoff graph and the cost of the run', async () => {
@@ -233,10 +251,22 @@ describe.skipIf(SKIP_REASON !== null)(
       expect(closed.trajectory_digest).toBeTruthy();
       expect(closed.envelope).toBeTruthy();
 
-      const verified = await client.verifyRun(recorder.runId!);
+      const verified = (await client.verifyRun(recorder.runId!)) as any;
       expect(verified.ok).toBe(true);
       expect(verified.chains_ok).toBe(true);
       expect(verified.envelope_verified).toBe(true);
+
+      // Recorder completeness, as the server sees it: every session the
+      // recorder wrote to is tracked and whole. `chains_ok` alone would pass on
+      // a trajectory that was never fully delivered.
+      expect(verified.emitters_ok).toBe(true);
+      for (const session of verified.sessions as { emitter_tracked: boolean; emitter_complete: boolean }[]) {
+        expect(session.emitter_tracked).toBe(true);
+        expect(session.emitter_complete).toBe(true);
+      }
+
+      // And the spool is gone, because ADP has attested to what it held.
+      expect(existsSync(recorder.spoolPath ?? spoolRoot)).toBe(false);
     });
 
     it('attaches a deterministic eval that lands as gate evidence on the commit', async () => {
@@ -287,6 +317,7 @@ describe.skipIf(SKIP_REASON !== null)(
       expect(Number(scored[0].costMicroUsd)).toBeLessThan(Number(scored[1].costMicroUsd));
 
       rmSync(workdir, { recursive: true, force: true });
+      rmSync(spoolRoot, { recursive: true, force: true });
     }, 120_000);
   },
 );
