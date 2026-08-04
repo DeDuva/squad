@@ -36,6 +36,7 @@ export * from './runtime/rework.js';
 export { getMeter, getTracer } from './runtime/otel.js';
 export { safeTimestamp } from './utils/safe-timestamp.js';
 export { EventBus as RuntimeEventBus } from './runtime/event-bus.js';
+export * from './adp/index.js';
 export {
   type SquadManifest,
   type SquadContact,
