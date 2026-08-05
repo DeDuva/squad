@@ -220,10 +220,15 @@ export class SquadClient {
       }
       recordSessionCreated();
 
-      // Auto-forward usage events to EventBus when configured
+      // Auto-forward usage and tool events to EventBus when configured
       if (this.eventBus) {
         const bus = this.eventBus;
         const sid = session.sessionId;
+        // Carried on every forwarded event so consumers can attribute work to
+        // an agent rather than to a session id. Without it CostTracker files
+        // every turn under "unknown", which makes per-agent spend — the thing
+        // the cost table exists for — unreadable.
+        const agentName = config.agentName;
         session.on('usage', (event: SquadSessionEvent) => {
           const inputTokens = typeof event['inputTokens'] === 'number' ? event['inputTokens'] : 0;
           const outputTokens = typeof event['outputTokens'] === 'number' ? event['outputTokens'] : 0;
@@ -246,7 +251,43 @@ export class SquadClient {
           void bus.emit({
             type: 'session:model_usage',
             sessionId: sid,
-            payload: { inputTokens, outputTokens, model, estimatedCost: cost },
+            agentName,
+            payload: { inputTokens, outputTokens, model, estimatedCost: cost, agentName },
+            timestamp: new Date(),
+          });
+        });
+
+        // Tool executions reach the bus the same way, and for the same reason
+        // they did not before: the backend emits them as session events and
+        // nothing forwarded them, so `session:tool_call` — a type the recorder
+        // has always mapped — had no producer anywhere in the SDK. Tools ran,
+        // files changed, and the trajectory recorded none of it.
+        //
+        // Paired on `toolCallId` and emitted once, at the *result*: the bus
+        // payload carries the outcome, and a tool that is denied has to arrive
+        // as `rejected` rather than as a failure. Emitting at the call as well
+        // would double every tool in the count.
+        const pendingToolArgs = new Map<string, Record<string, unknown>>();
+        session.on('tool_call', (event: SquadSessionEvent) => {
+          const id = String(event['toolCallId'] ?? '');
+          pendingToolArgs.set(id, (event['arguments'] as Record<string, unknown>) ?? {});
+        });
+        session.on('tool_result', (event: SquadSessionEvent) => {
+          const id = String(event['toolCallId'] ?? '');
+          const toolArgs = pendingToolArgs.get(id) ?? {};
+          pendingToolArgs.delete(id);
+          const result = event['result'] as { resultType?: string; error?: unknown } | undefined;
+          const resultType =
+            result?.resultType ?? (result?.error !== undefined ? 'failure' : 'success');
+          void bus.emit({
+            type: 'session:tool_call',
+            sessionId: sid,
+            agentName,
+            payload: {
+              toolName: typeof event['toolName'] === 'string' ? event['toolName'] : 'unknown',
+              toolArgs,
+              resultType,
+            },
             timestamp: new Date(),
           });
         });

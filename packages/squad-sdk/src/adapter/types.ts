@@ -29,6 +29,17 @@ export interface SquadSessionConfig {
   clientName?: string;
 
   /**
+   * Which agent this session belongs to.
+   *
+   * Carried on the events the client forwards to the EventBus, so usage and
+   * tool calls are attributable to an agent rather than only to a session id.
+   * Consumers that aggregate by agent — cost tables, per-agent trajectories —
+   * have no other way to learn it, and deriving it from `clientName` would
+   * make a naming convention load-bearing.
+   */
+  agentName?: string;
+
+  /**
    * Model identifier to use for this session.
    * @example "claude-sonnet-4.5"
    */

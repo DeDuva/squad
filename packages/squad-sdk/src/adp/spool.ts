@@ -38,6 +38,7 @@ export interface SpooledSessions {
 export class TrajectorySpool {
   /** Serializes writes, so "spooled before sent" holds without async enqueue. */
   private chain: Promise<void> = Promise.resolve();
+  private ensured = false;
 
   constructor(private readonly dir: string) {}
 
@@ -47,7 +48,27 @@ export class TrajectorySpool {
   }
 
   private async ensureDir(): Promise<void> {
+    if (this.ensured) return;
     await mkdir(this.dir, { recursive: true });
+    // The spool self-ignores.
+    //
+    // It lives under `.squad/` inside the repository the agents are working in,
+    // and an assignment that ends with `git add -A` will otherwise commit the
+    // recorder's recovery log into the project it was recording. Squad's own
+    // .gitignore cannot help: this directory is in *someone else's* repo. A
+    // `.gitignore` written beside the spool travels with it, so recording stays
+    // invisible to the work it observes — which is the only acceptable
+    // footprint for an observer.
+    // Written *inside* the run's directory rather than beside it: `*` ignores
+    // the file itself too, so git reports nothing for a directory holding only
+    // ignored files, and the whole thing disappears with the spool at close
+    // instead of leaving residue in someone's repository.
+    try {
+      await writeFile(join(this.dir, '.gitignore'), '*\n', { encoding: 'utf8', flag: 'w' });
+    } catch {
+      /* best-effort: an unwritable parent is not a reason to stop recording */
+    }
+    this.ensured = true;
   }
 
   /**
