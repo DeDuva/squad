@@ -192,6 +192,8 @@ export class GeminiSession implements SquadSession {
   private abortController: AbortController | null = null;
   private closed = false;
   private toolCallRound = 0;
+  /** Wall-clock start of the current user turn, for the usage event's duration. */
+  private turnStartedAt: number | null = null;
 
   constructor(
     apiKey: string,
@@ -255,6 +257,10 @@ export class GeminiSession implements SquadSession {
     // Recursive calls use { prompt: '' }; user turns always have a non-empty prompt.
     if (options.prompt !== '') {
       this.toolCallRound = 0;
+      // Turn start, so the usage event can report a duration. Set only on
+      // user-initiated turns: a recursive tool continuation is part of the
+      // same turn, and restarting the clock would report the tail as the whole.
+      this.turnStartedAt = Date.now();
     }
 
     this.abortController = new AbortController();
@@ -372,6 +378,7 @@ export class GeminiSession implements SquadSession {
       inputTokens,
       outputTokens,
       model: this.model,
+      durationMs: this.turnStartedAt === null ? undefined : Date.now() - this.turnStartedAt,
     });
 
     this.emit({ type: 'turn_end' });

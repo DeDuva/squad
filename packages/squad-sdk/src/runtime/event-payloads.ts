@@ -48,6 +48,8 @@ export interface SessionToolCallPayload {
   toolName: string;
   toolArgs: Record<string, unknown>;
   resultType?: 'success' | 'failure' | 'rejected' | 'denied';
+  /** Wall-clock from the call being raised to its result arriving. */
+  durationMs?: number;
 }
 
 /**
@@ -61,8 +63,30 @@ export interface SessionToolCallPayload {
  */
 export interface SessionModelUsagePayload {
   model: string;
+  /**
+   * Every input token the turn processed, cached and uncached.
+   *
+   * Backends that cache report the cached portion separately; a consumer that
+   * reads only the uncached remainder under-counts by orders of magnitude.
+   */
   inputTokens: number;
   outputTokens: number;
+  /** Cached-input breakdown, where the backend reports one. Priced differently. */
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+  /** Every model that billed for this turn, when more than one did. */
+  models?: {
+    model: string;
+    uncachedInputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+    outputTokens: number;
+    costUsd: number | null;
+  }[];
+  /** Model round-trips behind this turn, where the backend reports it. */
+  numTurns?: number;
+  /** Time to first token, in milliseconds. */
+  ttftMs?: number;
   /** USD. Reported by the backend when it can, estimated from the catalog otherwise. */
   estimatedCost?: number;
   durationMs?: number;

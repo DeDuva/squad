@@ -6,6 +6,11 @@ import { describe, it, expect } from 'vitest';
 import { compileCharter, type CharterCompileOptions } from '@deduvafork/squad-sdk/agents';
 import { resolveModel, type ModelResolutionOptions } from '@deduvafork/squad-sdk/agents';
 import { ConfigurationError } from '@deduvafork/squad-sdk/adapter/errors';
+// The registry, so these assert "the default vendor's model for this tier"
+// rather than one vendor's ids — which is what made them break when the
+// default flipped, with nothing actually wrong.
+import { defaultVendor } from '../packages/squad-sdk/src/config/vendors.js';
+import { FALLBACK_CHAINS_BY_PROVIDER } from '../packages/squad-sdk/src/config/models.js';
 
 describe('Charter Compilation (M1-8)', () => {
   describe('compileCharter', () => {
@@ -165,6 +170,9 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
+      // An explicit override is honoured verbatim — and, the point of this
+      // case, its fallback chain stays on the override's own vendor rather
+      // than jumping to the default one's.
       expect(result.model).toBe('gemini-pro-latest');
       expect(result.tier).toBe('premium');
       expect(result.fallbackChain).toContain('gemini-flash-latest');
@@ -208,7 +216,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       expect(result.source).not.toBe('charter');
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.standard);
     });
 
     it('should prefer user override over charter', () => {
@@ -233,7 +241,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.standard);
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -245,7 +253,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.standard);
       expect(result.tier).toBe('standard');
       expect(result.source).toBe('task-auto');
     });
@@ -257,7 +265,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-pro-latest');
+      expect(result.model).toBe(defaultVendor().models.premium);
       expect(result.tier).toBe('premium');
       expect(result.source).toBe('task-auto');
     });
@@ -269,7 +277,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.fast);
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -281,7 +289,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.fast);
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -293,7 +301,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.fast);
       expect(result.tier).toBe('fast');
       expect(result.source).toBe('task-auto');
     });
@@ -310,7 +318,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       // Should fall through to task-auto first
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.fast);
       expect(result.tier).toBe('fast');
     });
   });
@@ -324,7 +332,8 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual(['gemini-pro-latest', 'gemini-flash-latest']);
+      // Override is a Gemini model, so the chain must stay Gemini.
+      expect(result.fallbackChain).toEqual(FALLBACK_CHAINS_BY_PROVIDER.gemini.premium);
     });
 
     it('should provide standard fallback chain', () => {
@@ -334,7 +343,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual(['gemini-flash-latest']);
+      expect(result.fallbackChain).toEqual(defaultVendor().fallbackChains.standard);
     });
 
     it('should provide fast fallback chain', () => {
@@ -344,7 +353,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.fallbackChain).toEqual(['gemini-flash-latest']);
+      expect(result.fallbackChain).toEqual(defaultVendor().fallbackChains.fast);
     });
   });
 
@@ -403,7 +412,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
       const result = resolveModel(options);
 
       expect(result.source).toBe('task-auto');
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.standard);
     });
 
     it('should include agentRole in context without affecting resolution', () => {
@@ -414,7 +423,7 @@ describe('Per-Agent Model Selection (M1-9)', () => {
 
       const result = resolveModel(options);
 
-      expect(result.model).toBe('gemini-flash-latest');
+      expect(result.model).toBe(defaultVendor().models.standard);
       expect(result.source).toBe('task-auto');
     });
   });

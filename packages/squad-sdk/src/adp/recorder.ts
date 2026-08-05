@@ -345,7 +345,21 @@ export class AdpRunRecorder {
         this.enqueue(sessionId, {
           kind: 'model_call',
           type: 'completion',
-          payload: { isFallback: payload.isFallback ?? false },
+          // The cache split and the per-model breakdown ride in the payload:
+          // ADP's typed columns carry one number each, and a turn billed
+          // across two models cannot be attributed from a single `model`.
+          payload: {
+            isFallback: payload.isFallback ?? false,
+            ...(payload.cacheReadInputTokens === undefined
+              ? {}
+              : { cacheReadInputTokens: payload.cacheReadInputTokens }),
+            ...(payload.cacheCreationInputTokens === undefined
+              ? {}
+              : { cacheCreationInputTokens: payload.cacheCreationInputTokens }),
+            ...(payload.models ? { models: payload.models } : {}),
+            ...(payload.numTurns === undefined ? {} : { numTurns: payload.numTurns }),
+            ...(payload.ttftMs === undefined ? {} : { ttftMs: payload.ttftMs }),
+          },
           model: payload.model,
           tokens_in: payload.inputTokens,
           tokens_out: payload.outputTokens,
@@ -353,7 +367,7 @@ export class AdpRunRecorder {
           // rows and float dollars drift as they accumulate.
           cost_micro_usd:
             payload.estimatedCost === undefined ? undefined : Math.round(payload.estimatedCost * 1_000_000),
-          duration_ms: payload.durationMs,
+          duration_ms: payload.durationMs === undefined ? undefined : Math.round(payload.durationMs),
           status: 'success',
           occurred_at: occurredAt,
         });
@@ -369,6 +383,7 @@ export class AdpRunRecorder {
           type: payload.toolName,
           payload: { args: payload.toolArgs },
           status: toolStatus(payload.resultType),
+          duration_ms: payload.durationMs === undefined ? undefined : Math.round(payload.durationMs),
           occurred_at: occurredAt,
         });
         return;

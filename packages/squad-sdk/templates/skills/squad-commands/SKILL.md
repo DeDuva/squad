@@ -235,7 +235,7 @@ Proceed? (yes / no)
 - **action:** file-edit
 - **command:** .squad/config.json → defaultModel
 - **args:**
-  - `model`: Model name (e.g., gpt-4o, claude-sonnet-4.5, o3)
+  - `model`: Model name (e.g., gpt-4o, claude-sonnet-5, o3)
 - **confirm:** false
 
 ### Override Per-Agent Model
@@ -246,7 +246,7 @@ Proceed? (yes / no)
 - **command:** .squad/config.json → agentModelOverrides.{agentName}
 - **args:**
   - `agent`: Agent name (must match name in team.md)
-  - `model`: Model name (e.g., gpt-4o, claude-sonnet-4.5)
+  - `model`: Model name (e.g., gpt-4o, claude-sonnet-5)
 - **confirm:** false
 
 ### Clear Model Preference

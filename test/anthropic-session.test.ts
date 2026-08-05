@@ -19,6 +19,12 @@ function result(opts: {
   cost?: number;
   inputTokens?: number;
   outputTokens?: number;
+  cacheRead?: number;
+  cacheCreation?: number;
+  modelUsage?: Record<string, unknown>;
+  durationMs?: number;
+  ttftMs?: number;
+  numTurns?: number;
   error?: boolean;
 }): AgentSdkMessage {
   return {
@@ -27,9 +33,25 @@ function result(opts: {
     is_error: opts.error ?? false,
     result: opts.text,
     total_cost_usd: opts.cost ?? 0,
-    usage: { input_tokens: opts.inputTokens ?? 0, output_tokens: opts.outputTokens ?? 0 },
-    modelUsage: { 'claude-sonnet-5': {} },
+    usage: {
+      input_tokens: opts.inputTokens ?? 0,
+      output_tokens: opts.outputTokens ?? 0,
+      cache_read_input_tokens: opts.cacheRead ?? 0,
+      cache_creation_input_tokens: opts.cacheCreation ?? 0,
+    },
+    modelUsage: opts.modelUsage ?? { 'claude-sonnet-5': {} },
+    duration_ms: opts.durationMs,
+    ttft_ms: opts.ttftMs,
+    num_turns: opts.numTurns,
     session_id: 'sdk-session',
+  };
+}
+
+/** A complete (non-streamed) assistant message carrying tool_use blocks. */
+function assistantToolUse(blocks: { id: string; name: string; input: Record<string, unknown> }[]): AgentSdkMessage {
+  return {
+    type: 'assistant',
+    message: { content: blocks.map((b) => ({ type: 'tool_use', ...b })) },
   };
 }
 
@@ -37,6 +59,39 @@ function textDelta(text: string): AgentSdkMessage {
   return {
     type: 'stream_event',
     event: { type: 'content_block_delta', delta: { type: 'text_delta', text } },
+  };
+}
+
+
+/** A tool_use block opening on the partial-message stream. */
+function toolUseStart(index: number, name: string, id: string): AgentSdkMessage {
+  return {
+    type: 'stream_event',
+    event: {
+      type: 'content_block_start',
+      index,
+      content_block: { type: 'tool_use', id, name, input: {} },
+    },
+  };
+}
+
+/** A fragment of a tool call's arguments — deliberately not valid JSON alone. */
+function toolInputDelta(index: number, partial_json: string): AgentSdkMessage {
+  return {
+    type: 'stream_event',
+    event: { type: 'content_block_delta', index, delta: { type: 'input_json_delta', partial_json } },
+  };
+}
+
+function contentBlockStop(index: number): AgentSdkMessage {
+  return { type: 'stream_event', event: { type: 'content_block_stop', index } };
+}
+
+/** The `user` message the SDK synthesizes once a tool has run. */
+function toolResult(id: string, content: unknown, isError = false): AgentSdkMessage {
+  return {
+    type: 'user',
+    message: { content: [{ type: 'tool_result', tool_use_id: id, content, is_error: isError }] },
   };
 }
 
@@ -487,5 +542,255 @@ describe('AnthropicClient', () => {
       expect((err as Error).message).toMatch(/claude-agent-sdk/);
       expect((err as Error).message).toMatch(/squad config provider gemini/);
     }
+  });
+});
+
+// The tool half of the trajectory. `tool_call` alone says a tool was
+// *requested*; without `tool_result` nothing downstream can tell a tool that
+// succeeded from one that failed or was denied — which is exactly how squad's
+// EventBus bridge came to record zero tool calls on this backend.
+describe('AnthropicSession — tool lifecycle', () => {
+  it('emits a tool call once, with the arguments that streamed in after it', async () => {
+    installFake(() => [
+      toolUseStart(0, 'write_file', 'toolu_1'),
+      // Split mid-token: a single fragment is not valid JSON on its own, so
+      // anything parsing per-delta would drop the arguments.
+      toolInputDelta(0, '{"path":"gree'),
+      toolInputDelta(0, 'ting.js","content":"x"}'),
+      contentBlockStop(0),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const calls: Record<string, unknown>[] = [];
+    session.on('tool_call', (e) => calls.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'write it' });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!['toolName']).toBe('write_file');
+    expect(calls[0]!['toolCallId']).toBe('toolu_1');
+    expect(calls[0]!['arguments']).toEqual({ path: 'greeting.js', content: 'x' });
+    await session.close();
+  });
+
+  it('emits a tool result carrying the outcome and the tool it came from', async () => {
+    installFake(() => [
+      toolUseStart(0, 'run_tests', 'toolu_2'),
+      contentBlockStop(0),
+      toolResult('toolu_2', 'all tests passed'),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const results: Record<string, unknown>[] = [];
+    session.on('tool_result', (e) => results.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'test it' });
+
+    expect(results).toHaveLength(1);
+    // The result message carries only the id, so the name has to be remembered
+    // from the call — otherwise every result is attributed to "unknown".
+    expect(results[0]!['toolName']).toBe('run_tests');
+    expect(results[0]!['result']).toMatchObject({
+      textResultForLlm: 'all tests passed',
+      resultType: 'success',
+    });
+    await session.close();
+  });
+
+  it('marks a failed tool as a failure rather than a success with odd text', async () => {
+    installFake(() => [
+      toolUseStart(0, 'run_tests', 'toolu_3'),
+      contentBlockStop(0),
+      toolResult('toolu_3', [{ type: 'text', text: 'exit code 1' }], true),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const results: Record<string, unknown>[] = [];
+    session.on('tool_result', (e) => results.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'test it' });
+
+    // Block-list content flattens to text, and is_error drives the outcome.
+    expect(results[0]!['result']).toMatchObject({ error: 'exit code 1', resultType: 'failure' });
+    await session.close();
+  });
+
+  // Losing the event would put a hole in the trajectory exactly when something
+  // went wrong, which is the worst time for the record to go quiet.
+  it('still reports a tool call whose arguments arrive malformed', async () => {
+    installFake(() => [
+      toolUseStart(0, 'write_file', 'toolu_4'),
+      toolInputDelta(0, '{"path": truncated'),
+      contentBlockStop(0),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const calls: Record<string, unknown>[] = [];
+    session.on('tool_call', (e) => calls.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'write it' });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!['toolName']).toBe('write_file');
+    expect(calls[0]!['arguments']).toEqual({});
+    await session.close();
+  });
+
+  it('keeps two concurrent tool calls apart by block index', async () => {
+    installFake(() => [
+      toolUseStart(0, 'read_file', 'toolu_a'),
+      toolUseStart(1, 'write_file', 'toolu_b'),
+      toolInputDelta(1, '{"path":"b.js"}'),
+      toolInputDelta(0, '{"path":"a.js"}'),
+      contentBlockStop(0),
+      contentBlockStop(1),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const calls: Record<string, unknown>[] = [];
+    session.on('tool_call', (e) => calls.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'both' });
+
+    const byName = Object.fromEntries(calls.map((c) => [c['toolName'], c['arguments']]));
+    expect(byName).toEqual({ read_file: { path: 'a.js' }, write_file: { path: 'b.js' } });
+    await session.close();
+  });
+});
+
+// Each of these pins a defect found by comparing two vendors on one task
+// (reports/m8-vendor-bakeoff.md). They were not hypothetical: every number
+// below is the shape the real SDK returned.
+describe('AnthropicSession — usage accounting', () => {
+  it('counts cached input, not just the uncached remainder', async () => {
+    // Measured shape: a turn reporting 2 uncached input tokens against 15454
+    // written to cache. Reading input_tokens alone under-counted by ~7000x.
+    installFake(() => [result({ text: 'ok', inputTokens: 2, cacheCreation: 15454, cacheRead: 1200, outputTokens: 4 })]);
+    const session = new AnthropicSession({});
+
+    const usage: Record<string, unknown>[] = [];
+    session.on('usage', (e) => usage.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'x' });
+
+    expect(usage[0]!['inputTokens']).toBe(2 + 15454 + 1200);
+    // The split survives, because cache reads and writes are priced
+    // differently — one summed number cannot be turned back into cost.
+    expect(usage[0]!['cacheCreationInputTokens']).toBe(15454);
+    expect(usage[0]!['cacheReadInputTokens']).toBe(1200);
+    await session.close();
+  });
+
+  it('attributes the turn to the model that produced the output, not the first key', async () => {
+    // The real failure: a Sonnet session recorded against an auxiliary Haiku
+    // call that wrote 12 of the 96 output tokens.
+    installFake(() => [
+      result({
+        text: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': { outputTokens: 12, inputTokens: 526, canonicalModel: 'claude-haiku-4-5' },
+          'claude-sonnet-5': { outputTokens: 84, inputTokens: 4, canonicalModel: 'claude-sonnet-5' },
+        },
+      }),
+    ]);
+    const session = new AnthropicSession({});
+
+    const usage: Record<string, unknown>[] = [];
+    session.on('usage', (e) => usage.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'x' });
+
+    expect(usage[0]!['model']).toBe('claude-sonnet-5');
+    // Both models are still reported, so a turn billed across two can be
+    // attributed rather than silently collapsed onto one.
+    expect((usage[0]!['models'] as { model: string }[]).map((m) => m.model).sort()).toEqual([
+      'claude-haiku-4-5',
+      'claude-sonnet-5',
+    ]);
+    await session.close();
+  });
+
+  it('reports the canonical alias rather than the dated snapshot it was billed under', async () => {
+    installFake(() => [
+      result({
+        text: 'ok',
+        modelUsage: { 'claude-haiku-4-5-20251001': { outputTokens: 5, canonicalModel: 'claude-haiku-4-5' } },
+      }),
+    ]);
+    const session = new AnthropicSession({});
+    const usage: Record<string, unknown>[] = [];
+    session.on('usage', (e) => usage.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'x' });
+
+    // Nothing in squad's config pins a version; telemetry should not either.
+    expect(usage[0]!['model']).toBe('claude-haiku-4-5');
+    await session.close();
+  });
+
+  it('carries the turn timings the SDK reports', async () => {
+    installFake(() => [result({ text: 'ok', durationMs: 3458, ttftMs: 620, numTurns: 2 })]);
+    const session = new AnthropicSession({});
+    const usage: Record<string, unknown>[] = [];
+    session.on('usage', (e) => usage.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'x' });
+
+    expect(usage[0]!['durationMs']).toBe(3458);
+    expect(usage[0]!['ttftMs']).toBe(620);
+    expect(usage[0]!['numTurns']).toBe(2);
+    await session.close();
+  });
+});
+
+describe('AnthropicSession — tool identity without streaming', () => {
+  // The defect: tool names and arguments reached consumers only through the
+  // partial-message stream, so with streaming off a run recorded seven
+  // anonymous tool calls — which reads as data and is not.
+  it('names tool calls from the complete assistant message', async () => {
+    installFake(() => [
+      assistantToolUse([{ id: 'toolu_1', name: 'Bash', input: { command: 'echo hi' } }]),
+      result({ text: 'done' }),
+    ]);
+    // Streaming deliberately OFF — the configuration that used to lose names.
+    const session = new AnthropicSession({});
+
+    const calls: Record<string, unknown>[] = [];
+    session.on('tool_call', (e) => calls.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'run it' });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!['toolName']).toBe('Bash');
+    expect(calls[0]!['arguments']).toEqual({ command: 'echo hi' });
+    await session.close();
+  });
+
+  it('emits a call once when both the stream and the assistant message carry it', async () => {
+    installFake(() => [
+      toolUseStart(0, 'Bash', 'toolu_2'),
+      toolInputDelta(0, '{"command":"echo hi"}'),
+      contentBlockStop(0),
+      assistantToolUse([{ id: 'toolu_2', name: 'Bash', input: { command: 'echo hi' } }]),
+      result({ text: 'done' }),
+    ]);
+    const session = new AnthropicSession({ streaming: true });
+
+    const calls: Record<string, unknown>[] = [];
+    session.on('tool_call', (e) => calls.push(e as unknown as Record<string, unknown>));
+
+    await session.sendAndWait({ prompt: 'run it' });
+
+    // Both paths are needed — the stream is live, the assistant message always
+    // arrives — so the id is what stops a doubled count from looking like
+    // doubled work.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!['arguments']).toEqual({ command: 'echo hi' });
+    await session.close();
   });
 });

@@ -12,6 +12,9 @@ import { initSquad, MANIFEST_SKILL_NAMES } from '@deduvafork/squad-sdk/config';
 import { onboardAgent, addAgentToConfig } from '@deduvafork/squad-sdk/agents';
 import type { InitOptions, InitAgentSpec } from '@deduvafork/squad-sdk/config';
 import type { OnboardOptions } from '@deduvafork/squad-sdk/agents';
+// Asserted against the vendor registry rather than one vendor's model ids:
+// these broke when DEFAULT_PROVIDER flipped, with nothing actually wrong.
+import { MODELS } from '../packages/squad-sdk/src/runtime/constants.js';
 
 const TEST_ROOT = join(process.cwd(), 'test-fixtures', 'init-test');
 
@@ -82,7 +85,7 @@ describe('Squad Initialization', () => {
       const configContent = await readFile(result.configPath, 'utf-8');
       const parsed = JSON.parse(configContent);
       expect(parsed.version).toBe('1.0.0');
-      expect(parsed.models.defaultModel).toBe('gemini-flash-latest');
+      expect(parsed.models.defaultModel).toBe(MODELS.DEFAULT);
       expect(parsed.routing.rules).toHaveLength(4);
     });
 

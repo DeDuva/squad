@@ -26,7 +26,7 @@ After each batch of agent work:
 
 ```
 agent_type: "general-purpose"
-model: "claude-haiku-4.5"
+model: "claude-haiku-4-5"
 mode: "background"
 name: "scribe"
 description: "📋 Scribe: Log session & merge decisions"

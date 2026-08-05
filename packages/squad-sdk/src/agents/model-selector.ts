@@ -3,7 +3,8 @@
  */
 
 import { MODELS } from '../runtime/constants.js';
-import { applyEconomyMode, getModelInfo } from '../config/models.js';
+import { applyEconomyMode, getModelInfo, FALLBACK_CHAINS_BY_PROVIDER } from '../config/models.js';
+import { defaultVendor, providerForModel } from '../config/vendors.js';
 import type { EventBus } from '../runtime/event-bus.js';
 
 /**
@@ -57,6 +58,21 @@ export interface ResolvedModel {
  * @param options - Model resolution options
  * @returns Resolved model with tier and fallback chain
  */
+/**
+ * The fallback chain a given model may actually walk.
+ *
+ * Keyed by the model's own vendor, not by the default one: a session is bound
+ * to a single backend, so handing a Gemini model a chain of Claude models
+ * offers a retry that cannot run — and, worse, one that would be recorded
+ * against the wrong vendor in a comparison. Models outside the registry fall
+ * back to the default vendor's chain.
+ */
+function chainForModel(model: string, tier: ModelTier): string[] {
+  const provider = providerForModel(model as Parameters<typeof providerForModel>[0]);
+  const chains = provider ? FALLBACK_CHAINS_BY_PROVIDER[provider] : undefined;
+  return [...((chains ?? MODELS.FALLBACK_CHAINS)[tier] ?? [])];
+}
+
 export function resolveModel(options: ModelResolutionOptions): ResolvedModel {
   const { userOverride, charterPreference, taskType, economyMode } = options;
 
@@ -67,7 +83,7 @@ export function resolveModel(options: ModelResolutionOptions): ResolvedModel {
       model: userOverride,
       tier,
       source: 'user-override',
-      fallbackChain: [...MODELS.FALLBACK_CHAINS[tier]],
+      fallbackChain: chainForModel(userOverride, tier),
     };
   }
 
@@ -78,7 +94,7 @@ export function resolveModel(options: ModelResolutionOptions): ResolvedModel {
       model: charterPreference,
       tier,
       source: 'charter',
-      fallbackChain: [...MODELS.FALLBACK_CHAINS[tier]],
+      fallbackChain: chainForModel(charterPreference, tier),
     };
   }
 
@@ -97,7 +113,7 @@ export function resolveModel(options: ModelResolutionOptions): ResolvedModel {
     model: defaultModel,
     tier: defaultTier,
     source: 'default',
-    fallbackChain: [...MODELS.FALLBACK_CHAINS[defaultTier]],
+    fallbackChain: chainForModel(defaultModel, defaultTier),
   };
 }
 
@@ -109,31 +125,31 @@ export function resolveModel(options: ModelResolutionOptions): ResolvedModel {
  * @returns Resolved model or undefined if no match
  */
 function selectModelForTask(taskType: TaskType, economyMode?: boolean): ResolvedModel | undefined {
-  let model: string | undefined;
   let tier: ModelTier | undefined;
 
+  // Task type picks a *tier*; the vendor registry picks the model for it.
+  // These arms used to name Gemini model ids outright, which survived the move
+  // to the registry and left task-auto selection handing back a Gemini model
+  // with the default vendor's (Claude) fallback chain attached — a resolution
+  // that was internally inconsistent whichever vendor you were actually on.
   switch (taskType) {
     case 'code':
-      model = 'gemini-flash-latest';
-      tier = 'standard';
-      break;
     case 'prompt':
-      model = 'gemini-flash-latest';
       tier = 'standard';
       break;
     case 'visual':
-      model = 'gemini-pro-latest';
       tier = 'premium';
       break;
     case 'docs':
     case 'planning':
     case 'mechanical':
-      model = 'gemini-flash-latest';
       tier = 'fast';
       break;
     default:
       return undefined;
   }
+
+  let model: string = defaultVendor().models[tier];
 
   if (economyMode) {
     model = applyEconomyMode(model);
@@ -144,7 +160,7 @@ function selectModelForTask(taskType: TaskType, economyMode?: boolean): Resolved
     model,
     tier,
     source: 'task-auto',
-    fallbackChain: [...MODELS.FALLBACK_CHAINS[tier]],
+    fallbackChain: chainForModel(model, tier),
   };
 }
 

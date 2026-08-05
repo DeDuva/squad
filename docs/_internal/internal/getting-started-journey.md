@@ -265,7 +265,7 @@ const unsubscribe = costTracker.wireToEventBus(bus);
 costTracker.recordUsage({
   sessionId: 'backend-auth-001',
   agentName: 'Backend',
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-5',
   inputTokens: 12500,
   outputTokens: 3200,
   estimatedCost: 0.0234,

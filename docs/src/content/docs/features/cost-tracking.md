@@ -45,7 +45,7 @@ Total output tokens: 3,200
 Estimated cost:      $0.0234
 
 --- By Agent ---
-  fenster: 12,450in / 3,200out ($0.0234) [1 turns, model: claude-sonnet-4.5]
+  fenster: 12,450in / 3,200out ($0.0234) [1 turns, model: claude-sonnet-5]
 
 --- By Session ---
   session-abc123: 12,450in / 3,200out ($0.0234) [1 turns]

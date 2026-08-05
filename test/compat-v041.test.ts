@@ -67,6 +67,10 @@ import { MigrationRegistry, compareSemVer, parseSemVer } from '@deduvafork/squad
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+// Asserted against the vendor registry rather than one vendor's model ids:
+// these broke when DEFAULT_PROVIDER flipped, with nothing actually wrong.
+import { MODELS } from '../packages/squad-sdk/src/runtime/constants.js';
+import { defaultVendor } from '../packages/squad-sdk/src/config/vendors.js';
 
 // ============================================================================
 // Helpers
@@ -235,7 +239,7 @@ describe('Compat v0.4.1: Config Path Equivalence', () => {
 
   it('DEFAULT_CONFIG has expected shape', () => {
     expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-    expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-flash-latest');
+    expect(DEFAULT_CONFIG.models.defaultModel).toBe(MODELS.DEFAULT);
     expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
     expect(DEFAULT_CONFIG.routing.rules.length).toBeGreaterThanOrEqual(1);
     expect(DEFAULT_CONFIG.casting?.allowlistUniverses).toBeDefined();
@@ -474,15 +478,15 @@ describe('Compat v0.4.1: Model Catalog', () => {
   });
 
   it('premium fallback chain starts with gemini pro', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-pro-latest');
+    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe(defaultVendor().models.premium);
   });
 
   it('standard fallback chain starts with gemini flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-flash-latest');
+    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe(defaultVendor().models.standard);
   });
 
   it('fast fallback chain starts with gemini flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-flash-latest');
+    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe(defaultVendor().models.fast);
   });
 
   it('getModelInfo returns correct tier for known models', () => {

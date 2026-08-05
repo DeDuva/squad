@@ -13,6 +13,7 @@ import { trace, SpanStatusCode } from '../runtime/otel-api.js';
 import { recordSessionCreated, recordSessionClosed, recordSessionError, recordTokenUsage } from '../runtime/otel-metrics.js';
 import { estimateCost } from '../config/models.js';
 import type { EventBus } from '../runtime/event-bus.js';
+import type { SessionModelUsagePayload } from '../runtime/event-payloads.js';
 import type { UsageEvent } from '../runtime/streaming.js';
 import type {
   SquadSessionConfig,
@@ -248,11 +249,33 @@ export class SquadClient {
           // cost from something an agent said was to sniff the payload for
           // `inputTokens` — which is why they never reached ADP as model calls.
           // CostTracker consumes both, so nothing that was counting stops.
+          const readNum = (key: string): number | undefined =>
+            typeof event[key] === 'number' && Number.isFinite(event[key] as number)
+              ? (event[key] as number)
+              : undefined;
           void bus.emit({
             type: 'session:model_usage',
             sessionId: sid,
             agentName,
-            payload: { inputTokens, outputTokens, model, estimatedCost: cost, agentName },
+            payload: {
+              inputTokens,
+              outputTokens,
+              model,
+              estimatedCost: cost,
+              agentName,
+              // Forwarded rather than collapsed: cache reads and writes are
+              // priced differently, per-model entries are what make
+              // attribution possible when the backend bills more than one,
+              // and timings are the only latency signal there is.
+              cacheReadInputTokens: readNum('cacheReadInputTokens'),
+              cacheCreationInputTokens: readNum('cacheCreationInputTokens'),
+              models: Array.isArray(event['models'])
+                ? (event['models'] as SessionModelUsagePayload['models'])
+                : undefined,
+              durationMs: readNum('durationMs'),
+              ttftMs: readNum('ttftMs'),
+              numTurns: readNum('numTurns'),
+            },
             timestamp: new Date(),
           });
         });
@@ -267,15 +290,20 @@ export class SquadClient {
         // payload carries the outcome, and a tool that is denied has to arrive
         // as `rejected` rather than as a failure. Emitting at the call as well
         // would double every tool in the count.
-        const pendingToolArgs = new Map<string, Record<string, unknown>>();
+        // Held from the call to its result: the arguments (the result event
+        // carries none) and the start time (nothing else measures a tool).
+        const pendingTools = new Map<string, { args: Record<string, unknown>; startedAt: number }>();
         session.on('tool_call', (event: SquadSessionEvent) => {
           const id = String(event['toolCallId'] ?? '');
-          pendingToolArgs.set(id, (event['arguments'] as Record<string, unknown>) ?? {});
+          pendingTools.set(id, {
+            args: (event['arguments'] as Record<string, unknown>) ?? {},
+            startedAt: Date.now(),
+          });
         });
         session.on('tool_result', (event: SquadSessionEvent) => {
           const id = String(event['toolCallId'] ?? '');
-          const toolArgs = pendingToolArgs.get(id) ?? {};
-          pendingToolArgs.delete(id);
+          const pending = pendingTools.get(id);
+          pendingTools.delete(id);
           const result = event['result'] as { resultType?: string; error?: unknown } | undefined;
           const resultType =
             result?.resultType ?? (result?.error !== undefined ? 'failure' : 'success');
@@ -285,8 +313,12 @@ export class SquadClient {
             agentName,
             payload: {
               toolName: typeof event['toolName'] === 'string' ? event['toolName'] : 'unknown',
-              toolArgs,
+              toolArgs: pending?.args ?? {},
               resultType,
+              // Measured here rather than in each backend: this is the one
+              // place that sees both ends of every tool call, whichever
+              // client raised it.
+              durationMs: pending ? Date.now() - pending.startedAt : undefined,
             },
             timestamp: new Date(),
           });

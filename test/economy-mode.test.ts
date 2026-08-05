@@ -21,6 +21,9 @@ import {
 import {
   resolveModel as sdkResolveModel,
 } from '@deduvafork/squad-sdk/agents';
+// Task-auto selection picks a tier and the registry supplies the model, so
+// these assert against the default vendor rather than one vendor's ids.
+import { defaultVendor } from '../packages/squad-sdk/src/config/vendors.js';
 
 let squadDir: string;
 
@@ -229,30 +232,30 @@ describe('resolveModel economy mode (from config)', () => {
 // ============================================================================
 
 describe('SDK resolveModel (agents) economy mode', () => {
-  it('code task → gemini-flash-latest when economyMode: true (no cheaper option)', () => {
+  it('code task → the standard model, downgraded, when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: true });
-    expect(result.model).toBe('gemini-flash-latest');
+    expect(result.model).toBe(applyEconomyMode(defaultVendor().models.standard));
     expect(result.source).toBe('task-auto');
   });
 
-  it('docs task → gemini-flash-latest when economyMode: true', () => {
+  it('docs task → the fast model, downgraded, when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'docs', economyMode: true });
-    expect(result.model).toBe('gemini-flash-latest');
+    expect(result.model).toBe(applyEconomyMode(defaultVendor().models.fast));
   });
 
-  it('mechanical task → gemini-flash-latest when economyMode: true', () => {
+  it('mechanical task → the fast model, downgraded, when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'mechanical', economyMode: true });
-    expect(result.model).toBe('gemini-flash-latest');
+    expect(result.model).toBe(applyEconomyMode(defaultVendor().models.fast));
   });
 
-  it('visual task → gemini-flash-latest when economyMode: true (pro → flash)', () => {
+  it('visual task → the premium model, downgraded one step, when economyMode: true', () => {
     const result = sdkResolveModel({ taskType: 'visual', economyMode: true });
-    expect(result.model).toBe('gemini-flash-latest');
+    expect(result.model).toBe(applyEconomyMode(defaultVendor().models.premium));
   });
 
-  it('code task → gemini-flash-latest when economyMode: false', () => {
+  it('code task → the standard model when economyMode: false', () => {
     const result = sdkResolveModel({ taskType: 'code', economyMode: false });
-    expect(result.model).toBe('gemini-flash-latest');
+    expect(result.model).toBe(defaultVendor().models.standard);
   });
 
   it('user override NOT affected by economy mode', () => {

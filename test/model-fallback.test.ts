@@ -13,6 +13,9 @@ import {
   MODEL_CATALOG,
   DEFAULT_FALLBACK_CHAINS,
 } from '@deduvafork/squad-sdk/config';
+// Asserted against the vendor registry rather than one vendor's model ids:
+// these broke when DEFAULT_PROVIDER flipped, with nothing actually wrong.
+import { defaultVendor } from '../packages/squad-sdk/src/config/vendors.js';
 
 // ============================================================================
 // Cross-tier fallback: standard chain tries all models in order
@@ -49,7 +52,7 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 
   it('premium chain starts with gemini pro and walks through all premium options', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.premium;
-    expect(chain[0]).toBe('gemini-pro-latest');
+    expect(chain[0]).toBe(defaultVendor().models.premium);
 
     const attempted = new Set<string>();
     let count = 0;
@@ -70,7 +73,7 @@ describe('Cross-tier fallback — standard chain exhaustion', () => {
 
   it('fast chain walks through all fast options', () => {
     const chain = DEFAULT_FALLBACK_CHAINS.fast;
-    expect(chain[0]).toBe('gemini-flash-latest');
+    expect(chain[0]).toBe(defaultVendor().models.fast);
 
     const attempted = new Set<string>();
     let count = 0;
@@ -200,19 +203,19 @@ describe('Nuclear fallback — all models exhausted', () => {
 
   it('getNextFallback returns null when all premium models attempted', () => {
     const allPremium = new Set(DEFAULT_FALLBACK_CHAINS.premium);
-    const result = registry.getNextFallback('gemini-pro-latest', 'premium', allPremium);
+    const result = registry.getNextFallback(defaultVendor().models.premium, 'premium', allPremium);
     expect(result).toBeNull();
   });
 
   it('getNextFallback returns null when all standard models attempted', () => {
     const allStandard = new Set(DEFAULT_FALLBACK_CHAINS.standard);
-    const result = registry.getNextFallback('gemini-flash-latest', 'standard', allStandard);
+    const result = registry.getNextFallback(defaultVendor().models.standard, 'standard', allStandard);
     expect(result).toBeNull();
   });
 
   it('getNextFallback returns null when all fast models attempted', () => {
     const allFast = new Set(DEFAULT_FALLBACK_CHAINS.fast);
-    const result = registry.getNextFallback('gemini-flash-latest', 'fast', allFast);
+    const result = registry.getNextFallback(defaultVendor().models.fast, 'fast', allFast);
     expect(result).toBeNull();
   });
 

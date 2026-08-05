@@ -76,7 +76,7 @@ export default defineConfig({
     fallbackChains: {
       premium: ['claude-opus-4', 'gpt-4.1'],
       standard: ['claude-sonnet-4', 'gpt-4.1'],
-      fast: ['claude-haiku-3.5', 'gpt-4.1-mini'],
+      fast: ['claude-haiku-4-5', 'gpt-4.1-mini'],
     },
   },
 });
@@ -551,9 +551,10 @@ const members = await engine.castTeam([
 ```typescript
 import { MODELS, TIMEOUTS, AGENT_ROLES } from '@bradygaster/squad-sdk';
 
-MODELS.premium;  // ['claude-opus-4.6', 'gpt-5.2', ...]
-MODELS.standard; // ['claude-sonnet-4.5', 'gpt-5.1', ...]
-MODELS.fast;     // ['claude-haiku-4.5', 'gpt-5-mini', ...]
+// Fallback chains for the active vendor, by tier.
+MODELS.FALLBACK_CHAINS.premium;  // ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5']
+MODELS.FALLBACK_CHAINS.standard; // ['claude-sonnet-5', 'claude-haiku-4-5']
+MODELS.FALLBACK_CHAINS.fast;     // ['claude-haiku-4-5']
 
 TIMEOUTS.agentInitMs;        // 30000
 TIMEOUTS.agentExecuteMs;     // 300000

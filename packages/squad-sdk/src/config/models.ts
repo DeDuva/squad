@@ -11,6 +11,8 @@ import { join } from 'path';
 import type { StorageProvider } from '../storage/index.js';
 import { FSStorageProvider } from '../storage/index.js';
 import type { ModelId, ModelTier } from '../runtime/config.js';
+import type { SquadProvider } from '../adapter/backend.js';
+import { DEFAULT_PROVIDER, KNOWN_PROVIDERS, VENDORS, providerForModel } from './vendors.js';
 import type { SquadReasoningEffort } from '../adapter/types.js';
 
 /**
@@ -153,27 +155,23 @@ export const MODEL_CATALOG: ModelInfo[] = [
  * back from a Claude model to a Gemini one would fail at the transport layer
  * rather than degrade gracefully.
  */
-export const FALLBACK_CHAINS_BY_PROVIDER: Record<'anthropic' | 'gemini', Record<ModelTier, ModelId[]>> = {
-  anthropic: {
-    premium:  ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'],
-    standard: ['claude-sonnet-5', 'claude-haiku-4-5'],
-    fast:     ['claude-haiku-4-5'],
-  },
-  gemini: {
-    premium:  ['gemini-pro-latest', 'gemini-flash-latest'],
-    standard: ['gemini-flash-latest'],
-    fast:     ['gemini-flash-latest'],
-  },
-};
+export const FALLBACK_CHAINS_BY_PROVIDER: Record<SquadProvider, Record<ModelTier, ModelId[]>> =
+  Object.fromEntries(Object.values(VENDORS).map((v) => [v.id, v.fallbackChains])) as Record<
+    SquadProvider,
+    Record<ModelTier, ModelId[]>
+  >;
 
 /**
- * Default fallback chains per tier.
+ * Default fallback chains per tier — the default vendor's.
  *
- * Kept pointing at the Gemini chains so existing callers and tests see no
- * behaviour change; provider-aware callers should read
- * {@link FALLBACK_CHAINS_BY_PROVIDER} instead.
+ * These used to point at the Gemini chains regardless of which provider was
+ * default, so a Claude session's degradation path named models its backend
+ * could not serve. Following {@link DEFAULT_PROVIDER} is what makes the chains
+ * usable; provider-aware callers should still read
+ * {@link FALLBACK_CHAINS_BY_PROVIDER}.
  */
-export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> = FALLBACK_CHAINS_BY_PROVIDER.gemini;
+export const DEFAULT_FALLBACK_CHAINS: Record<ModelTier, ModelId[]> =
+  FALLBACK_CHAINS_BY_PROVIDER[DEFAULT_PROVIDER];
 
 /**
  * Model registry for lookups and availability checking.
@@ -258,29 +256,28 @@ export class ModelRegistry {
     currentModel?: ModelId
   ): ModelId[] {
     const defaultChain = DEFAULT_FALLBACK_CHAINS[tier] || [];
-    
+
     if (!preferSameProvider || !currentModel) {
       return defaultChain;
     }
-    
-    // Get current model's provider
-    const current = this.getModelInfo(currentModel);
-    if (!current) {
+
+    // Look the chain up by the current model's vendor rather than reordering
+    // the default one.
+    //
+    // Reordering only worked while every chain held the same vendor's models.
+    // Now that DEFAULT_FALLBACK_CHAINS is one vendor's chain, filtering it for
+    // "same provider" as a model from the *other* vendor matches nothing, and
+    // the partition hands back the other vendor's models in full — so asking
+    // to prefer the same provider returned a chain that was entirely the wrong
+    // one. A session is bound to one backend, so a chain must never cross
+    // vendors; unknown models fall back to the default chain rather than to
+    // nothing.
+    const provider = providerForModel(currentModel);
+    if (!provider) {
       return defaultChain;
     }
-    
-    // Reorder chain to prefer same provider
-    const sameProvider = defaultChain.filter(id => {
-      const model = this.getModelInfo(id);
-      return model?.provider === current.provider;
-    });
-    
-    const otherProvider = defaultChain.filter(id => {
-      const model = this.getModelInfo(id);
-      return model?.provider !== current.provider;
-    });
-    
-    return [...sameProvider, ...otherProvider];
+
+    return FALLBACK_CHAINS_BY_PROVIDER[provider][tier] ?? defaultChain;
   }
   
   /**
@@ -459,13 +456,12 @@ export interface ModelPreferenceConfig {
   provider?: string;
 }
 
-/** Backends squad can talk to. Mirrors `SquadProvider` in `adapter/backend.ts`. */
-const KNOWN_PROVIDERS = ['anthropic', 'gemini'] as const;
-
 /** Narrow an arbitrary string to a known provider, or null. */
-export function asProvider(value: unknown): 'anthropic' | 'gemini' | null {
-  return typeof value === 'string' && (KNOWN_PROVIDERS as readonly string[]).includes(value)
-    ? (value as 'anthropic' | 'gemini')
+export function asProvider(value: unknown): SquadProvider | null {
+  // Derived from the vendor registry, so a newly registered vendor is
+  // accepted here without a second list to remember to update.
+  return typeof value === 'string' && (KNOWN_PROVIDERS as string[]).includes(value)
+    ? (value as SquadProvider)
     : null;
 }
 

@@ -26,7 +26,7 @@ npm start
 
 1. **Banner** — the demo prints a branded header. Look for "Squad SDK — Cost-Aware Router Demo."
 
-2. **Model catalogue** — three tiers (fast / standard / premium) with per-1k-token pricing. Note how `claude-haiku-4.5` is ~20× cheaper than `claude-opus-4.6`.
+2. **Model catalogue** — three tiers (fast / standard / premium) with per-1k-token pricing. Note how `claude-haiku-4-5` is ~20× cheaper than `claude-opus-5`.
 
 3. **Task routing** — five tasks scroll through:
    - *Typo Fix*: the routing config has an explicit `tier: 'direct'` rule for the word "typo" — show that config overrides kick in first.

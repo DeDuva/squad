@@ -9,25 +9,35 @@
 // Models
 // ============================================================================
 
+import { defaultVendor } from '../config/vendors.js';
+
+const vendor = defaultVendor();
+
+/**
+ * Model defaults for the current default vendor.
+ *
+ * Every value is derived from `config/vendors.ts` rather than written out here.
+ * Model ids used to be duplicated across this file, the model catalog, and the
+ * init templates — which is how the default provider came to be Anthropic while
+ * these constants still handed out Gemini ids. Nothing detected the mismatch
+ * because no single place claimed to own the answer. Change `DEFAULT_PROVIDER`
+ * there and every value below follows.
+ */
 export const MODELS = {
   /** Default model for config files and new projects (env-overridable) */
-  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? 'gemini-flash-latest',
+  DEFAULT: process.env['SQUAD_DEFAULT_MODEL'] ?? vendor.models.standard,
 
   /** Default model for model-selector Layer 4 */
-  SELECTOR_DEFAULT: 'gemini-flash-latest',
+  SELECTOR_DEFAULT: vendor.models.standard,
 
   /** Default tier for the model-selector Layer 4 fallback */
   SELECTOR_DEFAULT_TIER: 'standard',
 
   /** Fallback chains by tier — ordered by preference */
-  FALLBACK_CHAINS: {
-    premium: ['gemini-pro-latest', 'gemini-flash-latest'],
-    standard: ['gemini-flash-latest'],
-    fast: ['gemini-flash-latest'],
-  },
+  FALLBACK_CHAINS: vendor.fallbackChains,
 
   /** Nuclear fallback model when all chains are exhausted */
-  NUCLEAR_FALLBACK: 'gemini-flash-latest',
+  NUCLEAR_FALLBACK: vendor.nuclearFallback,
 
   /** Maximum retries before nuclear fallback engages */
   NUCLEAR_MAX_RETRIES: 3,

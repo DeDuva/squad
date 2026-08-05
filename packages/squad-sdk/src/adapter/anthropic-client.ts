@@ -22,7 +22,12 @@ import {
   readResult,
   readSessionId,
   readTextDelta,
+  readAssistantToolUses,
   readToolUseStart,
+  readToolUseStartIndex,
+  readToolInputDelta,
+  readToolResults,
+  readContentBlockStopIndex,
 } from './anthropic/normalize.js';
 import { buildSquadMcpServer } from './anthropic/tool-bridge.js';
 import type { SquadBackend } from './backend.js';
@@ -98,6 +103,27 @@ export class AnthropicSession implements SquadSession {
   private sawDelta = false;
 
   /**
+   * Tool calls announced but not yet complete, keyed by content-block index.
+   *
+   * A tool_use block arrives as a header and then its arguments, so the call is
+   * held here until the block closes and the two can be emitted together —
+   * a tool_call event with no arguments records that something happened but not
+   * what.
+   */
+  private readonly pendingToolCalls = new Map<number, { name: string; id?: string; json: string }>();
+  /** Tool name by call id, so a result can name the tool it came from. */
+  private readonly toolNamesById = new Map<string, string>();
+  /**
+   * Tool call ids already emitted this session.
+   *
+   * A tool call can reach us twice — once from the partial-message stream and
+   * again in the complete assistant message. Both paths are needed (the stream
+   * is live, the assistant message is the one that always arrives), so the id
+   * is what keeps a doubled count from looking like doubled work.
+   */
+  private readonly emittedToolCallIds = new Set<string>();
+
+  /**
    * Previous cumulative spend, so each turn's cost can be reported as a delta.
    *
    * Only cost is cumulative — token counts arrive per-turn and are passed
@@ -123,6 +149,40 @@ export class AnthropicSession implements SquadSession {
 
   off(eventType: SquadSessionEventType, handler: SquadSessionEventHandler): void {
     this.listeners.get(eventType)?.delete(handler);
+  }
+
+  /**
+   * Emit a held-open tool call now that its arguments have finished streaming.
+   *
+   * Malformed JSON yields empty arguments rather than dropping the event: that
+   * a tool ran at all is the load-bearing fact, and losing it to a parse error
+   * would put a hole in the trajectory precisely when something went wrong.
+   */
+  private flushPendingToolCall(index: number): void {
+    const pending = this.pendingToolCalls.get(index);
+    if (!pending) return;
+    this.pendingToolCalls.delete(index);
+
+    let args: Record<string, unknown> = {};
+    if (pending.json.length > 0) {
+      try {
+        const parsed = JSON.parse(pending.json);
+        if (parsed && typeof parsed === 'object') args = parsed as Record<string, unknown>;
+      } catch {
+        /* keep the empty object — see above */
+      }
+    }
+    this.emitToolCall(pending.name, pending.id, args);
+  }
+
+  /** Emit a tool call once, whichever path saw it first. */
+  private emitToolCall(name: string, id: string | undefined, args: Record<string, unknown>): void {
+    if (id) {
+      if (this.emittedToolCallIds.has(id)) return;
+      this.emittedToolCallIds.add(id);
+      this.toolNamesById.set(id, name);
+    }
+    this.emit({ type: 'tool_call', toolName: name, toolCallId: id, arguments: args });
   }
 
   private emit(event: SquadSessionEvent): void {
@@ -278,11 +338,59 @@ export class AnthropicSession implements SquadSession {
 
     const toolUse = readToolUseStart(message);
     if (toolUse) {
-      this.emit({ type: 'tool_call', toolName: toolUse.name, toolCallId: toolUse.id });
+      // Hold the call open: its arguments stream in afterwards as
+      // `input_json_delta` fragments, and the event is only worth emitting
+      // once they can be attached to it.
+      const index = readToolUseStartIndex(message);
+      if (index !== null) {
+        this.pendingToolCalls.set(index, { name: toolUse.name, id: toolUse.id, json: '' });
+      } else {
+        this.emit({ type: 'tool_call', toolName: toolUse.name, toolCallId: toolUse.id });
+      }
+      return;
+    }
+
+    const inputDelta = readToolInputDelta(message);
+    if (inputDelta) {
+      const pending = this.pendingToolCalls.get(inputDelta.index);
+      if (pending) pending.json += inputDelta.fragment;
+      return;
+    }
+
+    const stopIndex = readContentBlockStopIndex(message);
+    if (stopIndex !== null && this.pendingToolCalls.has(stopIndex)) {
+      this.flushPendingToolCall(stopIndex);
+      return;
+    }
+
+    // A tool finished. Emitting the result is what turns `tool_call` from "a
+    // tool was requested" into a lifecycle with an outcome — the half that
+    // was missing, and the reason nothing downstream could tell a denied tool
+    // from a broken one.
+    const toolResults = readToolResults(message);
+    if (toolResults.length > 0) {
+      for (const result of toolResults) {
+        this.emit({
+          type: 'tool_result',
+          toolName: this.toolNamesById.get(result.toolCallId) ?? 'unknown',
+          toolCallId: result.toolCallId,
+          result: result.isError
+            ? { error: result.content, resultType: 'failure' }
+            : { textResultForLlm: result.content, resultType: 'success' },
+        });
+        this.toolNamesById.delete(result.toolCallId);
+      }
       return;
     }
 
     if (message.type === 'assistant') {
+      // Tool calls, fully formed. This is the path that works regardless of
+      // whether partial messages are enabled; the streaming branch above only
+      // gets there first when they are.
+      for (const call of readAssistantToolUses(message)) {
+        this.emitToolCall(call.name, call.id ?? undefined, call.input);
+      }
+
       // With partial messages on, this text already arrived as deltas.
       // Emitting it again would double every response.
       if (!this.sawDelta) {
@@ -313,8 +421,17 @@ export class AnthropicSession implements SquadSession {
       type: 'usage',
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
+      // The breakdown rides along because cache reads and writes are priced
+      // differently — a single input number cannot be turned back into cost.
+      cacheReadInputTokens: result.cacheReadInputTokens,
+      cacheCreationInputTokens: result.cacheCreationInputTokens,
       costUsd: Math.max(0, cost - this.lastCostUsd),
       model: result.model ?? this.config.model ?? null,
+      models: result.models,
+      durationMs: result.durationMs,
+      apiDurationMs: result.apiDurationMs,
+      ttftMs: result.ttftMs,
+      numTurns: result.numTurns,
     });
     this.lastCostUsd = cost;
 

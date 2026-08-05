@@ -40,7 +40,7 @@ export default defineSquad({
     defineAgent({
       name: 'mcmanus',
       role: 'DevRel',
-      model: 'claude-haiku-4.5',
+      model: 'claude-haiku-4-5',
       tools: ['grep', 'view'],
     }),
   ],
@@ -164,14 +164,14 @@ routing: {
 |------|--------|----------|
 | **premium** | claude-opus-4, gpt-4.1 | Architecture, code review |
 | **standard** | claude-sonnet-4, gpt-4.1 | Most work |
-| **fast** | claude-haiku-3.5, gpt-4.1-mini | Triage, logging, quick tasks |
+| **fast** | claude-haiku-4-5, gpt-4.1-mini | Triage, logging, quick tasks |
 
 Per-agent overrides in `model-config.json`:
 
 ```json
 {
   "neo": "claude-opus-4",
-  "tank": "claude-haiku-3.5"
+  "tank": "claude-haiku-4-5"
 }
 ```
 

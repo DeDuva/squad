@@ -380,7 +380,7 @@ When the resolved reasoning effort is not `auto` or default, include it in the a
 
 **Spawn output format — show the model choice and effort:**
 
-Follow `.squad/templates/model-selection-reference.md` for the base model-selection rules. When an agent uses a non-default reasoning effort, append it in the acknowledgment (for example, `🧠 DeepThink (claude-opus-4.7-1m-internal · xhigh) — deep architecture analysis`).
+Follow `.squad/templates/model-selection-reference.md` for the base model-selection rules. When an agent uses a non-default reasoning effort, append it in the acknowledgment (for example, `🧠 DeepThink (claude-opus-5-1m-internal · xhigh) — deep architecture analysis`).
 
 ### Client Compatibility
 

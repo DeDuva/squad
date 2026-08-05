@@ -14,6 +14,9 @@ import {
 } from '@deduvafork/squad-sdk/runtime';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
+// Asserted against the vendor registry rather than one vendor's model ids:
+// these broke when DEFAULT_PROVIDER flipped, with nothing actually wrong.
+import { MODELS } from '../packages/squad-sdk/src/runtime/constants.js';
 
 describe('Configuration Loader', () => {
   const testDir = join(process.cwd(), 'test-fixtures', 'config');
@@ -242,7 +245,7 @@ describe('Configuration Loader', () => {
   describe('DEFAULT_CONFIG', () => {
     it('should have valid structure', () => {
       expect(DEFAULT_CONFIG.version).toBe('1.0.0');
-      expect(DEFAULT_CONFIG.models.defaultModel).toBe('gemini-flash-latest');
+      expect(DEFAULT_CONFIG.models.defaultModel).toBe(MODELS.DEFAULT);
       expect(DEFAULT_CONFIG.models.defaultTier).toBe('standard');
       expect(DEFAULT_CONFIG.models.fallbackChains.premium).toBeInstanceOf(Array);
       expect(DEFAULT_CONFIG.models.fallbackChains.standard).toBeInstanceOf(Array);
