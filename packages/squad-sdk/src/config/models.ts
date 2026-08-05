@@ -12,7 +12,7 @@ import type { StorageProvider } from '../storage/index.js';
 import { FSStorageProvider } from '../storage/index.js';
 import type { ModelId, ModelTier } from '../runtime/config.js';
 import type { SquadProvider } from '../adapter/backend.js';
-import { DEFAULT_PROVIDER, KNOWN_PROVIDERS, VENDORS } from './vendors.js';
+import { DEFAULT_PROVIDER, KNOWN_PROVIDERS, VENDORS, providerForModel } from './vendors.js';
 import type { SquadReasoningEffort } from '../adapter/types.js';
 
 /**
@@ -256,29 +256,28 @@ export class ModelRegistry {
     currentModel?: ModelId
   ): ModelId[] {
     const defaultChain = DEFAULT_FALLBACK_CHAINS[tier] || [];
-    
+
     if (!preferSameProvider || !currentModel) {
       return defaultChain;
     }
-    
-    // Get current model's provider
-    const current = this.getModelInfo(currentModel);
-    if (!current) {
+
+    // Look the chain up by the current model's vendor rather than reordering
+    // the default one.
+    //
+    // Reordering only worked while every chain held the same vendor's models.
+    // Now that DEFAULT_FALLBACK_CHAINS is one vendor's chain, filtering it for
+    // "same provider" as a model from the *other* vendor matches nothing, and
+    // the partition hands back the other vendor's models in full — so asking
+    // to prefer the same provider returned a chain that was entirely the wrong
+    // one. A session is bound to one backend, so a chain must never cross
+    // vendors; unknown models fall back to the default chain rather than to
+    // nothing.
+    const provider = providerForModel(currentModel);
+    if (!provider) {
       return defaultChain;
     }
-    
-    // Reorder chain to prefer same provider
-    const sameProvider = defaultChain.filter(id => {
-      const model = this.getModelInfo(id);
-      return model?.provider === current.provider;
-    });
-    
-    const otherProvider = defaultChain.filter(id => {
-      const model = this.getModelInfo(id);
-      return model?.provider !== current.provider;
-    });
-    
-    return [...sameProvider, ...otherProvider];
+
+    return FALLBACK_CHAINS_BY_PROVIDER[provider][tier] ?? defaultChain;
   }
   
   /**

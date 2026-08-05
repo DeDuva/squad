@@ -14,6 +14,9 @@ import {
   resolveModel,
   FALLBACK_CHAINS_BY_PROVIDER
 } from '@deduvafork/squad-sdk/config';
+// From source, the way test/vendors.test.ts reaches it: the vendor registry is
+// not re-exported through the `config` entrypoint.
+import { DEFAULT_PROVIDER } from '../packages/squad-sdk/src/config/vendors.js';
 
 describe('MODEL_CATALOG', () => {
   it('contains premium and standard tiers', () => {
@@ -58,16 +61,26 @@ describe('DEFAULT_FALLBACK_CHAINS', () => {
     expect(DEFAULT_FALLBACK_CHAINS.fast.length).toBeGreaterThan(0);
   });
 
-  it('starts premium chain with gemini pro', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe('gemini-pro-latest');
+  // Written against the default vendor's own chains rather than a hardcoded
+  // model id. These named one vendor's models, so flipping DEFAULT_PROVIDER
+  // broke them with nothing actually wrong — the invariant worth pinning is
+  // that the default chains *are* the default vendor's.
+  it('starts premium chain with the default vendor premium model', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.premium[0]).toBe(
+      FALLBACK_CHAINS_BY_PROVIDER[DEFAULT_PROVIDER].premium[0],
+    );
   });
 
-  it('starts standard chain with gemini flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe('gemini-flash-latest');
+  it('starts standard chain with the default vendor standard model', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.standard[0]).toBe(
+      FALLBACK_CHAINS_BY_PROVIDER[DEFAULT_PROVIDER].standard[0],
+    );
   });
 
-  it('starts fast chain with gemini flash', () => {
-    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe('gemini-flash-latest');
+  it('starts fast chain with the default vendor fast model', () => {
+    expect(DEFAULT_FALLBACK_CHAINS.fast[0]).toBe(
+      FALLBACK_CHAINS_BY_PROVIDER[DEFAULT_PROVIDER].fast[0],
+    );
   });
 });
 
@@ -184,7 +197,9 @@ describe('ModelRegistry', () => {
     });
 
     it('returns null when chain exhausted', () => {
-      const allModels = new Set(DEFAULT_FALLBACK_CHAINS.premium);
+      // The exhausted set has to be the chain this model actually walks — its
+      // own vendor's — now that the default chains belong to the other vendor.
+      const allModels = new Set(FALLBACK_CHAINS_BY_PROVIDER.gemini.premium);
       const next = registry.getNextFallback('gemini-pro-latest', 'premium', allModels);
 
       expect(next).toBeNull();
@@ -320,8 +335,12 @@ describe('FALLBACK_CHAINS_BY_PROVIDER', () => {
     }
   });
 
-  it('keeps DEFAULT_FALLBACK_CHAINS on the Gemini chains for back-compat', () => {
-    expect(DEFAULT_FALLBACK_CHAINS).toEqual(FALLBACK_CHAINS_BY_PROVIDER.gemini);
+  it('points DEFAULT_FALLBACK_CHAINS at the default vendor', () => {
+    // Was asserted against the Gemini chains "for back-compat". That promise
+    // was deliberately dropped when the default became one line in the vendor
+    // registry, so the test now pins the rule that replaced it: whichever
+    // vendor is default supplies the default chains.
+    expect(DEFAULT_FALLBACK_CHAINS).toEqual(FALLBACK_CHAINS_BY_PROVIDER[DEFAULT_PROVIDER]);
   });
 });
 
