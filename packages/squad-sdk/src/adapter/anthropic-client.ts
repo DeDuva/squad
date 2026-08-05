@@ -22,6 +22,7 @@ import {
   readResult,
   readSessionId,
   readTextDelta,
+  readAssistantToolUses,
   readToolUseStart,
   readToolUseStartIndex,
   readToolInputDelta,
@@ -112,6 +113,15 @@ export class AnthropicSession implements SquadSession {
   private readonly pendingToolCalls = new Map<number, { name: string; id?: string; json: string }>();
   /** Tool name by call id, so a result can name the tool it came from. */
   private readonly toolNamesById = new Map<string, string>();
+  /**
+   * Tool call ids already emitted this session.
+   *
+   * A tool call can reach us twice — once from the partial-message stream and
+   * again in the complete assistant message. Both paths are needed (the stream
+   * is live, the assistant message is the one that always arrives), so the id
+   * is what keeps a doubled count from looking like doubled work.
+   */
+  private readonly emittedToolCallIds = new Set<string>();
 
   /**
    * Previous cumulative spend, so each turn's cost can be reported as a delta.
@@ -162,13 +172,17 @@ export class AnthropicSession implements SquadSession {
         /* keep the empty object — see above */
       }
     }
-    if (pending.id) this.toolNamesById.set(pending.id, pending.name);
-    this.emit({
-      type: 'tool_call',
-      toolName: pending.name,
-      toolCallId: pending.id,
-      arguments: args,
-    });
+    this.emitToolCall(pending.name, pending.id, args);
+  }
+
+  /** Emit a tool call once, whichever path saw it first. */
+  private emitToolCall(name: string, id: string | undefined, args: Record<string, unknown>): void {
+    if (id) {
+      if (this.emittedToolCallIds.has(id)) return;
+      this.emittedToolCallIds.add(id);
+      this.toolNamesById.set(id, name);
+    }
+    this.emit({ type: 'tool_call', toolName: name, toolCallId: id, arguments: args });
   }
 
   private emit(event: SquadSessionEvent): void {
@@ -370,6 +384,13 @@ export class AnthropicSession implements SquadSession {
     }
 
     if (message.type === 'assistant') {
+      // Tool calls, fully formed. This is the path that works regardless of
+      // whether partial messages are enabled; the streaming branch above only
+      // gets there first when they are.
+      for (const call of readAssistantToolUses(message)) {
+        this.emitToolCall(call.name, call.id ?? undefined, call.input);
+      }
+
       // With partial messages on, this text already arrived as deltas.
       // Emitting it again would double every response.
       if (!this.sawDelta) {
@@ -400,8 +421,17 @@ export class AnthropicSession implements SquadSession {
       type: 'usage',
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
+      // The breakdown rides along because cache reads and writes are priced
+      // differently — a single input number cannot be turned back into cost.
+      cacheReadInputTokens: result.cacheReadInputTokens,
+      cacheCreationInputTokens: result.cacheCreationInputTokens,
       costUsd: Math.max(0, cost - this.lastCostUsd),
       model: result.model ?? this.config.model ?? null,
+      models: result.models,
+      durationMs: result.durationMs,
+      apiDurationMs: result.apiDurationMs,
+      ttftMs: result.ttftMs,
+      numTurns: result.numTurns,
     });
     this.lastCostUsd = cost;
 

@@ -65,6 +65,34 @@ export function readAssistantText(m: AgentSdkMessage): string[] {
   return out;
 }
 
+/**
+ * Tool calls from a complete `assistant` message, with their full arguments.
+ *
+ * The streaming readers below only fire when `includePartialMessages` is on.
+ * That made tool identity a function of an unrelated setting: with streaming
+ * off, every tool call reached consumers nameless and argument-less, so a
+ * trajectory recorded seven anonymous tools — which looks like data and is not.
+ * The complete assistant message always carries the same blocks, fully formed.
+ */
+export function readAssistantToolUses(
+  m: AgentSdkMessage,
+): { id: string | null; name: string; input: Record<string, unknown> }[] {
+  if (m.type !== 'assistant') return [];
+  const inner = rec((m as Record<string, unknown>)['message']);
+  const content = inner?.['content'];
+  if (!Array.isArray(content)) return [];
+
+  const out: { id: string | null; name: string; input: Record<string, unknown> }[] = [];
+  for (const block of content) {
+    const b = rec(block);
+    if (b?.['type'] !== 'tool_use') continue;
+    const name = str(b['name']);
+    if (!name) continue;
+    out.push({ id: str(b['id']), name, input: rec(b['input']) ?? {} });
+  }
+  return out;
+}
+
 /** A tool call beginning, from the partial-message stream. */
 export function readToolUseStart(m: AgentSdkMessage): { name: string; id?: string } | null {
   if (m.type !== 'stream_event') return null;
@@ -195,6 +223,18 @@ export function readInit(m: AgentSdkMessage): { model: string | null; tools: str
  * points are not enough to tell these apart — both readings fit a run where
  * every turn happens to grow.
  */
+/** Per-model usage for one turn, as `modelUsage` reports it. */
+export interface NormalizedModelUsage {
+  /** Unpinned alias where the SDK provides one, else the key it was filed under. */
+  model: string;
+  /** Uncached input tokens only — see {@link NormalizedResult.inputTokens}. */
+  uncachedInputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  outputTokens: number;
+  costUsd: number | null;
+}
+
 export interface NormalizedResult {
   /** Whether the turn completed successfully. */
   ok: boolean;
@@ -202,11 +242,46 @@ export interface NormalizedResult {
   text: string;
   /** Session-cumulative spend. Diff against the previous result for this turn's cost. */
   cumulativeCostUsd: number | null;
-  /** This turn's input tokens. Already per-turn — do NOT diff. */
+  /**
+   * Every input token the turn processed — uncached **plus** cache reads and
+   * cache writes.
+   *
+   * `usage.input_tokens` alone counts only the uncached remainder, and the
+   * Agent SDK caches aggressively, so it is a small fraction of the real
+   * prompt: a measured turn reported `input_tokens: 2` against
+   * `cache_creation_input_tokens: 15454`. Reading the bare field under-counted
+   * by ~7000x, which is worse than not measuring — it looked like a number.
+   * The breakdown is preserved below, since cache reads and writes are priced
+   * differently and collapsing them would trade one wrong number for another.
+   */
   inputTokens: number;
+  /** Input tokens served from cache (cheapest tier). */
+  cacheReadInputTokens: number;
+  /** Input tokens written to cache (priced above uncached). */
+  cacheCreationInputTokens: number;
   /** This turn's output tokens. Already per-turn — do NOT diff. */
   outputTokens: number;
+  /**
+   * The model that did the work: the one with the most output tokens.
+   *
+   * `modelUsage` routinely carries more than one model — the SDK bills small
+   * auxiliary calls alongside the one you configured. Taking the first key
+   * meant a Sonnet session was recorded against
+   * `claude-haiku-4-5-20251001`, attributing the turn to a model that wrote
+   * 12 tokens of the 96 produced. Output tokens are the tiebreak because they
+   * track the work rather than the context.
+   */
   model: string | null;
+  /** Every model that participated, for attribution the single `model` cannot carry. */
+  models: NormalizedModelUsage[];
+  /** Wall-clock for the turn, per the SDK. */
+  durationMs: number | null;
+  /** Time spent in API calls, which excludes local tool execution. */
+  apiDurationMs: number | null;
+  /** Time to first token. */
+  ttftMs: number | null;
+  /** Model round-trips the SDK made for this turn. */
+  numTurns: number | null;
   errorMessage: string | null;
 }
 
@@ -216,10 +291,19 @@ export function readResult(m: AgentSdkMessage): NormalizedResult | null {
   const r = m as Record<string, unknown>;
 
   const usage = rec(r['usage']);
-  const modelUsage = rec(r['modelUsage']);
-  // `modelUsage` is keyed by model id; with no fallbacks configured there is
-  // exactly one key, and it is the model that actually served the turn.
-  const model = modelUsage ? (Object.keys(modelUsage)[0] ?? null) : null;
+  const models = readModelUsage(rec(r['modelUsage']));
+
+  // The model that produced the most output did the work. Ties and an empty
+  // map both fall back to the first entry, which is the old behaviour and is
+  // correct whenever there is only one model.
+  const primary = models.reduce<NormalizedModelUsage | null>(
+    (best, m) => (best === null || m.outputTokens > best.outputTokens ? m : best),
+    null,
+  );
+
+  const uncachedIn = num(usage?.['input_tokens']) ?? 0;
+  const cacheRead = num(usage?.['cache_read_input_tokens']) ?? 0;
+  const cacheCreation = num(usage?.['cache_creation_input_tokens']) ?? 0;
 
   const isError = r['is_error'] === true || (r['subtype'] !== undefined && r['subtype'] !== 'success');
 
@@ -227,9 +311,41 @@ export function readResult(m: AgentSdkMessage): NormalizedResult | null {
     ok: !isError,
     text: str(r['result']) ?? '',
     cumulativeCostUsd: num(r['total_cost_usd']),
-    inputTokens: num(usage?.['input_tokens']) ?? 0,
+    inputTokens: uncachedIn + cacheRead + cacheCreation,
+    cacheReadInputTokens: cacheRead,
+    cacheCreationInputTokens: cacheCreation,
     outputTokens: num(usage?.['output_tokens']) ?? 0,
-    model,
+    model: primary?.model ?? null,
+    models,
+    durationMs: num(r['duration_ms']),
+    apiDurationMs: num(r['duration_api_ms']),
+    ttftMs: num(r['ttft_ms']),
+    numTurns: num(r['num_turns']),
     errorMessage: isError ? (str(r['result']) ?? str(r['subtype']) ?? 'agent run failed') : null,
   };
+}
+
+/**
+ * Flatten `modelUsage` into a list.
+ *
+ * Prefers each entry's `canonicalModel` over the key it is filed under: the key
+ * is a dated snapshot (`claude-haiku-4-5-20251001`) while the canonical form is
+ * the alias that tracks releases. Recording the key would put a pinned id into
+ * telemetry that no configuration asked for.
+ */
+function readModelUsage(modelUsage: Record<string, unknown> | null): NormalizedModelUsage[] {
+  if (!modelUsage) return [];
+  const out: NormalizedModelUsage[] = [];
+  for (const [key, raw] of Object.entries(modelUsage)) {
+    const entry = rec(raw);
+    out.push({
+      model: str(entry?.['canonicalModel']) ?? key,
+      uncachedInputTokens: num(entry?.['inputTokens']) ?? 0,
+      cacheReadInputTokens: num(entry?.['cacheReadInputTokens']) ?? 0,
+      cacheCreationInputTokens: num(entry?.['cacheCreationInputTokens']) ?? 0,
+      outputTokens: num(entry?.['outputTokens']) ?? 0,
+      costUsd: num(entry?.['costUSD']),
+    });
+  }
+  return out;
 }

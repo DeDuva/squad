@@ -76,6 +76,8 @@ describe('SquadClient forwards backend session events onto the bus', () => {
       // none, and a tool call with no arguments is not much of a record.
       toolArgs: { path: 'greeting.js' },
       resultType: 'success',
+      // Measured across the pair; asserted loosely because it is a clock.
+      durationMs: expect.any(Number),
     });
   });
 
@@ -110,5 +112,67 @@ describe('SquadClient forwards backend session events onto the bus', () => {
       model: 'gemini-2.5-flash',
       estimatedCost: 0.0093,
     });
+  });
+});
+
+describe('SquadClient forwards the numbers a comparison needs', () => {
+  let bus: EventBus;
+  let seen: SquadEvent[];
+
+  beforeEach(async () => {
+    handlers.clear();
+    bus = new EventBus();
+    seen = [];
+    bus.subscribeAll((event) => {
+      seen.push(event);
+    });
+    const client = new SquadClient({ geminiApiKey: 'test-key', eventBus: bus });
+    await client.connect();
+    await client.createSession({ model: 'claude-sonnet-5', agentName: 'Backend' });
+  });
+
+  // Latency was previously unmeasurable: duration_ms was null on every event of
+  // every run. The bridge is the one place that sees both ends of a tool call,
+  // whichever backend raised it.
+  it('measures how long a tool call took', async () => {
+    fire('tool_call', { toolName: 'run_tests', toolCallId: 'c1', arguments: {} });
+    await new Promise((r) => setTimeout(r, 12));
+    fire('tool_result', { toolName: 'run_tests', toolCallId: 'c1', result: { resultType: 'success' } });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const tool = seen.find((e) => e.type === 'session:tool_call')!;
+    expect((tool.payload as { durationMs: number }).durationMs).toBeGreaterThanOrEqual(10);
+  });
+
+  it('forwards the cache split, the per-model breakdown, and the timings', async () => {
+    fire('usage', {
+      inputTokens: 9407,
+      outputTokens: 84,
+      model: 'claude-sonnet-5',
+      costUsd: 0.031,
+      cacheReadInputTokens: 4658,
+      cacheCreationInputTokens: 4745,
+      models: [
+        { model: 'claude-sonnet-5', uncachedInputTokens: 4, cacheReadInputTokens: 4658, cacheCreationInputTokens: 4745, outputTokens: 84, costUsd: 0.031 },
+        { model: 'claude-haiku-4-5', uncachedInputTokens: 526, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, outputTokens: 12, costUsd: 0.0006 },
+      ],
+      durationMs: 3458,
+      ttftMs: 620,
+      numTurns: 2,
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const usage = seen.find((e) => e.type === 'session:model_usage')!;
+    // Dropping any of these is what made tokens, cost, attribution, and
+    // latency incomparable across vendors.
+    expect(usage.payload).toMatchObject({
+      inputTokens: 9407,
+      cacheReadInputTokens: 4658,
+      cacheCreationInputTokens: 4745,
+      durationMs: 3458,
+      ttftMs: 620,
+      numTurns: 2,
+    });
+    expect((usage.payload as { models: unknown[] }).models).toHaveLength(2);
   });
 });
