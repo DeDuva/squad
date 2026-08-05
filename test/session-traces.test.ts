@@ -15,6 +15,10 @@ import {
   type UsageEvent,
 } from '@deduvafork/squad-sdk/runtime/streaming';
 
+// Pinned to the backend this file actually mocks. Left implicit, these tests
+// resolved to the default provider (Anthropic) and reached the real Agent SDK,
+// which is slow enough to time out under parallel load — a unit test for span
+// creation should not depend on which vendor happens to be the default.
 vi.mock('../packages/squad-sdk/dist/adapter/gemini-client.js', () => {
   return {
     // Regular function expression, not an arrow function — SquadClient calls
@@ -66,7 +70,7 @@ describe('SquadClient.sendMessage() — squad.session.message span', () => {
   });
 
   it('should call session.sendMessage with options', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
     const session = await client.createSession();
     const spy = vi.spyOn(session, 'sendMessage');
@@ -77,7 +81,7 @@ describe('SquadClient.sendMessage() — squad.session.message span', () => {
   });
 
   it('should propagate errors from session.sendMessage', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
     const session = await client.createSession();
     vi.spyOn(session, 'sendMessage').mockRejectedValueOnce(new Error('stream failed'));
@@ -88,7 +92,7 @@ describe('SquadClient.sendMessage() — squad.session.message span', () => {
   });
 
   it('should register event listeners on session', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
     const session = await client.createSession();
     const onSpy = vi.spyOn(session, 'on');
@@ -101,7 +105,7 @@ describe('SquadClient.sendMessage() — squad.session.message span', () => {
   });
 
   it('should clean up event listeners after completion', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
     const session = await client.createSession();
     const offSpy = vi.spyOn(session, 'off');
@@ -123,14 +127,14 @@ describe('SquadClient.closeSession() — squad.session.close span', () => {
   });
 
   it('should close the session without error', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
 
     await expect(client.closeSession('session-42')).resolves.toBeUndefined();
   });
 
   it('should close a session that was never opened without error', async () => {
-    const client = new SquadClient();
+    const client = new SquadClient({ provider: 'gemini' });
     await client.connect();
 
     await expect(client.closeSession('nonexistent-session')).resolves.toBeUndefined();

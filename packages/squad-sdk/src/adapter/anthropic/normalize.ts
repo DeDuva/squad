@@ -79,6 +79,91 @@ export function readToolUseStart(m: AgentSdkMessage): { name: string; id?: strin
   return id === null ? { name } : { name, id };
 }
 
+/**
+ * The `content_block_start` index of a tool_use block, so its argument deltas
+ * can be keyed back to it.
+ */
+export function readToolUseStartIndex(m: AgentSdkMessage): number | null {
+  if (m.type !== 'stream_event') return null;
+  const event = rec((m as Record<string, unknown>)['event']);
+  if (!event || event['type'] !== 'content_block_start') return null;
+  const block = rec(event['content_block']);
+  if (!block || block['type'] !== 'tool_use') return null;
+  return num(event['index']);
+}
+
+/**
+ * A fragment of a tool call's arguments, from the partial-message stream.
+ *
+ * `content_block_start` announces a tool_use block with its name and id but an
+ * empty input; the arguments follow as `input_json_delta` pieces of a JSON
+ * string. A single fragment is rarely valid JSON on its own, so this returns
+ * the piece and its block index and leaves joining to the caller.
+ */
+export function readToolInputDelta(m: AgentSdkMessage): { index: number; fragment: string } | null {
+  if (m.type !== 'stream_event') return null;
+  const event = rec((m as Record<string, unknown>)['event']);
+  if (!event || event['type'] !== 'content_block_delta') return null;
+  const delta = rec(event['delta']);
+  if (!delta || delta['type'] !== 'input_json_delta') return null;
+  const fragment = str(delta['partial_json']);
+  const index = num(event['index']);
+  return fragment === null || index === null ? null : { index, fragment };
+}
+
+/** The index of any `content_block_stop`, so a held-open block can be closed. */
+export function readContentBlockStopIndex(m: AgentSdkMessage): number | null {
+  if (m.type !== 'stream_event') return null;
+  const event = rec((m as Record<string, unknown>)['event']);
+  if (!event || event['type'] !== 'content_block_stop') return null;
+  return num(event['index']);
+}
+
+/**
+ * Tool results, from the `user` message the SDK synthesizes once a tool has run.
+ *
+ * These were previously ignored, which left `tool_call` with no completion: an
+ * observer could see a tool was *requested* and never learn whether it
+ * succeeded, failed, or was denied. Content is flattened to a string because
+ * consumers use it for display and provenance, not control flow.
+ */
+export function readToolResults(
+  m: AgentSdkMessage,
+): { toolCallId: string; content: string; isError: boolean }[] {
+  if (m.type !== 'user') return [];
+  const inner = rec((m as Record<string, unknown>)['message']);
+  const content = inner?.['content'];
+  if (!Array.isArray(content)) return [];
+
+  const out: { toolCallId: string; content: string; isError: boolean }[] = [];
+  for (const block of content) {
+    const b = rec(block);
+    if (b?.['type'] !== 'tool_result') continue;
+    const toolCallId = str(b['tool_use_id']);
+    if (!toolCallId) continue;
+    out.push({
+      toolCallId,
+      content: flattenToolResultContent(b['content']),
+      isError: b['is_error'] === true,
+    });
+  }
+  return out;
+}
+
+/** Tool result content is either a string or a list of blocks; flatten both to text. */
+function flattenToolResultContent(value: unknown): string {
+  const direct = str(value);
+  if (direct !== null) return direct;
+  if (!Array.isArray(value)) return '';
+  return value
+    .map((block) => {
+      const b = rec(block);
+      return b?.['type'] === 'text' ? (str(b['text']) ?? '') : '';
+    })
+    .filter((text) => text.length > 0)
+    .join('\n');
+}
+
 /** The session id, which every message carries. */
 export function readSessionId(m: AgentSdkMessage): string | null {
   return str((m as Record<string, unknown>)['session_id']);

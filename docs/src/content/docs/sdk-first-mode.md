@@ -75,7 +75,7 @@ export default defineSquad({
     defineAgent({
       name: 'mcmanus',
       role: 'DevRel',
-      model: 'claude-haiku-4.5',
+      model: 'claude-haiku-4-5',
       capabilities: [{ name: 'documentation', level: 'expert' }],
     }),
   ],
@@ -237,7 +237,7 @@ const edie = defineAgent({
 | `name` | string | ✅ | Unique identifier (kebab-case, no `@`) |
 | `role` | string | ✅ | Human-readable title |
 | `charter` | string | ❌ | Character description or link to charter |
-| `model` | string | ❌ | Model preference (e.g., `"claude-sonnet-4"`, `"claude-haiku-4.5"`) |
+| `model` | string | ❌ | Model preference (e.g., `"claude-sonnet-4"`, `"claude-haiku-4-5"`) |
 | `tools` | string[] | ❌ | Allowed tools (e.g., `["grep", "edit", "view"]`) |
 | `capabilities` | `AgentCapability[]` | ❌ | Capability list with proficiency levels (see Common Types) |
 | `status` | `AgentStatus` | ❌ | Lifecycle: `'active'` (default), `'inactive'`, `'retired'` |
@@ -562,7 +562,7 @@ export default defineSquad({
     defineAgent({
       name: 'mcmanus',
       role: 'DevRel',
-      model: 'claude-haiku-4.5',
+      model: 'claude-haiku-4-5',
       tools: ['grep', 'view', 'edit'],
       capabilities: [
         { name: 'documentation', level: 'expert' },
@@ -583,7 +583,7 @@ export default defineSquad({
     defineAgent({
       name: 'hockney',
       role: 'Frontend Specialist',
-      model: 'claude-opus-4.6',
+      model: 'claude-opus-5',
       capabilities: [
         { name: 'frontend', level: 'expert' },
         { name: 'ui-ux', level: 'proficient' },

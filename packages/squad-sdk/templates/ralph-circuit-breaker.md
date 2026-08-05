@@ -6,13 +6,13 @@
 ## Problem
 
 When running multiple Ralph instances across repos, Copilot model rate limits cause cascading failures.
-All Ralphs fail simultaneously when the preferred model (e.g., `claude-sonnet-4.6`) hits quota.
+All Ralphs fail simultaneously when the preferred model (e.g., `claude-sonnet-5`) hits quota.
 
 Premium models burn quota fast:
 | Model | Multiplier | Risk |
 |-------|-----------|------|
-| `claude-sonnet-4.6` | 1x | Moderate with many Ralphs |
-| `claude-opus-4.6` | 10x | High |
+| `claude-sonnet-5` | 1x | Moderate with many Ralphs |
+| `claude-opus-5` | 10x | High |
 | `gpt-5.4` | 50x | Very high |
 | `gpt-5.4-mini` | **0x** | **Free — unlimited** |
 | `gpt-5-mini` | **0x** | **Free — unlimited** |
@@ -57,7 +57,7 @@ Premium models burn quota fast:
 ```json
 {
   "state": "closed",
-  "preferredModel": "claude-sonnet-4.6",
+  "preferredModel": "claude-sonnet-5",
   "fallbackChain": ["gpt-5.4-mini", "gpt-5-mini", "gpt-4.1"],
   "currentFallbackIndex": 0,
   "cooldownMinutes": 10,
@@ -86,7 +86,7 @@ function Get-CircuitBreakerState {
     if (-not (Test-Path $StateFile)) {
         $default = @{
             state              = "closed"
-            preferredModel     = "claude-sonnet-4.6"
+            preferredModel     = "claude-sonnet-5"
             fallbackChain      = @("gpt-5.4-mini", "gpt-5-mini", "gpt-4.1")
             currentFallbackIndex = 0
             cooldownMinutes    = 10
@@ -293,7 +293,7 @@ Override defaults by editing `.squad/ralph-circuit-breaker.json`:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `preferredModel` | `claude-sonnet-4.6` | Model to use when circuit is closed |
+| `preferredModel` | `claude-sonnet-5` | Model to use when circuit is closed |
 | `fallbackChain` | `["gpt-5.4-mini", "gpt-5-mini", "gpt-4.1"]` | Ordered fallback models (all free-tier) |
 | `cooldownMinutes` | `10` | How long to wait before testing recovery |
 

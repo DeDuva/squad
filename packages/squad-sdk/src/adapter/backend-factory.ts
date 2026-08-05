@@ -5,6 +5,7 @@
  */
 
 import { readProviderPreference, asProvider } from '../config/models.js';
+import { DEFAULT_PROVIDER, VENDORS } from '../config/vendors.js';
 import type { SquadBackend, SquadProvider } from './backend.js';
 import { GeminiClient } from './gemini-client.js';
 
@@ -51,7 +52,8 @@ export function resolveProvider(options: BackendSelection): SquadProvider {
   const fromEnv = asProvider(env['SQUAD_PROVIDER']);
   if (fromEnv) return fromEnv;
 
-  return 'anthropic';
+  // The default lives in the vendor registry, not here — see config/vendors.ts.
+  return DEFAULT_PROVIDER;
 }
 
 /**
@@ -61,18 +63,31 @@ export function resolveProvider(options: BackendSelection): SquadProvider {
  * to resolve a package they don't have installed; Gemini stays a static
  * import so existing `vi.mock` of `gemini-client.js` keeps intercepting it.
  */
+/**
+ * How to construct each vendor's backend.
+ *
+ * Typed `Record<SquadProvider, …>`, so registering a vendor in
+ * `config/vendors.ts` without adding it here is a compile error rather than a
+ * runtime surprise — the two places that must agree are checked by the type
+ * system.
+ */
+const BACKEND_LOADERS: Record<SquadProvider, (options: BackendSelection) => Promise<SquadBackend>> = {
+  anthropic: async (options) => {
+    const { AnthropicClient } = await import('./anthropic-client.js');
+    return new AnthropicClient(options.anthropicApiKey);
+  },
+  gemini: async (options) => {
+    const env = options.env ?? process.env;
+    // Statically imported above so an existing `vi.mock` of gemini-client.js
+    // keeps intercepting it.
+    return new GeminiClient(options.geminiApiKey ?? env[VENDORS.gemini.apiKeyEnv] ?? '');
+  },
+};
+
 export async function createBackend(options: BackendSelection): Promise<{
   provider: SquadProvider;
   backend: SquadBackend;
 }> {
   const provider = resolveProvider(options);
-
-  if (provider === 'anthropic') {
-    const { AnthropicClient } = await import('./anthropic-client.js');
-    return { provider, backend: new AnthropicClient(options.anthropicApiKey) };
-  }
-
-  const env = options.env ?? process.env;
-  const apiKey = options.geminiApiKey ?? env['GEMINI_API_KEY'] ?? '';
-  return { provider, backend: new GeminiClient(apiKey) };
+  return { provider, backend: await BACKEND_LOADERS[provider](options) };
 }

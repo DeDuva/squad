@@ -53,12 +53,12 @@ Model selection uses a layered system. First match wins:
 
 | Task Output | Model | Tier |
 |-------------|-------|------|
-| Writing code (implementation, refactoring, tests, bug fixes) | `claude-sonnet-4.6` | Standard |
-| Writing prompts or agent designs | `claude-sonnet-4.6` | Standard |
-| Non-code work (docs, planning, triage, changelogs) | `claude-haiku-4.5` | Fast |
-| Visual/design work requiring image analysis | `claude-opus-4.6` | Premium |
+| Writing code (implementation, refactoring, tests, bug fixes) | `claude-sonnet-5` | Standard |
+| Writing prompts or agent designs | `claude-sonnet-5` | Standard |
+| Non-code work (docs, planning, triage, changelogs) | `claude-haiku-4-5` | Fast |
+| Visual/design work requiring image analysis | `claude-opus-5` | Premium |
 
-5. **Default** — If nothing matched, `claude-haiku-4.5`. Cost wins when in doubt.
+5. **Default** — If nothing matched, `claude-haiku-4-5`. Cost wins when in doubt.
 
 ## Persistent Model Preferences
 
@@ -67,10 +67,10 @@ Squad stores your model preferences in `.squad/config.json`:
 ```json
 {
   "version": 1,
-  "defaultModel": "claude-opus-4.6",
+  "defaultModel": "claude-opus-5",
   "agentModelOverrides": {
-    "fenster": "claude-sonnet-4.6",
-    "mcmanus": "claude-haiku-4.5"
+    "fenster": "claude-sonnet-5",
+    "mcmanus": "claude-haiku-4-5"
   }
 }
 ```
@@ -83,34 +83,84 @@ Squad stores your model preferences in `.squad/config.json`:
 
 | Role | Default Model | Why |
 |------|--------------|-----|
-| Core Dev / Backend / Frontend | `claude-sonnet-4.6` | Writes code — quality first |
-| Tester / QA | `claude-sonnet-4.6` | Writes test code |
+| Core Dev / Backend / Frontend | `claude-sonnet-5` | Writes code — quality first |
+| Tester / QA | `claude-sonnet-5` | Writes test code |
 | Lead / Architect | auto (per-task) | Mixed: code review vs. planning |
 | Prompt Engineer | auto (per-task) | Prompt design is like code |
-| DevRel / Writer | `claude-haiku-4.5` | Docs — not code |
-| Scribe / Logger | `claude-haiku-4.5` | Mechanical file ops |
-| Git / Release | `claude-haiku-4.5` | Changelogs, tags, version bumps |
-| Designer / Visual | `claude-opus-4.6` | Vision capability required |
+| DevRel / Writer | `claude-haiku-4-5` | Docs — not code |
+| Scribe / Logger | `claude-haiku-4-5` | Mechanical file ops |
+| Git / Release | `claude-haiku-4-5` | Changelogs, tags, version bumps |
+| Designer / Visual | `claude-opus-5` | Vision capability required |
 
-## 18-Model Catalog
+## Model Catalog
 
-Squad supports 18 models across three tiers:
+Squad talks to one **vendor** at a time, and every vendor covers the same three
+tiers. The catalog lives in `packages/squad-sdk/src/config/vendors.ts`:
 
-- **Premium:** claude-opus-4.6, claude-opus-4.6-fast, claude-opus-4.5
-- **Standard:** claude-sonnet-4.6, gpt-5.4, gpt-5.3-codex, gpt-5.2-codex, claude-sonnet-4, gpt-5.2, gpt-5.1-codex, gpt-5.1, gpt-5, gemini-3-pro-preview
-- **Fast/Cheap:** claude-haiku-4.5, gpt-5.1-codex-mini, gpt-4.1, gpt-5-mini
+| Tier | Anthropic (default) | Google Gemini |
+|------|--------------------|----------------|
+| Premium | `claude-opus-5` | `gemini-pro-latest` |
+| Standard | `claude-sonnet-5` | `gemini-flash-latest` |
+| Fast | `claude-haiku-4-5` | `gemini-flash-latest` |
+
+**Every id is an alias that follows the vendor's releases — never a pinned
+version.** A pinned id keeps working after the vendor ships its successor, so
+the fleet quietly runs a superseded model until somebody notices. The two
+vendors disagree about what a pin looks like — a dated suffix pins a Claude id
+(`claude-sonnet-5-20260101`), while a generation number pins a Gemini one
+(`gemini-2.5-flash`) — so each vendor declares its own pattern and a test
+asserts no registered id matches it.
 
 ## Fallback Chains
 
-If a model is unavailable (plan restriction, rate limit, deprecation), Squad silently retries with the next in chain:
+If a model is unavailable (plan restriction, rate limit, deprecation), Squad
+retries with the next model in its tier's chain:
 
 ```
-Premium:  claude-opus-4.6 → claude-opus-4.6-fast → claude-opus-4.5 → claude-sonnet-4.6
-Standard: claude-sonnet-4.6 → gpt-5.3-codex → gpt-5.4 → claude-sonnet-4 → gpt-5.2
-Fast:     claude-haiku-4.5 → gpt-5.1-codex-mini → gpt-4.1 → gpt-5-mini
+Anthropic  Premium:  claude-opus-5 → claude-sonnet-5 → claude-haiku-4-5
+           Standard: claude-sonnet-5 → claude-haiku-4-5
+           Fast:     claude-haiku-4-5
+
+Gemini     Premium:  gemini-pro-latest → gemini-flash-latest
+           Standard: gemini-flash-latest
+           Fast:     gemini-flash-latest
 ```
 
-Never falls back UP in tier — a fast task won't land on a premium model.
+Two rules hold: chains never fall back **up** a tier, so a fast task can't land
+on a premium model; and they never cross **vendors**, because a session is bound
+to one backend — degrading from Claude onto a Gemini model would fail at the
+transport rather than degrade.
+
+## Vendors, and Changing the Default
+
+`config/vendors.ts` is the single source of truth for which vendors exist and
+which one is the default. Everything downstream — the model constants, the
+fallback chains, and which backend gets constructed — derives from it, so the
+default is one edit:
+
+```ts
+export const DEFAULT_PROVIDER: SquadProvider = 'anthropic';
+```
+
+Per-project, the default is overridden without touching code — most specific
+wins:
+
+1. An explicit `provider` passed to `SquadClient`
+2. `provider` in `.squad/config.json` (`squad config provider gemini`)
+3. The `SQUAD_PROVIDER` environment variable
+4. `DEFAULT_PROVIDER`
+
+**Adding a vendor** is three steps:
+
+1. Add an entry to `VENDORS` — tier models, fallback chains, the env var
+   holding its API key, and the pattern that identifies a pinned id.
+2. Add a client implementing `SquadBackend` (see `adapter/anthropic-client.ts`
+   for the shape).
+3. Add it to `BACKEND_LOADERS` in `adapter/backend-factory.ts`.
+
+Step 3 isn't something to remember: the loader map is typed
+`Record<SquadProvider, …>`, so registering a vendor without a loader is a
+compile error rather than a runtime surprise.
 
 ## User Overrides
 
@@ -118,7 +168,7 @@ Tell the coordinator what you want:
 
 - `"use opus for this"` — one-off premium for current task
 - `"always use opus"` — **persistent** preference saved to `.squad/config.json` (survives sessions)
-- `"use gpt-5.2-codex for Fenster"` — **persistent** per-agent override
+- `"use haiku for Fenster"` — **persistent** per-agent override
 - `"switch back to automatic"` — clears persistent preference
 
 ## Economy Mode
@@ -142,7 +192,7 @@ When economy mode is active, Squad remaps models using the `ECONOMY_MODEL_MAP`:
 | Standard (Sonnet) | `gpt-4.1` |
 | Fast (Haiku) | `gpt-4.1` |
 
-**Fallback chains in economy mode** run the same logic as normal fallback chains, but start one tier lower. A code task that would normally use `claude-sonnet-4.6` uses `claude-haiku-4.5` instead.
+**Fallback chains in economy mode** run the same logic as normal fallback chains, but start one tier lower. A code task that would normally use `claude-sonnet-5` uses `claude-haiku-4-5` instead.
 
 **Cost tradeoffs:** Economy mode trades output quality for lower cost and reduced rate limit pressure. Use it for bulk triage, log analysis, or changelog generation — not for architecture work or complex refactors where quality matters.
 

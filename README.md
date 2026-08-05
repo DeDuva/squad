@@ -448,7 +448,7 @@ export default defineSquad({
   team: defineTeam({ name: 'Platform Squad', members: ['@edie', '@mcmanus'] }),
   agents: [
     defineAgent({ name: 'edie', role: 'TypeScript Engineer', model: 'claude-sonnet-4' }),
-    defineAgent({ name: 'mcmanus', role: 'DevRel', model: 'claude-haiku-4.5' }),
+    defineAgent({ name: 'mcmanus', role: 'DevRel', model: 'claude-haiku-4-5' }),
   ],
 });
 ```
