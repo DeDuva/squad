@@ -26,7 +26,6 @@ export {
 // --- M1-10 Fan-Out ---
 export {
   spawnParallel,
-  aggregateSessionEvents,
   type AgentSpawnConfig,
   type SpawnResult,
   type FanOutDependencies,

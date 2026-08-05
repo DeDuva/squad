@@ -125,6 +125,19 @@ export type AgentMilestonePayload =
       originalModel: string;
       originalTier: string;
       totalAttempts: number;
+    }
+  | {
+      /**
+       * A platform spawn backend declined the agent and fan-out fell back to
+       * `createSession`. Unlike the two above, this is not about model
+       * selection and carries no model — the recorder records it as `custom`
+       * rather than inflating the run's model-call count, which is one of the
+       * numbers a cross-vendor comparison reads.
+       */
+      event: 'spawn.fallback';
+      agentName: string;
+      from: string;
+      reason: string;
     };
 
 // ============================================================================

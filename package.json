@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad",
-  "version": "0.11.0-build.2",
+  "version": "0.11.0-build.6",
   "private": true,
   "description": "Squad — Programmable multi-agent runtime",
   "type": "module",

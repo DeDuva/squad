@@ -54,6 +54,18 @@ export interface SpawnedSession {
   sessionId: string;
   /** Send the initial message when kickoff is not handled by session creation */
   sendMessage: (opts: { prompt: string; mode?: 'enqueue' | 'immediate' }) => Promise<void>;
+  /**
+   * Send, and resolve on turn completion, with an optional ceiling. Optional
+   * because an injected factory need not offer it; both shipped backends do
+   * (see `adapter/types.ts`), and fan-out prefers it so the Anthropic backend
+   * can enforce the deadline natively and abort the turn it started.
+   */
+  sendAndWait?: (
+    opts: { prompt: string; mode?: 'enqueue' | 'immediate' },
+    timeout?: number,
+  ) => Promise<unknown>;
+  /** Best-effort cancellation of an in-flight turn. */
+  abort?: () => Promise<void>;
 }
 
 /** Session creation callback injected by SDK callers */

@@ -393,7 +393,21 @@ export class AdpRunRecorder {
         const payload = event.payload as AgentMilestonePayload;
         const sessionId = await this.sessionFor(event);
         if (!sessionId) return;
-        // Squad's milestones are about model selection — a fallback is a model
+        // `spawn.fallback` is about which *spawn backend* took the agent, not
+        // which model ran. Recording it as a `model_call` would add a model
+        // call that never happened to a run whose model-call count is one of
+        // the numbers a vendor comparison is read off.
+        if (payload.event === 'spawn.fallback') {
+          this.enqueue(sessionId, {
+            kind: 'custom',
+            type: payload.event,
+            payload,
+            status: 'failure',
+            occurred_at: occurredAt,
+          });
+          return;
+        }
+        // The model milestones are model selection — a fallback is a model
         // call that failed and a retry under another model. Recording them as
         // `model_call` with a failure status is what makes "which models cost
         // us retries" answerable from the trajectory.

@@ -16,6 +16,8 @@ import { join } from 'node:path';
 import { EventBus } from '../packages/squad-sdk/src/runtime/event-bus.js';
 import { AdpClient } from '../packages/squad-sdk/src/adp/client.js';
 import { AdpRunRecorder } from '../packages/squad-sdk/src/adp/recorder.js';
+import { spawnParallel } from '../packages/squad-sdk/src/coordinator/fan-out.js';
+import { SessionPool } from '../packages/squad-sdk/src/client/session-pool.js';
 
 interface AppendCall {
   sessionId: string;
@@ -627,6 +629,121 @@ describe('AdpRunRecorder durable spool', () => {
     // redundant. Dropping it earlier would discard the one record of anything
     // still unsent.
     expect(existsSync(spoolPath)).toBe(false);
+  });
+});
+
+/**
+ * The seam between fan-out and the recorder, exercised through the real
+ * `spawnParallel` rather than through hand-written events.
+ *
+ * The bake-off harness had to emit `session:created` itself, with a comment
+ * saying fan-out emitted `session.created` (a dot) which reached no handler.
+ * These tests exist so that workaround cannot come back unnoticed: they assert
+ * the recorder gets per-agent sessions from an unmodified fan-out.
+ */
+describe('fan-out feeds the recorder without hand-emission', () => {
+  let adp: FakeAdp;
+  let bus: EventBus;
+  let recorder: AdpRunRecorder;
+  let sessionPool: SessionPool;
+
+  const fanOutDeps = (overrides: Record<string, unknown> = {}): any => ({
+    compileCharter: async (agentName: string) => ({
+      name: agentName,
+      displayName: agentName,
+      role: 'Developer',
+      expertise: [],
+      style: 'concise',
+      prompt: `You are ${agentName}`,
+    }),
+    resolveModel: async () => 'claude-sonnet-5',
+    createSession: async (config: any) => ({
+      sessionId: `squad-${String(config.clientName).replace(/^squad-agent-/, '')}`,
+      sendMessage: async () => undefined,
+    }),
+    sessionPool,
+    eventBus: bus,
+    ...overrides,
+  });
+
+  beforeEach(async () => {
+    adp = new FakeAdp();
+    bus = new EventBus();
+    sessionPool = new SessionPool({ maxConcurrent: 10, idleTimeout: 60000, healthCheckInterval: 30000 });
+    recorder = new AdpRunRecorder({
+      client: new AdpClient({
+        baseUrl: 'http://adp.test',
+        token: 'token',
+        owner: 'acme',
+        repo: 'widget',
+        fetchImpl: adp.fetch,
+      }),
+      intentId: 'intent-1',
+      externalRef: 'issue:42',
+      batchSize: 1,
+    });
+    await recorder.start(bus);
+  });
+
+  it('gives each spawned agent its own ADP session', async () => {
+    await spawnParallel(
+      [
+        { agentName: 'Backend', task: 'write the module' },
+        { agentName: 'Tester', task: 'write the test' },
+      ],
+      fanOutDeps(),
+    );
+    await recorder.flush();
+
+    const backend = recorder.sessionsByAgent.get('Backend');
+    const tester = recorder.sessionsByAgent.get('Tester');
+    expect(backend).toBeTruthy();
+    expect(tester).toBeTruthy();
+    expect(backend).not.toBe(tester);
+  });
+
+  it('attributes a later event to the agent, not to the coordinator', async () => {
+    // This is what the envelope's agentName buys. `sessionFor()` resolves by
+    // squad session id first, and that mapping is only established because
+    // fan-out's `session:created` carried both the id and the agent name.
+    await spawnParallel([{ agentName: 'Backend', task: 'write the module' }], fanOutDeps());
+
+    await bus.emit({
+      type: 'session:tool_call',
+      sessionId: 'squad-Backend',
+      payload: { toolName: 'write_file', toolArgs: {}, resultType: 'success' },
+      timestamp: new Date('2026-08-05T10:00:00Z'),
+    });
+    await recorder.flush();
+
+    const agentSession = recorder.sessionsByAgent.get('Backend')!;
+    const landed = adp.landed.get(agentSession) ?? [];
+    expect(landed.some((e) => e.kind === 'tool_call' && e.type === 'write_file')).toBe(true);
+  });
+
+  it('records a spawn-backend fallback as custom, not as a model call', async () => {
+    // A spawn fallback says which backend took the agent. Counting it as a
+    // model call would add a call that never happened to the very number a
+    // cross-vendor comparison is read off.
+    await spawnParallel(
+      [{ agentName: 'Backend', task: 'write the module' }],
+      fanOutDeps({
+        spawnBackend: {
+          platform: 'app',
+          isAvailable: () => true,
+          spawn: async () => ({ id: '', agentName: 'Backend', platform: 'app', success: false, error: 'cap reached' }),
+          release: () => {},
+        },
+      }),
+    );
+    await recorder.flush();
+
+    const agentSession = recorder.sessionsByAgent.get('Backend')!;
+    const landed = adp.landed.get(agentSession) ?? [];
+    const fallback = landed.find((e) => e.type === 'spawn.fallback');
+    expect(fallback).toBeTruthy();
+    expect(fallback!.kind).toBe('custom');
+    expect(landed.some((e) => e.kind === 'model_call')).toBe(false);
   });
 });
 

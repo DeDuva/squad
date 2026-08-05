@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-sdk",
-  "version": "0.11.0-build.2",
+  "version": "0.11.0-build.6",
   "description": "Squad SDK — Programmable multi-agent runtime",
   "type": "module",
   "main": "./dist/index.js",
