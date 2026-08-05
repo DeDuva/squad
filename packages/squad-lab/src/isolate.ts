@@ -23,12 +23,21 @@ export interface AdpWiring {
 export interface WorkspaceSpec {
   /** Where the clone goes. Created if missing. */
   workDir: string;
-  /** Clone source: a path or URL. */
+  /** Clone source: a path or URL. Supplies the starting tree only. */
   seedRepo: string;
   /** Branch to check out for this variant's work. */
   branch: string;
   /** Ref in the seed to start from. Defaults to the seed's HEAD. */
   seedRef?: string;
+  /**
+   * Where the variant pushes — ADP's own git endpoint.
+   *
+   * This has to be ADP and not the seed. Closing a run resolves the final sha
+   * *in ADP's repository*, so a variant that pushes anywhere else produces a
+   * commit ADP has never heard of and a run that cannot be closed against it.
+   * Omit only when nothing will be pushed.
+   */
+  pushRemote?: string;
   adp: AdpWiring;
 }
 
@@ -64,6 +73,12 @@ export function prepareWorkspace(spec: WorkspaceSpec): Workspace {
   // A branch per variant. Re-running a vendor against a fresh clone would
   // otherwise push a non-fast-forward onto the previous attempt's branch.
   git(spec.workDir, ['checkout', '--quiet', '-B', spec.branch]);
+
+  // The seed gave us a starting tree; from here `origin` is ADP, because that
+  // is the repository a run is closed against.
+  if (spec.pushRemote) {
+    git(spec.workDir, ['remote', 'set-url', 'origin', spec.pushRemote]);
+  }
 
   // Keep the lab's own wiring out of the variant's deliverable. `.squad/` is
   // ours, not the agents' work, and `commitAndPush` stages everything — so

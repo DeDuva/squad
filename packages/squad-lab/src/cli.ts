@@ -5,14 +5,14 @@
  * from a clean clone with nothing hand-edited.
  */
 
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { runVariant } from './run-variant.js';
 import { prepareWorkspace } from './isolate.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
-import { createGoal, ensureRepo, whoami, type AdpEndpoint } from './adp.js';
+import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
 function arg(name: string, fallback?: string): string {
@@ -26,6 +26,26 @@ function arg(name: string, fallback?: string): string {
 
 function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
+}
+
+/**
+ * Vendor credentials, which are asymmetric and quietly so.
+ *
+ * Anthropic inherits the `claude` CLI's own credential chain, so there is
+ * nothing to pass and nothing to check. Gemini needs its key handed over
+ * explicitly — and `GEMINI_API_KEY` merely being in the environment
+ * deliberately does not count as choosing that vendor, so it has to be read
+ * and passed rather than left to be picked up.
+ */
+function loadCredentials(provider: SquadProvider): { geminiApiKey?: string } {
+  if (provider !== 'gemini') return {};
+  if (process.env['GEMINI_API_KEY']) return { geminiApiKey: process.env['GEMINI_API_KEY'] };
+  const keyFile = join(homedir(), '.config', 'squad', 'gemini.json');
+  if (existsSync(keyFile)) {
+    const parsed = JSON.parse(readFileSync(keyFile, 'utf8')) as { apiKey?: string };
+    if (parsed.apiKey) return { geminiApiKey: parsed.apiKey };
+  }
+  throw new Error(`no Gemini key: set GEMINI_API_KEY or write ${keyFile}`);
 }
 
 async function main(): Promise<void> {
@@ -72,6 +92,8 @@ async function main(): Promise<void> {
     workDir: join(root, variantId, 'work'),
     seedRepo: resolve(arg('seed')),
     branch: `lab/${experimentId}/${variantId}`,
+    // Push to ADP, not to the seed: closing a run resolves the sha there.
+    pushRemote: gitRemote(endpoint),
     adp: { url: endpoint.baseUrl, repo: `${owner}/${repo}`, tokenEnv },
   });
   console.log(`→ work repo ${workspace.workDir} on ${workspace.branch}`);
@@ -80,6 +102,7 @@ async function main(): Promise<void> {
     experimentId,
     variantId,
     provider,
+    credentials: loadCredentials(provider),
     ...(flag('tier') ? {} : {}),
     ...(process.argv.some((a) => a.startsWith('--model=')) ? { model: arg('model') } : {}),
     adp: { ...endpoint, issueNumber, intentId, tokenEnv },

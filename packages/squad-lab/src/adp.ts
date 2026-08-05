@@ -57,10 +57,30 @@ export async function whoami(ep: AdpEndpoint): Promise<{ login: string }> {
   return call(ep, 'GET', '/api/v3/user');
 }
 
-/** Create the repo if it is not already there. Existing is not an error. */
+/**
+ * The git URL a variant pushes to, with the token in it.
+ *
+ * ADP accepts the token as HTTP Basic, so it rides in the URL rather than
+ * needing a credential helper — which matters because the inherited one errors
+ * out under WSL. The username half is ignored and only has to be non-empty.
+ */
+export function gitRemote(ep: AdpEndpoint): string {
+  const url = new URL(ep.baseUrl);
+  url.username = 'adp';
+  url.password = ep.token;
+  return `${url.toString().replace(/\/+$/, '')}/${ep.owner}/${ep.repo}.git`;
+}
+
+/**
+ * Create the repo if it is not already there. Existing is not an error.
+ *
+ * Uses the owner-in-path form rather than `/api/v3/user/repos`, which puts the
+ * repo under the *token's* login: the lab names its own namespace, and that
+ * namespace is not a principal.
+ */
 export async function ensureRepo(ep: AdpEndpoint): Promise<void> {
   try {
-    await call(ep, 'POST', '/api/v3/user/repos', { name: ep.repo });
+    await call(ep, 'POST', `/api/v3/repos/${ep.owner}`, { name: ep.repo });
   } catch (err) {
     // 422 is "already exists", which is the normal case on a re-run.
     if (err instanceof AdpHttpError && err.status === 422) return;

@@ -27,7 +27,7 @@ import { VENDORS, type SquadProvider } from '@deduvafork/squad-sdk/config/vendor
 
 import { commitAndPush, type Workspace } from './isolate.js';
 import { defaultTools, instrument, type LabTool } from './tools/default.js';
-import { readGoal, type AdpEndpoint } from './adp.js';
+import { getRun, readGoal, type AdpEndpoint } from './adp.js';
 
 export type VariantPhase =
   | 'preparing'
@@ -306,8 +306,25 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
       finalGitSha: result.finalSha,
       reason: result.outcome === 'timeout' ? 'deadline' : 'agents produced no commit',
     });
-    if (result.outcome !== 'timeout') {
-      result.outcome = result.finalSha ? 'closed' : 'abandoned';
+
+    // Read the run back rather than inferring the outcome from having asked.
+    // The recorder swallows its own errors by design — recording must never
+    // throw into the bus — so a close that ADP rejected looks identical here to
+    // one it accepted, and reporting `closed` on the strength of having called
+    // close is how a run that ADP still holds open gets counted as a result.
+    if (result.outcome !== 'timeout' && result.runId) {
+      const run = (await getRun(spec.adp, result.runId).catch(() => undefined)) as
+        | { status?: string }
+        | undefined;
+      result.outcome =
+        run?.status === 'closed'
+          ? 'closed'
+          : run?.status === 'abandoned'
+            ? 'abandoned'
+            : 'error';
+      if (result.outcome === 'error' && !result.error) {
+        result.error = `run left ${run?.status ?? 'unreadable'} after close`;
+      }
     }
 
     result.cost = summarise(cost);
