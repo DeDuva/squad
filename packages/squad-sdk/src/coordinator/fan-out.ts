@@ -9,7 +9,13 @@
  */
 
 import type { AgentCharter } from '../agents/index.js';
-import type { EventBus } from '../client/event-bus.js';
+// The runtime bus, not `../client/event-bus.js`. Every real caller
+// (SquadCoordinator, SquadClient, AdpRunRecorder) passes the runtime bus, whose
+// event names are colon-separated and whose subscribe method is `subscribe`.
+// This file used to import the client bus — dot-separated names and `on()` —
+// so the events it emitted reached `subscribeAll` but no typed subscriber, and
+// the recorder dropped them at its `default` case.
+import type { EventBus } from '../runtime/event-bus.js';
 import type { SessionPool } from '../client/session-pool.js';
 import { VALID_REASONING_EFFORTS } from '../config/models.js';
 import type { CreateSessionFn, SpawnBackend, SpawnHandle, SpawnRequest } from './spawn-backend.js';
@@ -29,6 +35,18 @@ export interface AgentSpawnConfig {
   modelOverride?: string;
   /** Reasoning effort override */
   reasoningEffortOverride?: string;
+  /**
+   * Ceiling for this agent's opening turn, in ms. Omitted means no deadline,
+   * which is the historical behaviour.
+   *
+   * `spawnParallel` resolves only once every agent's turn has, so without a
+   * deadline one wedged backend hangs the whole assignment. The bound is
+   * applied here rather than delegated to `session.sendAndWait`, because
+   * `sendAndWait`'s timeout is honoured by the Anthropic backend and ignored by
+   * the Gemini one — a deadline that works on one vendor is not a deadline when
+   * the point of the exercise is comparing vendors.
+   */
+  timeoutMs?: number;
 }
 
 // --- Spawn Result ---
@@ -172,10 +190,11 @@ async function spawnSingle(
         // mirrors the template contract ("if create_session fails, retry
         // with task").
         await deps.eventBus.emit({
-          type: 'session.spawn_fallback',
+          type: 'agent:milestone',
           sessionId: undefined,
           agentName: config.agentName,
           payload: {
+            event: 'spawn.fallback',
             agentName: config.agentName,
             from: deps.spawnBackend.platform,
             reason: handle.error || 'spawn backend reported failure',
@@ -200,10 +219,16 @@ async function spawnSingle(
       registerSpawnRelease(deps.spawnBackend, spawnHandle, deps.eventBus);
     }
 
-    // Step 6: Emit spawn success event
+    // Step 6: Emit spawn success event.
+    //
+    // `agentName` goes on the envelope as well as in the payload. AdpRunRecorder
+    // reads the payload here but `sessionFor()` reads the envelope for every
+    // other event, so an envelope without it means each agent's later events
+    // resolve to the coordinator's session instead of its own.
     await deps.eventBus.emit({
-      type: 'session.created' as any,
+      type: 'session:created',
       sessionId,
+      agentName: config.agentName,
       payload: { agentName: config.agentName, priority: config.priority || 'normal' },
       timestamp: new Date(),
     });
@@ -220,8 +245,9 @@ async function spawnSingle(
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     await deps.eventBus.emit({
-      type: 'session.error' as any,
+      type: 'session:error',
       sessionId: undefined,
+      agentName: config.agentName,
       payload: { agentName: config.agentName, error: errorMessage },
       timestamp: new Date(),
     });
@@ -254,10 +280,46 @@ async function spawnViaCreateSession(
     ...(reasoningEffort ? { reasoningEffort } : {}),
   });
 
-  await session.sendMessage({
-    prompt: initialPrompt,
-    mode: 'immediate',
-  });
+  const options = { prompt: initialPrompt, mode: 'immediate' as const };
+
+  // Both backends resolve this on *turn completion*, not on dispatch — which is
+  // why `spawnParallel` awaiting it is already a real completion signal. Prefer
+  // `sendAndWait` when the session offers it, because the Anthropic backend
+  // implements the timeout natively and aborts the turn it started.
+  const turn = session.sendAndWait
+    ? session.sendAndWait(options, config.timeoutMs)
+    : session.sendMessage(options);
+
+  if (config.timeoutMs === undefined) {
+    await turn;
+    return session.sessionId;
+  }
+
+  // The race is belt-and-braces on purpose: the Gemini backend accepts a
+  // timeout argument and ignores it, so relying on `sendAndWait` alone would
+  // bound one vendor and not the other. Abort is best-effort — a backend that
+  // cannot be aborted still stops blocking the assignment here.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      turn,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`agent turn exceeded ${config.timeoutMs}ms`)),
+          config.timeoutMs,
+        );
+      }),
+    ]);
+  } catch (error) {
+    try {
+      await session.abort?.();
+    } catch {
+      // An abort that fails must not mask the timeout that caused it.
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   return session.sessionId;
 }
@@ -284,33 +346,30 @@ function registerSpawnRelease(
     if (released) return;
     released = true;
     if (timer) clearTimeout(timer);
-    unsubscribeStatus();
+    unsubscribeIdle();
     unsubscribeDestroyed();
     unsubscribeError();
     backend.release(handle);
   };
 
-  const unsubscribeStatus = eventBus.on('session.status_changed', (event) => {
-    if (event.sessionId !== handle.id) return;
-    const payload = event.payload as { newStatus?: string } | undefined;
-    const status = payload?.newStatus;
-    if (
-      status === 'idle' ||
-      status === 'completed' ||
-      status === 'error' ||
-      status === 'destroyed'
-    ) {
-      releaseOnce();
-    }
-  });
-
-  const unsubscribeDestroyed = eventBus.on('session.destroyed', (event) => {
+  // `session.status_changed` has no analogue on the runtime bus, so the
+  // status-based release is gone. `session:idle` covers the case it actually
+  // caught (a session going quiet without being destroyed); anything it
+  // does not catch falls through to the leak timer below, which is what that
+  // timer is for.
+  const unsubscribeIdle = eventBus.subscribe('session:idle', (event) => {
     if (event.sessionId === handle.id) {
       releaseOnce();
     }
   });
 
-  const unsubscribeError = eventBus.on('session.error', (event) => {
+  const unsubscribeDestroyed = eventBus.subscribe('session:destroyed', (event) => {
+    if (event.sessionId === handle.id) {
+      releaseOnce();
+    }
+  });
+
+  const unsubscribeError = eventBus.subscribe('session:error', (event) => {
     if (event.sessionId === handle.id) {
       releaseOnce();
     }
@@ -375,43 +434,9 @@ function buildInitialPrompt(config: AgentSpawnConfig): string {
   return parts.join('\n');
 }
 
-// --- Event Aggregation Helper ---
-
-/**
- * Subscribe to all events from a spawned session and forward them
- * to the coordinator's event bus with agent context.
- * 
- * @param sessionId - Session ID to subscribe to
- * @param agentName - Agent name for context
- * @param sessionEventEmitter - Session's event emitter (if available)
- * @param coordinatorEventBus - Coordinator's event bus
- */
-export function aggregateSessionEvents(
-  sessionId: string,
-  agentName: string,
-  sessionEventEmitter: any, // SquadSession
-  coordinatorEventBus: EventBus
-): void {
-  // Forward all session events to coordinator's event bus
-  const eventTypes = [
-    'message.delta',
-    'message.complete',
-    'tool.start',
-    'tool.complete',
-    'session.error',
-    'session.complete',
-  ];
-
-  for (const eventType of eventTypes) {
-    if (sessionEventEmitter.on) {
-      sessionEventEmitter.on(eventType, (event: any) => {
-        coordinatorEventBus.emit({
-          type: eventType as any,
-          sessionId,
-          payload: { agentName, ...event },
-          timestamp: new Date(),
-        });
-      });
-    }
-  }
-}
+// `aggregateSessionEvents` used to live here. It forwarded a set of
+// dot-separated event names (`message.delta`, `tool.start`, …) that are not
+// SquadEventTypes and would have reached no typed subscriber. It had no caller,
+// and it type-checked only because this file imported the wrong EventBus — which
+// is precisely how that import survived long enough to break session attribution.
+// Tool calls now reach the bus through the adapter bridge in `adapter/client.ts`.

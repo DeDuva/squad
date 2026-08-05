@@ -1,0 +1,21 @@
+{
+  "name": "@deduvafork/squad-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Run one goal across several model providers and compare the results, recorded in ADP.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lab": "node --import tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@deduvafork/squad-sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
+  }
+}

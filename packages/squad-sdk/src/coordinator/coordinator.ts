@@ -76,6 +76,15 @@ export interface SquadCoordinatorOptions {
    * nothing is constructed and behaviour is unchanged.
    */
   adp?: AdpAssignmentOptions;
+  /**
+   * Ceiling for each spawned agent's opening turn, in ms. Omitted means no
+   * deadline (the historical behaviour).
+   *
+   * Lives here rather than being read off `SquadConfig` because the callers
+   * that care about a bounded assignment — headless runners driving the SDK
+   * path — synthesise a minimal config and would have nowhere to put it.
+   */
+  turnTimeoutMs?: number;
 }
 
 export interface AdpAssignmentOptions {
@@ -109,6 +118,7 @@ export class SquadCoordinator {
   private compiledRouter: CompiledRouter;
   private fanOutDeps?: FanOutDependencies;
   private adp?: AdpAssignmentOptions;
+  private turnTimeoutMs?: number;
   private recorder?: AdpRunRecorder;
   /** Shared so two concurrent messages open one run, not two. */
   private recording?: Promise<AdpRunRecorder | undefined>;
@@ -118,6 +128,7 @@ export class SquadCoordinator {
     this.eventBus = options.eventBus;
     this.fanOutDeps = options.fanOutDeps;
     this.adp = options.adp;
+    this.turnTimeoutMs = options.turnTimeoutMs;
     this.directHandler = options.directHandler ?? new DirectResponseHandler();
 
     // Compile routing rules from config or use provided router
@@ -199,7 +210,29 @@ export class SquadCoordinator {
           agentCount: spawnConfigs.length,
         });
 
+        // `spawnParallel` resolves only once every agent's turn has completed —
+        // both backends resolve `sendMessage`/`sendAndWait` on turn completion,
+        // not on dispatch. So by this line the fan-out is genuinely done, and a
+        // caller does not need to sleep and hope.
         spawnResults = await spawnParallel(spawnConfigs, this.fanOutDeps);
+
+        // Give each agent a terminal event. Nothing else emits one, so without
+        // this an ADP session stays `active` until closing the run sweeps it,
+        // and a UI has nothing to render "this agent finished" from. The
+        // recorder's `session:destroyed` case also flushes that session, so the
+        // agent's trajectory is durable at the moment it stops rather than at
+        // the end of the assignment.
+        for (const result of spawnResults) {
+          await this.emit(
+            'session:destroyed',
+            result.sessionId,
+            {
+              agentName: result.agentName,
+              reason: result.status === 'success' ? 'complete' : 'error',
+            },
+            result.agentName,
+          );
+        }
 
         // If all spawns failed in single mode, mark as fallback
         if (strategy === 'single' && spawnResults.every(r => r.status === 'failed')) {
@@ -320,6 +353,7 @@ export class SquadCoordinator {
       task: message,
       priority: routing.confidence === 'high' ? 'normal' : 'low',
       context: context.metadata ? JSON.stringify(context.metadata) : undefined,
+      ...(this.turnTimeoutMs === undefined ? {} : { timeoutMs: this.turnTimeoutMs }),
     }));
   }
 
@@ -344,11 +378,13 @@ export class SquadCoordinator {
     type: string,
     sessionId: string | undefined,
     payload: Record<string, unknown>,
+    agentName?: string,
   ): Promise<void> {
     if (!this.eventBus) return;
     await this.eventBus.emit({
       type: type as SquadEvent['type'],
       sessionId,
+      ...(agentName === undefined ? {} : { agentName }),
       payload,
       timestamp: new Date(),
     });

@@ -11,12 +11,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   spawnParallel,
-  aggregateSessionEvents,
   type AgentSpawnConfig,
   type SpawnResult,
   type FanOutDependencies,
 } from '@deduvafork/squad-sdk/coordinator';
-import { EventBus } from '@deduvafork/squad-sdk/client';
+// The runtime bus, matching what fan-out actually receives from every real
+// caller. This file used to construct the *client* bus, which is why the
+// dot-separated event names below went unnoticed for so long: both sides were
+// consistently wrong, so the tests passed while the recorder saw nothing.
+import { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
 import { SessionPool } from '@deduvafork/squad-sdk/client';
 import type { AgentCharter } from '@deduvafork/squad-sdk/agents';
 
@@ -228,9 +231,9 @@ describe('spawnParallel', () => {
     await spawnParallel([{ agentName: 'fenster', task: 'Deep analysis' }], mockDeps);
 
     await eventBus.emit({
-      type: 'session.status_changed',
+      type: 'session:idle',
       sessionId: 'spawned-session-456',
-      payload: { newStatus: 'idle' },
+      payload: { agentName: 'fenster' },
       timestamp: new Date(),
     });
 
@@ -259,8 +262,10 @@ describe('spawnParallel', () => {
       release,
     };
 
+    // A spawn-backend fallback is an agent milestone, not a session lifecycle
+    // event — it says which backend took the agent, not that a session began.
     const fallbackEvents: any[] = [];
-    eventBus.on('session.spawn_fallback', (event) => fallbackEvents.push(event));
+    eventBus.subscribe('agent:milestone', (event) => fallbackEvents.push(event));
 
     const results = await spawnParallel([{ agentName: 'fenster', task: 'Deep analysis' }], mockDeps);
 
@@ -273,7 +278,11 @@ describe('spawnParallel', () => {
     expect(release).not.toHaveBeenCalled();
     expect(sessionPool.size).toBe(1);
     expect(fallbackEvents).toHaveLength(1);
-    expect(fallbackEvents[0].payload).toMatchObject({ agentName: 'fenster', from: 'app' });
+    expect(fallbackEvents[0].payload).toMatchObject({
+      event: 'spawn.fallback',
+      agentName: 'fenster',
+      from: 'app',
+    });
   });
 
   it('releases backend concurrency when a spawned session reports completed', async () => {
@@ -295,9 +304,9 @@ describe('spawnParallel', () => {
     await spawnParallel([{ agentName: 'fenster', task: 'Deep analysis' }], mockDeps);
 
     await eventBus.emit({
-      type: 'session.status_changed',
+      type: 'session:destroyed',
       sessionId: 'spawned-session-789',
-      payload: { newStatus: 'completed' },
+      payload: { agentName: 'fenster', reason: 'complete' },
       timestamp: new Date(),
     });
 
@@ -460,7 +469,7 @@ describe('spawnParallel', () => {
 
   it('should emit spawn events to event bus', async () => {
     const emittedEvents: any[] = [];
-    eventBus.on('session.created', (event) => {
+    eventBus.subscribe('session:created', (event) => {
       emittedEvents.push(event);
     });
 
@@ -476,11 +485,26 @@ describe('spawnParallel', () => {
     expect(emittedEvents[1].payload.agentName).toBe('verbal');
   });
 
+  it('puts agentName on the session:created envelope, not only in the payload', async () => {
+    // AdpRunRecorder reads the payload for this one event and the *envelope* for
+    // every other. An envelope without agentName means each agent's subsequent
+    // events resolve to the coordinator's ADP session rather than its own, and
+    // a per-agent trajectory silently collapses into one lane.
+    const created: any[] = [];
+    eventBus.subscribe('session:created', (event) => created.push(event));
+
+    await spawnParallel([{ agentName: 'fenster', task: 'Task 1' }], mockDeps);
+
+    expect(created).toHaveLength(1);
+    expect(created[0].agentName).toBe('fenster');
+    expect(created[0].sessionId).toBeTruthy();
+  });
+
   it('should emit spawn failure events', async () => {
     (mockDeps.compileCharter as any).mockRejectedValue(new Error('Network error'));
 
     const failureEvents: any[] = [];
-    eventBus.on('session.error', (event) => {
+    eventBus.subscribe('session:error', (event) => {
       failureEvents.push(event);
     });
 
@@ -492,6 +516,7 @@ describe('spawnParallel', () => {
 
     expect(results[0].status).toBe('failed');
     expect(failureEvents).toHaveLength(1);
+    expect(failureEvents[0].agentName).toBe('failing-agent');
     expect(failureEvents[0].payload.agentName).toBe('failing-agent');
     expect(failureEvents[0].payload.error).toContain('Network error');
   });
@@ -527,59 +552,133 @@ describe('spawnParallel', () => {
   });
 });
 
-describe('aggregateSessionEvents', () => {
-  it('should forward session events to coordinator event bus', () => {
-    const coordinatorEventBus = new EventBus();
-    const receivedEvents: any[] = [];
+// `aggregateSessionEvents` was deleted along with its tests. It forwarded
+// dot-separated names that are not SquadEventTypes, it had no caller, and it
+// type-checked only because this module imported the wrong EventBus.
 
-    coordinatorEventBus.on('tool.start', (event) => {
-      receivedEvents.push(event);
-    });
+describe('spawnParallel completion signal', () => {
+  let mockDeps: FanOutDependencies;
+  let eventBus: EventBus;
+  let sessionPool: SessionPool;
 
-    const mockSession = {
-      on: vi.fn((eventType: string, handler: any) => {
-        // Simulate tool.start event
-        if (eventType === 'tool.start') {
-          handler({ toolName: 'squad_route', timestamp: Date.now() });
-        }
-      }),
+  const charter = (agentName: string) =>
+    ({
+      name: agentName,
+      displayName: `${agentName} Agent`,
+      role: 'Developer',
+      expertise: ['TypeScript'],
+      style: 'Professional',
+      prompt: `You are ${agentName}`,
+      modelPreference: 'claude-sonnet-4.5',
+    }) as AgentCharter;
+
+  beforeEach(() => {
+    eventBus = new EventBus();
+    sessionPool = new SessionPool({ maxConcurrent: 10, idleTimeout: 60000, healthCheckInterval: 30000 });
+    mockDeps = {
+      compileCharter: vi.fn(async (n: string) => charter(n)),
+      resolveModel: vi.fn(async () => 'claude-sonnet-4.5'),
+      createSession: vi.fn(),
+      sessionPool,
+      eventBus,
     };
-
-    aggregateSessionEvents('session-123', 'fenster', mockSession, coordinatorEventBus);
-
-    expect(mockSession.on).toHaveBeenCalled();
-    expect(receivedEvents.length).toBeGreaterThan(0);
   });
 
-  it('should add agent name to forwarded events', () => {
-    const coordinatorEventBus = new EventBus();
-    const receivedEvents: any[] = [];
+  it('does not resolve until every agent turn has completed', async () => {
+    // The property the whole harness rests on: both backends resolve
+    // sendMessage/sendAndWait on *turn completion*, so awaiting spawnParallel
+    // is already a real completion signal and a caller need not sleep.
+    let resolveTurn: (() => void) | undefined;
+    const turnDone = vi.fn();
 
-    coordinatorEventBus.on('message.complete', (event) => {
-      receivedEvents.push(event);
+    (mockDeps.createSession as any).mockImplementation(async () => ({
+      sessionId: 'slow-session',
+      sendMessage: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveTurn = () => {
+              turnDone();
+              resolve();
+            };
+          }),
+      ),
+    }));
+
+    let settled = false;
+    const spawning = spawnParallel([{ agentName: 'fenster', task: 'Task' }], mockDeps).then((r) => {
+      settled = true;
+      return r;
     });
 
-    const mockSession = {
-      on: vi.fn((eventType: string, handler: any) => {
-        if (eventType === 'message.complete') {
-          handler({ content: 'Task complete' });
-        }
-      }),
-    };
+    await new Promise((r) => setImmediate(r));
+    expect(settled).toBe(false);
+    expect(turnDone).not.toHaveBeenCalled();
 
-    aggregateSessionEvents('session-456', 'verbal', mockSession, coordinatorEventBus);
+    resolveTurn!();
+    const results = await spawning;
 
-    expect(receivedEvents.length).toBeGreaterThan(0);
-    expect(receivedEvents[0].payload.agentName).toBe('verbal');
+    expect(settled).toBe(true);
+    expect(turnDone).toHaveBeenCalledTimes(1);
+    expect(results[0].status).toBe('success');
   });
 
-  it('should handle session without event emitter', () => {
-    const coordinatorEventBus = new EventBus();
-    const mockSession = {}; // No 'on' method
+  it('prefers sendAndWait and passes the deadline through', async () => {
+    const sendAndWait = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => undefined);
+    (mockDeps.createSession as any).mockImplementation(async () => ({
+      sessionId: 'fast-session',
+      sendAndWait,
+      sendMessage,
+    }));
 
-    // Should not throw
-    expect(() => {
-      aggregateSessionEvents('session-789', 'fenster', mockSession, coordinatorEventBus);
-    }).not.toThrow();
+    const results = await spawnParallel(
+      [{ agentName: 'fenster', task: 'Task', timeoutMs: 5_000 }],
+      mockDeps,
+    );
+
+    expect(results[0].status).toBe('success');
+    expect(sendAndWait).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'immediate' }),
+      5_000,
+    );
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('fails the agent and aborts the turn when the deadline expires', async () => {
+    // The Gemini backend accepts a timeout argument and ignores it, so the
+    // bound cannot be delegated to sendAndWait. A never-resolving turn stands
+    // in for that: fan-out must still give up, and must still abort.
+    const abort = vi.fn(async () => undefined);
+    (mockDeps.createSession as any).mockImplementation(async () => ({
+      sessionId: 'wedged-session',
+      sendAndWait: vi.fn(() => new Promise<never>(() => {})),
+      sendMessage: vi.fn(() => new Promise<never>(() => {})),
+      abort,
+    }));
+
+    const results = await spawnParallel(
+      [{ agentName: 'fenster', task: 'Task', timeoutMs: 20 }],
+      mockDeps,
+    );
+
+    expect(results[0].status).toBe('failed');
+    expect(results[0].error).toContain('exceeded 20ms');
+    expect(abort).toHaveBeenCalledTimes(1);
+    // Error isolation still holds: a timed-out agent is a recordable outcome,
+    // not a thrown exception that takes the assignment down.
+    expect(results).toHaveLength(1);
+  });
+
+  it('waits indefinitely when no deadline is configured', async () => {
+    const sendAndWait = vi.fn(async () => undefined);
+    (mockDeps.createSession as any).mockImplementation(async () => ({
+      sessionId: 'unbounded-session',
+      sendAndWait,
+    }));
+
+    const results = await spawnParallel([{ agentName: 'fenster', task: 'Task' }], mockDeps);
+
+    expect(results[0].status).toBe('success');
+    expect(sendAndWait).toHaveBeenCalledWith(expect.objectContaining({ mode: 'immediate' }), undefined);
   });
 });

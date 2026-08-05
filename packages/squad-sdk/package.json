@@ -1,7 +1,7 @@
 {
   "name": "@deduvafork/squad-sdk",
-  "version": "0.11.0-build.2",
-  "description": "Squad SDK — Programmable multi-agent runtime",
+  "version": "0.11.0-build.6",
+  "description": "Squad SDK \u2014 Programmable multi-agent runtime",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -225,6 +225,10 @@
     "./workstation-tools": {
       "types": "./dist/tools/workstation.d.ts",
       "import": "./dist/tools/workstation.js"
+    },
+    "./config/vendors": {
+      "types": "./dist/config/vendors.d.ts",
+      "import": "./dist/config/vendors.js"
     }
   },
   "files": [
