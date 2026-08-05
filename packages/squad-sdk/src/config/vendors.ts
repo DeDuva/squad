@@ -19,6 +19,11 @@
 import type { SquadProvider } from '../adapter/backend.js';
 import type { ModelId, ModelTier } from '../runtime/config.js';
 
+// Re-exported so a consumer of the registry takes the provider type from the
+// same module as the vendors themselves, instead of having to know it is
+// declared over in the backend seam.
+export type { SquadProvider, ModelId, ModelTier };
+
 export interface VendorDefinition {
   id: SquadProvider;
   /** Human-readable name, for CLI output and error messages. */
