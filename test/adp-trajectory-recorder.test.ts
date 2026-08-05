@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -595,6 +595,22 @@ describe('AdpRunRecorder durable spool', () => {
     const landed = adp.eventsFor(sessionId);
     expect(landed.map((e) => e.producer_seq)).toEqual([1, 2, 3]);
     expect(errors.some((e) => e.context.includes('replaying'))).toBe(true);
+  });
+
+  // The spool lives inside the repository the agents are working in, so an
+  // assignment ending in `git add -A` would otherwise commit the recorder's
+  // recovery log into the project it was recording. Found exactly that way.
+  it('makes itself invisible to git, so recording leaves no trace in the work repo', async () => {
+    const recorder = makeRecorder();
+    await recorder.start(bus);
+    await recorder.recordCommit('Backend', 'a'.repeat(40));
+    await recorder.settled();
+
+    const ignore = join(recorder.spoolPath!, '.gitignore');
+    expect(existsSync(ignore)).toBe(true);
+    // `*` covers the .gitignore itself, so git reports nothing at all for a
+    // directory that holds only ignored files.
+    expect(readFileSync(ignore, 'utf8').trim()).toBe('*');
   });
 
   it('keeps the spool until the run is closed, then drops it', async () => {
