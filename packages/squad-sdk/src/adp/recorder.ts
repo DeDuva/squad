@@ -18,22 +18,32 @@
  * 2. **Retries are safe.** Every event carries a `client_event_id`, and ADP
  *    de-duplicates on it before hash-chaining, so a batch resent after a network
  *    error produces exactly the chain the first attempt did.
+ * 3. **Nothing is dropped silently.** Every event also carries a contiguous
+ *    `producer_seq` and is spooled to disk before it is eligible to be sent.
+ *    Idempotency and completeness are different guarantees: a retried event
+ *    dedups on its id, but an event that never arrived has no id to dedup, so
+ *    only a counter can prove the recording is whole. ADP rejects a batch that
+ *    skips a number; the spool replays from where it says to resume.
  *
  * @module adp/recorder
  */
 
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import type { EventBus, SquadEvent, UnsubscribeFn } from '../runtime/event-bus.js';
 import type {
   AgentMilestonePayload,
   CoordinatorRoutingPayload,
   SessionMessagePayload,
+  SessionModelUsagePayload,
   SessionToolCallPayload,
   SessionCreatedPayload,
   SessionErrorPayload,
   SessionDestroyedPayload,
 } from '../runtime/event-payloads.js';
-import { AdpClient, type AdpEvent, type AdpEventStatus, type AdpRun } from './client.js';
+import { AdpClient, AdpError, type AdpEvent, type AdpEventStatus, type AdpRun } from './client.js';
+import { PRODUCER_ID } from './config.js';
+import { TrajectorySpool, type SpooledEvent } from './spool.js';
 
 /** The name Squad reports itself under. ADP never branches on it. */
 export const ORCHESTRATOR = 'squad';
@@ -60,12 +70,20 @@ export interface AdpRecorderOptions {
   flushIntervalMs?: number;
   /** Called for every recording failure. Never throws into Squad's event loop. */
   onError?: (error: Error, context: string) => void;
+  /**
+   * Where the durable spool lives — normally `<repoRoot>/.squad/spool`. Each
+   * run gets a subdirectory, deleted once ADP has attested to the trajectory.
+   * Omit to keep everything in memory (a crash then loses the buffer).
+   */
+  spoolRoot?: string;
+  /** Who is counting, recorded on every event. Defaults to `squad-sdk`. */
+  producerId?: string;
   /** Injected for tests. */
   now?: () => Date;
 }
 
 interface Buffered {
-  events: AdpEvent[];
+  events: SpooledEvent[];
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -85,7 +103,9 @@ function toolStatus(resultType: SessionToolCallPayload['resultType']): AdpEventS
 
 export class AdpRunRecorder {
   private readonly client: AdpClient;
-  private readonly options: Required<Pick<AdpRecorderOptions, 'batchSize' | 'flushIntervalMs' | 'harness'>> &
+  private readonly options: Required<
+    Pick<AdpRecorderOptions, 'batchSize' | 'flushIntervalMs' | 'harness' | 'producerId'>
+  > &
     AdpRecorderOptions;
   private readonly buffers = new Map<string, Buffered>();
   /** Squad session id -> ADP session id. */
@@ -108,6 +128,11 @@ export class AdpRunRecorder {
   private unsubscribe?: UnsubscribeFn;
   private run?: AdpRun;
   private coordinatorSessionId?: string;
+  /** ADP session id -> the last producer_seq this recorder assigned. */
+  private readonly producerSeqs = new Map<string, number>();
+  /** One in-flight flush per session; see `flushSession`. */
+  private readonly flushChains = new Map<string, Promise<void>>();
+  private spool?: TrajectorySpool;
 
   constructor(options: AdpRecorderOptions) {
     this.client = options.client;
@@ -115,6 +140,7 @@ export class AdpRunRecorder {
       batchSize: 50,
       flushIntervalMs: 2000,
       harness: 'squad-agent',
+      producerId: PRODUCER_ID,
       ...options,
     };
   }
@@ -140,7 +166,21 @@ export class AdpRunRecorder {
       orchestrator: ORCHESTRATOR,
       externalRef: this.options.externalRef,
     });
-    this.coordinatorSessionId = await this.openSession(COORDINATOR_HARNESS);
+
+    // Rejoin before recording anything new. `openRun` is idempotent on
+    // `external_ref`, so a restarted process lands on the run it already
+    // opened; the spool for that run holds the sessions it opened and whatever
+    // it had not yet acknowledged. Replaying first keeps one agent's work in
+    // one chain instead of splitting it across a second set of sessions.
+    if (this.options.spoolRoot) {
+      this.spool = new TrajectorySpool(join(this.options.spoolRoot, this.run.id));
+      await this.rejoinFromSpool();
+    }
+
+    if (!this.coordinatorSessionId) {
+      this.coordinatorSessionId = await this.openSession(COORDINATOR_HARNESS);
+      await this.persistSessions();
+    }
     this.unsubscribe = bus.subscribeAll((event) => {
       // Returns immediately on purpose: the bus awaits its handlers, and a
       // recorder that made every agent turn wait on an HTTP round trip would be
@@ -160,12 +200,61 @@ export class AdpRunRecorder {
    */
   async settled(): Promise<void> {
     await this.chain;
+    // Includes the spool: "handled" has to mean "survives this process", or a
+    // caller that waited for settlement and then crashed would lose events it
+    // was told were dealt with.
+    await this.spool?.drain();
   }
 
   private async openSession(harness: string): Promise<string> {
     if (!this.run) throw new Error('recorder not started');
     const session = await this.client.startSession({ harness, runId: this.run.id });
     return session.id;
+  }
+
+  /**
+   * Restore the sessions a previous process opened, and re-buffer everything it
+   * spooled but ADP never acknowledged.
+   *
+   * Replay is by `producer_seq` above the ack mark rather than by re-sending
+   * everything: the events below it are known to have landed, and ADP would
+   * report them as duplicates — correct, but it would also make every restart
+   * look like an emitter bug in the append response.
+   */
+  private async rejoinFromSpool(): Promise<void> {
+    if (!this.spool) return;
+    const sessions = await this.spool.loadSessions();
+    if (sessions) {
+      this.coordinatorSessionId = sessions.coordinator;
+      for (const [agent, id] of Object.entries(sessions.agents)) this.agentSessions.set(agent, id);
+    }
+
+    for (const sessionId of await this.spool.sessionIds()) {
+      const spooled = await this.spool.events(sessionId);
+      if (spooled.length === 0) continue;
+      // The counter resumes from what was spooled, not from what was acked: an
+      // event written to disk was assigned its number, and reusing it would put
+      // two different events under one seq.
+      this.producerSeqs.set(sessionId, Math.max(...spooled.map((e) => e.producer_seq)));
+      const ack = await this.spool.ack(sessionId);
+      const unsent = spooled.filter((e) => e.producer_seq > ack);
+      if (unsent.length === 0) continue;
+      const buffered = this.buffers.get(sessionId) ?? { events: [] };
+      buffered.events = [...unsent, ...buffered.events];
+      this.buffers.set(sessionId, buffered);
+    }
+  }
+
+  private async persistSessions(): Promise<void> {
+    if (!this.spool) return;
+    try {
+      await this.spool.saveSessions({
+        coordinator: this.coordinatorSessionId,
+        agents: Object.fromEntries(this.agentSessions),
+      });
+    } catch (error) {
+      this.fail(error, 'persisting session map');
+    }
   }
 
   /**
@@ -185,9 +274,12 @@ export class AdpRunRecorder {
     if (inFlight) return inFlight;
 
     const promise = this.openSession(`${this.options.harness}:${agentName}`)
-      .then((id) => {
+      .then(async (id) => {
         this.agentSessions.set(agentName, id);
         this.pending.delete(agentName);
+        // Persisted as soon as it exists: a crash between opening the session
+        // and spooling its first event would otherwise strand the session.
+        await this.persistSessions();
         return id;
       })
       .catch((error) => {
@@ -238,6 +330,31 @@ export class AdpRunRecorder {
           kind: 'message',
           type: payload.role ?? 'message',
           payload: { role: payload.role, content: payload.content ?? payload.message },
+          occurred_at: occurredAt,
+        });
+        return;
+      }
+
+      case 'session:model_usage': {
+        const payload = event.payload as SessionModelUsagePayload;
+        const sessionId = await this.sessionFor(event);
+        if (!sessionId) return;
+        // The other half of "every model invocation": `agent:milestone` already
+        // records the calls that *failed* into a fallback, and this records the
+        // ones that succeeded, with what they actually consumed.
+        this.enqueue(sessionId, {
+          kind: 'model_call',
+          type: 'completion',
+          payload: { isFallback: payload.isFallback ?? false },
+          model: payload.model,
+          tokens_in: payload.inputTokens,
+          tokens_out: payload.outputTokens,
+          // Micro-USD as an integer, because ADP sums these across millions of
+          // rows and float dollars drift as they accumulate.
+          cost_micro_usd:
+            payload.estimatedCost === undefined ? undefined : Math.round(payload.estimatedCost * 1_000_000),
+          duration_ms: payload.durationMs,
+          status: 'success',
           occurred_at: occurredAt,
         });
         return;
@@ -350,7 +467,7 @@ export class AdpRunRecorder {
    * provenance — so the caller reports the sha it actually pushed.
    */
   async recordCommit(agentName: string, gitSha: string, details: Record<string, unknown> = {}): Promise<void> {
-    try {
+    await this.serialized('recordCommit', async () => {
       const sessionId = await this.sessionForAgent(agentName);
       this.enqueue(sessionId, {
         kind: 'commit',
@@ -359,9 +476,21 @@ export class AdpRunRecorder {
         git_sha: gitSha,
         status: 'success',
       });
-    } catch (error) {
-      this.fail(error, 'recordCommit');
-    }
+    });
+  }
+
+  /**
+   * Run an enqueue on the same chain bus events use.
+   *
+   * These explicit APIs used to enqueue directly, which let a commit reported
+   * right after an emitted event overtake it: `subscribeAll` only *queues* its
+   * handler, so the bus event was still waiting its turn. The trajectory then
+   * recorded the two in the order the code did not perform them — and in a hash
+   * chain, order is content.
+   */
+  private serialized(context: string, work: () => Promise<void>): Promise<void> {
+    this.chain = this.chain.then(() => work().catch((error) => this.fail(error, context)));
+    return this.chain;
   }
 
   /** Record a test result against the trajectory. Same reasoning as `recordCommit`. */
@@ -369,7 +498,7 @@ export class AdpRunRecorder {
     agentName: string,
     result: { suite: string; passed: boolean; durationMs?: number; gitSha?: string; details?: Record<string, unknown> },
   ): Promise<void> {
-    try {
+    await this.serialized('recordTestResult', async () => {
       const sessionId = await this.sessionForAgent(agentName);
       this.enqueue(sessionId, {
         kind: 'test_result',
@@ -379,9 +508,7 @@ export class AdpRunRecorder {
         duration_ms: result.durationMs,
         git_sha: result.gitSha,
       });
-    } catch (error) {
-      this.fail(error, 'recordTestResult');
-    }
+    });
   }
 
   /** Record a model call with its token and cost accounting. */
@@ -397,7 +524,7 @@ export class AdpRunRecorder {
       details?: Record<string, unknown>;
     },
   ): Promise<void> {
-    try {
+    await this.serialized('recordModelCall', async () => {
       const sessionId = await this.sessionForAgent(agentName);
       this.enqueue(sessionId, {
         kind: 'model_call',
@@ -410,21 +537,28 @@ export class AdpRunRecorder {
         duration_ms: call.durationMs,
         status: call.status ?? 'success',
       });
-    } catch (error) {
-      this.fail(error, 'recordModelCall');
-    }
+    });
   }
 
   private enqueue(sessionId: string, event: AdpEvent): void {
     const buffered = this.buffers.get(sessionId) ?? { events: [] };
-    buffered.events.push({
+    // Both assigned here rather than at send time, and for the same reason:
+    // they have to describe *this* event durably, before anything can go wrong
+    // with the request that carries it. A seq minted by the sender would renumber
+    // on retry; an id minted by the server could not dedup the retry at all.
+    const producerSeq = (this.producerSeqs.get(sessionId) ?? 0) + 1;
+    this.producerSeqs.set(sessionId, producerSeq);
+    const spooled: SpooledEvent = {
       ...event,
       occurred_at: event.occurred_at ?? (this.options.now?.() ?? new Date()).toISOString(),
-      // Assigned here rather than server-side: it has to survive a retry of the
-      // *same* batch, which means it must be minted before the request, not by it.
       client_event_id: event.client_event_id ?? randomUUID(),
-    });
+      producer_seq: producerSeq,
+    };
+    buffered.events.push(spooled);
     this.buffers.set(sessionId, buffered);
+    // Written before the event is eligible to flush, which is what makes the
+    // spool a recovery log rather than a copy of one.
+    this.spool?.append(sessionId, spooled).catch((error) => this.fail(error, 'spooling event'));
 
     if (buffered.events.length >= this.options.batchSize) {
       void this.flushSession(sessionId);
@@ -439,22 +573,74 @@ export class AdpRunRecorder {
     }
   }
 
-  private async flushSession(sessionId: string): Promise<void> {
+  /**
+   * Flush one session, never concurrently with itself.
+   *
+   * Two flushes for the same session used to be able to overlap — a
+   * batch-is-full flush and a timer flush, or either racing the drain at close
+   * — and they interleaved: one took the buffer, the other found it empty and
+   * POSTed nothing, and batches reached the server in the wrong order. A hash
+   * chain is an ordered structure and `producer_seq` is a contiguity claim, so
+   * what used to be a cosmetic scramble is now a 409. Serializing per session
+   * costs nothing (a chain has one writer by design) and removes the whole
+   * class.
+   */
+  private flushSession(sessionId: string): Promise<void> {
+    const previous = this.flushChains.get(sessionId) ?? Promise.resolve();
+    const next = previous.then(() => this.sendBatch(sessionId));
+    this.flushChains.set(sessionId, next);
+    return next;
+  }
+
+  private async sendBatch(sessionId: string, replaying = false): Promise<void> {
     const buffered = this.buffers.get(sessionId);
     if (!buffered || buffered.events.length === 0) return;
     if (buffered.timer) {
       clearTimeout(buffered.timer);
       buffered.timer = undefined;
     }
+    // Nothing goes on the wire ahead of its own spool write, or a crash between
+    // the two would leave ADP holding an event the recovery log has never heard
+    // of — and the next restart would replay a gap around it.
+    await this.spool?.drain();
     const batch = buffered.events;
+    // Re-checked after the await, not only before it: the buffer can be
+    // emptied while this call is suspended, and an append of zero events is a
+    // 422 rather than a no-op.
+    if (batch.length === 0) return;
     buffered.events = [];
 
     try {
-      await this.client.appendEvents(sessionId, batch);
+      const result = await this.client.appendEvents(sessionId, batch, this.options.producerId);
+      if (this.spool && typeof result.accepted_through === 'number') {
+        await this.spool.recordAck(sessionId, result.accepted_through);
+      }
     } catch (error) {
-      // Put the batch back at the front so ordering survives a transient
-      // failure. The client event ids make the retry a no-op if the server in
-      // fact received it, which is the case a naive retry would double-append.
+      // A skipped number is not a transient failure and must not be retried as
+      // one: ADP has told us exactly which seq it is waiting for, and the spool
+      // — not the in-memory buffer, which is what just proved unreliable — is
+      // the authority on what comes after it.
+      if (error instanceof AdpError && error.expectedNextSeq !== undefined && this.spool && !replaying) {
+        const from = error.expectedNextSeq;
+        this.fail(error, `replaying session ${sessionId} from producer_seq ${from}`);
+        await this.spool.drain();
+        const spooled = await this.spool.events(sessionId);
+        const highestSpooled = spooled.at(-1)?.producer_seq ?? 0;
+        buffered.events = [
+          ...spooled.filter((e) => e.producer_seq >= from),
+          // Anything enqueued while we were reading the log, which by
+          // definition numbers above everything in it.
+          ...buffered.events.filter((e) => e.producer_seq > highestSpooled),
+        ];
+        // Directly, not through `flushSession`: this call *is* the session's
+        // flush chain, and queueing behind itself would deadlock.
+        await this.sendBatch(sessionId, true);
+        return;
+      }
+      // Otherwise put the batch back at the front so ordering survives a
+      // transient failure. The client event ids make the retry a no-op if the
+      // server in fact received it, which is the case a naive retry would
+      // double-append.
       buffered.events = [...batch, ...buffered.events];
       this.fail(error, `flushing ${batch.length} events for session ${sessionId}`);
     }
@@ -481,6 +667,7 @@ export class AdpRunRecorder {
     this.unsubscribe = undefined;
     await this.flush();
     this.run = await this.client.closeRun(this.run.id, finalGitSha);
+    await this.discardSpool();
     return this.run;
   }
 
@@ -491,7 +678,28 @@ export class AdpRunRecorder {
     this.unsubscribe = undefined;
     await this.flush();
     this.run = await this.client.abandonRun(this.run.id, reason);
+    await this.discardSpool();
     return this.run;
+  }
+
+  /**
+   * Drop the spool, but only after ADP has closed or abandoned the run — at
+   * that point ADP's copy is attested and the local one is redundant. Deleting
+   * it any earlier would throw away the only record of anything still unsent,
+   * which is the exact case the spool exists for.
+   */
+  private async discardSpool(): Promise<void> {
+    if (!this.spool) return;
+    try {
+      await this.spool.destroy();
+    } catch (error) {
+      this.fail(error, 'clearing the spool');
+    }
+  }
+
+  /** The run's spool directory, or undefined when spooling is off. */
+  get spoolPath(): string | undefined {
+    return this.spool?.path;
   }
 
   /**

@@ -40,6 +40,13 @@ export interface AdpEvent {
   related_session_id?: string;
   /** The emitter's own id. A repeat is dropped rather than appended twice. */
   client_event_id?: string;
+  /**
+   * The emitter's own contiguous counter for this session, from 1.
+   * `client_event_id` makes a retry harmless; this is what makes a *drop*
+   * detectable, since an event that never arrived has no id to deduplicate.
+   * ADP rejects a batch that skips a number.
+   */
+  producer_seq?: number;
   occurred_at?: string;
 }
 
@@ -67,6 +74,8 @@ export interface AdpAppendResult {
   duplicates: string[];
   count: number;
   head: string;
+  /** Highest producer_seq ADP durably holds; the mark a spool trims against. */
+  accepted_through?: number | null;
 }
 
 export interface AdpEvalResult {
@@ -85,6 +94,12 @@ export class AdpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /**
+     * Set when ADP rejected a batch for skipping the emitter's numbering: the
+     * producer_seq the session is waiting for. Carried rather than parsed out of
+     * the message so a spool can replay from a number instead of a regex.
+     */
+    readonly expectedNextSeq?: number,
   ) {
     super(message);
     this.name = 'AdpError';
@@ -131,12 +146,15 @@ export class AdpClient {
     const text = await res.text();
     if (!res.ok) {
       let message = text;
+      let expectedNextSeq: number | undefined;
       try {
-        message = (JSON.parse(text) as { message?: string }).message ?? text;
+        const parsed = JSON.parse(text) as { message?: string; expected_next_seq?: number };
+        message = parsed.message ?? text;
+        expectedNextSeq = parsed.expected_next_seq;
       } catch {
         /* keep the raw body — a non-JSON error is still the most useful thing to show */
       }
-      throw new AdpError(`${method} ${path} -> ${res.status}: ${message}`, res.status);
+      throw new AdpError(`${method} ${path} -> ${res.status}: ${message}`, res.status, expectedNextSeq);
     }
     return (text ? JSON.parse(text) : null) as T;
   }
@@ -161,8 +179,24 @@ export class AdpClient {
     });
   }
 
-  appendEvents(sessionId: string, events: AdpEvent[]): Promise<AdpAppendResult> {
-    return this.request<AdpAppendResult>('POST', `${this.repoPath}/sessions/${sessionId}/events`, { events });
+  appendEvents(sessionId: string, events: AdpEvent[], producerId?: string): Promise<AdpAppendResult> {
+    return this.request<AdpAppendResult>('POST', `${this.repoPath}/sessions/${sessionId}/events`, {
+      events,
+      ...(producerId ? { producer_id: producerId } : {}),
+    });
+  }
+
+  /**
+   * The intent ADP created for an issue. A run's `intent_id` is required —
+   * scoring work whose goal was never stated gives a number nobody can
+   * interpret — and the assignment's issue is where that goal already lives.
+   */
+  async getIssueIntentId(issueNumber: number): Promise<string | undefined> {
+    const issue = await this.request<{ intent_id?: string }>(
+      'GET',
+      `/api/v3/repos/${this.owner}/${this.repo}/issues/${issueNumber}`,
+    );
+    return issue?.intent_id;
   }
 
   closeRun(runId: string, finalGitSha: string): Promise<AdpRun> {

@@ -27,6 +27,11 @@ import {
 import type { RoutingConfig as RuntimeRoutingConfig } from '../runtime/config.js';
 import { spawnParallel, type AgentSpawnConfig, type SpawnResult, type FanOutDependencies } from './fan-out.js';
 import { trace, SpanStatusCode } from '../runtime/otel-api.js';
+import {
+  startAssignmentRecording,
+  finishAssignmentRecording,
+  type AdpRunRecorder,
+} from '../adp/index.js';
 
 const tracer = trace.getTracer('squad-sdk');
 
@@ -65,6 +70,24 @@ export interface SquadCoordinatorOptions {
   directHandler?: DirectResponseHandler;
   /** Custom compiled router (skips compilation from config) */
   compiledRouter?: CompiledRouter;
+  /**
+   * Record this assignment into ADP. Requires an `adp` block in
+   * `.squad/config.json` and the token in the env var it names; without either,
+   * nothing is constructed and behaviour is unchanged.
+   */
+  adp?: AdpAssignmentOptions;
+}
+
+export interface AdpAssignmentOptions {
+  /** Repo root holding `.squad/config.json`. */
+  repoRoot: string;
+  /** Squad's stable id for the assignment, e.g. `issue:42`. */
+  externalRef: string;
+  /** The intent the assignment is against, or the issue to read it from. */
+  intentId?: string;
+  issueNumber?: number;
+  /** Recording failures land here — logged at warn, never fatal. */
+  onError?: (error: Error, context: string) => void;
 }
 
 // --- Coordinator Class ---
@@ -85,11 +108,16 @@ export class SquadCoordinator {
   private directHandler: DirectResponseHandler;
   private compiledRouter: CompiledRouter;
   private fanOutDeps?: FanOutDependencies;
+  private adp?: AdpAssignmentOptions;
+  private recorder?: AdpRunRecorder;
+  /** Shared so two concurrent messages open one run, not two. */
+  private recording?: Promise<AdpRunRecorder | undefined>;
 
   constructor(options: SquadCoordinatorOptions) {
     this.config = options.config;
     this.eventBus = options.eventBus;
     this.fanOutDeps = options.fanOutDeps;
+    this.adp = options.adp;
     this.directHandler = options.directHandler ?? new DirectResponseHandler();
 
     // Compile routing rules from config or use provided router
@@ -111,6 +139,12 @@ export class SquadCoordinator {
     span.setAttribute('message.length', message.length);
     try {
       const start = Date.now();
+
+      // Before the first routing decision, so the run exists to hold it. The
+      // recorder subscribes to the bus, and an event emitted before it did
+      // would be missing from the trajectory with nothing to indicate it ever
+      // happened.
+      await this.ensureRecording();
 
       // Emit coordinator.route event
       await this.emit('coordinator:routing', context.sessionId, {
@@ -202,6 +236,29 @@ export class SquadCoordinator {
   }
 
   /**
+   * The ADP recorder for this assignment, once one exists. `undefined` whenever
+   * recording is not configured — which is the common case and not an error.
+   */
+  getRecorder(): AdpRunRecorder | undefined {
+    return this.recorder;
+  }
+
+  /**
+   * Finish the assignment: close the run against the commit it produced, or
+   * abandon it when it produced none.
+   *
+   * Separate from `handleMessage` because the coordinator dispatches messages
+   * and an assignment spans several of them — the caller is the only one that
+   * knows the work is over and what sha came out of it. A no-op when nothing is
+   * being recorded.
+   */
+  async finishAssignment(outcome: { finalGitSha?: string | null; reason?: string }): Promise<void> {
+    await finishAssignmentRecording(this.recorder, outcome, this.adp?.onError);
+    this.recorder = undefined;
+    this.recording = undefined;
+  }
+
+  /**
    * Get the compiled router (for inspection / testing).
    */
   getRouter(): CompiledRouter {
@@ -224,6 +281,28 @@ export class SquadCoordinator {
   }
 
   // --- Private helpers ---
+
+  /**
+   * Open the run on the first message of an assignment, once.
+   *
+   * Needs a bus: the trajectory is assembled from what the bus emits, and a
+   * recorder with nothing to subscribe to would open a run and then attest to
+   * an empty one — worse than not recording, because it looks like a record.
+   */
+  private async ensureRecording(): Promise<void> {
+    if (!this.adp || !this.eventBus || this.recorder) return;
+    if (!this.recording) {
+      this.recording = startAssignmentRecording({
+        repoRoot: this.adp.repoRoot,
+        bus: this.eventBus,
+        externalRef: this.adp.externalRef,
+        intentId: this.adp.intentId,
+        issueNumber: this.adp.issueNumber,
+        onError: this.adp.onError,
+      });
+    }
+    this.recorder = await this.recording;
+  }
 
   private determineStrategy(routing: RoutingMatch): SpawnStrategy {
     if (routing.agents.length === 0) return 'fallback';

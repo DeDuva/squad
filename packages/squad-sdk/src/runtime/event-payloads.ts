@@ -50,6 +50,27 @@ export interface SessionToolCallPayload {
   resultType?: 'success' | 'failure' | 'rejected' | 'denied';
 }
 
+/**
+ * What one model invocation actually consumed.
+ *
+ * The backend's own numbers where it reports them — a provider that says what a
+ * turn cost accounts for cache reads and writes and names the model that truly
+ * served the turn, which a catalog estimate cannot. `estimatedCost` is USD;
+ * consumers that need integer money (ADP records micro-USD) convert at the edge
+ * rather than this payload pretending to a precision it does not have.
+ */
+export interface SessionModelUsagePayload {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  /** USD. Reported by the backend when it can, estimated from the catalog otherwise. */
+  estimatedCost?: number;
+  durationMs?: number;
+  /** True when this turn ran on a fallback model after another one failed. */
+  isFallback?: boolean;
+  agentName?: string;
+}
+
 // ============================================================================
 // Coordination payloads
 // ============================================================================
@@ -102,6 +123,7 @@ export interface SquadEventPayloadMap {
   'session:error': SessionErrorPayload;
   'session:destroyed': SessionDestroyedPayload;
   'session:message': SessionMessagePayload;
+  'session:model_usage': SessionModelUsagePayload;
   'session:tool_call': SessionToolCallPayload;
   'agent:milestone': AgentMilestonePayload;
   'coordinator:routing': CoordinatorRoutingPayload;
