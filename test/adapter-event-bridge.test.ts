@@ -165,8 +165,16 @@ describe('SquadClient forwards the numbers a comparison needs', () => {
     const usage = seen.find((e) => e.type === 'session:model_usage')!;
     // Dropping any of these is what made tokens, cost, attribution, and
     // latency incomparable across vendors.
+    //
+    // The token totals are summed from `models[]`, not taken from the
+    // top-level pair — and this fixture is why. Its top-level `inputTokens` is
+    // 9407, but its own per-call breakdown adds to 9933: the second call's 526
+    // tokens are missing. The backend reports top-level counts for the **last**
+    // API call and a cost covering **all** of them, so recording the pair put
+    // tokens and cost in ADP describing different work.
     expect(usage.payload).toMatchObject({
-      inputTokens: 9407,
+      inputTokens: 9933,
+      outputTokens: 96,
       cacheReadInputTokens: 4658,
       cacheCreationInputTokens: 4745,
       durationMs: 3458,
@@ -174,5 +182,16 @@ describe('SquadClient forwards the numbers a comparison needs', () => {
       numTurns: 2,
     });
     expect((usage.payload as { models: unknown[] }).models).toHaveLength(2);
+  });
+
+  it('falls back to the top-level counts when there is no per-call breakdown', async () => {
+    // The Gemini backend sends one call per turn and no `models[]`, so the
+    // top-level pair is the whole truth there. Summing must not become a
+    // requirement to report anything at all.
+    fire('usage', { inputTokens: 120, outputTokens: 34, model: 'gemini-flash-latest' });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const usage = seen.filter((e) => e.type === 'session:model_usage').at(-1)!;
+    expect(usage.payload).toMatchObject({ inputTokens: 120, outputTokens: 34 });
   });
 });

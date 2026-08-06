@@ -231,8 +231,27 @@ export class SquadClient {
         // the cost table exists for — unreadable.
         const agentName = config.agentName;
         session.on('usage', (event: SquadSessionEvent) => {
-          const inputTokens = typeof event['inputTokens'] === 'number' ? event['inputTokens'] : 0;
-          const outputTokens = typeof event['outputTokens'] === 'number' ? event['outputTokens'] : 0;
+          // A turn may make several API calls, and the backend's top-level
+          // token counts describe only the **last** one while its cost covers
+          // all of them. Measured: a turn reporting 141 in / 187 out had really
+          // spent 662 / 199 across two calls, and the cost matched the pair.
+          // Recording the top-level pair put tokens and cost in ADP describing
+          // different work — and under-counted every multi-call turn in every
+          // comparison built on them.
+          //
+          // `models[]` is the per-call breakdown the backend already sends, so
+          // summing it makes the headline counts agree with the price.
+          const perCall = Array.isArray(event['models'])
+            ? (event['models'] as { uncachedInputTokens?: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number; outputTokens?: number }[])
+            : undefined;
+          const sum = (pick: (m: NonNullable<typeof perCall>[number]) => number | undefined): number | undefined =>
+            perCall?.reduce((n, m) => n + (pick(m) ?? 0), 0);
+
+          const inputTokens =
+            sum((m) => (m.uncachedInputTokens ?? 0) + (m.cacheReadInputTokens ?? 0) + (m.cacheCreationInputTokens ?? 0)) ??
+            (typeof event['inputTokens'] === 'number' ? event['inputTokens'] : 0);
+          const outputTokens =
+            sum((m) => m.outputTokens) ?? (typeof event['outputTokens'] === 'number' ? event['outputTokens'] : 0);
           const model = typeof event['model'] === 'string' ? event['model'] : 'unknown';
           // A backend that knows what the turn actually cost is always more
           // accurate than a catalog estimate: it accounts for cache reads and
@@ -267,8 +286,9 @@ export class SquadClient {
               // priced differently, per-model entries are what make
               // attribution possible when the backend bills more than one,
               // and timings are the only latency signal there is.
-              cacheReadInputTokens: readNum('cacheReadInputTokens'),
-              cacheCreationInputTokens: readNum('cacheCreationInputTokens'),
+              cacheReadInputTokens: sum((m) => m.cacheReadInputTokens) ?? readNum('cacheReadInputTokens'),
+              cacheCreationInputTokens:
+                sum((m) => m.cacheCreationInputTokens) ?? readNum('cacheCreationInputTokens'),
               models: Array.isArray(event['models'])
                 ? (event['models'] as SessionModelUsagePayload['models'])
                 : undefined,
