@@ -18,8 +18,11 @@
  *    between a typo and a bill.
  */
 
+import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   compareRuns,
@@ -62,6 +65,8 @@ export interface LabServerOptions {
   logger?: boolean;
   /** How often an idle SSE connection is reassured. */
   heartbeatMs?: number;
+  /** Built SPA to serve at `/app/`. Defaults to `web/dist`; skipped if absent. */
+  webRoot?: string;
 }
 
 /** The endpoint for one experiment's repository, with the server's own token. */
@@ -303,7 +308,34 @@ export function createLabServer(options: LabServerOptions): FastifyInstance {
   proxy('/adp/runs/:runId/verify', async (ep, req) => verifyRun(ep, runId(req)));
   proxy('/adp/runs/:runId/evals', async (ep, req) => listEvals(ep, runId(req)));
 
+  // --- the SPA -------------------------------------------------------------
+
+  // Registered last, so it can never shadow an API route. Absent when the web
+  // build has not been run: the server is fully usable headless, and a missing
+  // `dist/` is a build step nobody ran rather than a broken lab.
+  const webRoot = options.webRoot ?? defaultWebRoot();
+  if (existsSync(join(webRoot, 'index.html'))) {
+    void app.register(fastifyStatic, { root: webRoot, prefix: '/app/' });
+    // Client-side routing means `/app/e/:id/summary` is a real URL a user can
+    // paste or refresh on — which is the reason for using a router at all — so
+    // anything under `/app` that is not a file resolves to the shell.
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/app')) return reply.sendFile('index.html', webRoot);
+      return reply.code(404).send({ message: 'Not Found' });
+    });
+    app.get('/', async (_req, reply) => reply.redirect('/app/'));
+  }
+
   return app;
+}
+
+/** `packages/squad-lab/web/dist`, from either `src/` or the built `dist/`. */
+function defaultWebRoot(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const candidate of [join(here, '..', 'web', 'dist'), join(here, '..', '..', 'web', 'dist')]) {
+    if (existsSync(join(candidate, 'index.html'))) return candidate;
+  }
+  return join(here, '..', 'web', 'dist');
 }
 
 export interface StartedLabServer {

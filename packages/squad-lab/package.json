@@ -8,17 +8,29 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p web/tsconfig.json",
     "lab": "npx tsx src/cli.ts",
     "grade-check": "npx tsx scripts/live-grade-check.ts",
-    "stream-check": "npx tsx scripts/live-stream-check.ts"
+    "stream-check": "npx tsx scripts/live-stream-check.ts",
+    "web:dev": "vite --config web/vite.config.ts",
+    "web:build": "vite build --config web/vite.config.ts",
+    "ui-check": "npx tsx scripts/live-ui-check.ts"
   },
   "dependencies": {
     "@deduvafork/squad-sdk": "*",
-    "fastify": "^5.11.2"
+    "@fastify/static": "^10.1.2",
+    "fastify": "^5.11.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
-    "typescript": "^6.0.3"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "playwright": "^1.62.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.0"
   }
 }
