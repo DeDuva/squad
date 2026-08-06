@@ -166,6 +166,30 @@ export async function verifyRun(ep: AdpEndpoint, runId: string): Promise<Record<
   return call(ep, 'GET', `${nativeBase(ep)}/runs/${runId}/verify`);
 }
 
+export async function runTrajectory(
+  ep: AdpEndpoint,
+  runId: string,
+  query = '',
+): Promise<Record<string, unknown>> {
+  return call(ep, 'GET', `${nativeBase(ep)}/runs/${runId}/trajectory${query}`);
+}
+
+/**
+ * End a run that produced no commit.
+ *
+ * Abandon rather than close: a run closes *against a sha*, and a cancelled
+ * variant has none, so closing it would sign an attestation about no particular
+ * state. Abandoning keeps the trajectory, which is the part worth reading after
+ * a cancellation.
+ */
+export async function abandonRun(
+  ep: AdpEndpoint,
+  runId: string,
+  reason: string,
+): Promise<Record<string, unknown>> {
+  return call(ep, 'POST', `${nativeBase(ep)}/runs/${runId}/abandon`, { reason });
+}
+
 export async function listEvals(
   ep: AdpEndpoint,
   runId: string,

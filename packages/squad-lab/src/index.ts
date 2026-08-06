@@ -15,7 +15,9 @@ export type { LabTool } from './tools/default.js';
 export * from './adp.js';
 export { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
 export {
+  cancelExperiment,
   createExperiment,
+  experimentDir,
   launchExperiment,
   listExperiments,
   loadExperiment,
@@ -25,6 +27,10 @@ export {
   saveVariantState,
   labRoot,
 } from './experiments.js';
+export { createLabServer, startLabServer } from './server.js';
+export type { LabServerOptions, StartedLabServer } from './server.js';
+export { ExperimentEventLog, sseFrame, sseHeartbeat } from './event-log.js';
+export type { LabFrame, FrameInput, FrameType } from './event-log.js';
 export {
   assertSeparateIdentities,
   canonicalJson,
