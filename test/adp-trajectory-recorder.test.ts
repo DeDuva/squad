@@ -26,7 +26,16 @@ interface AppendCall {
 
 /** An in-memory stand-in for ADP's `/api/adp` surface. */
 class FakeAdp {
-  runs = new Map<string, { id: string; external_ref: string | null; status: string; final_git_sha: string | null }>();
+  runs = new Map<
+    string,
+    {
+      id: string;
+      external_ref: string | null;
+      labels: Record<string, string>;
+      status: string;
+      final_git_sha: string | null;
+    }
+  >();
   sessions = new Map<string, { id: string; harness: string; run_id: string }>();
   appends: AppendCall[] = [];
   /** Events that actually landed, per session, in order. */
@@ -54,7 +63,15 @@ class FakeAdp {
       // Mirrors ADP's idempotent open: an existing external_ref rejoins.
       const existing = [...this.runs.values()].find((r) => r.external_ref === (body.external_ref ?? null));
       if (existing) return json(200, existing);
-      const run = { id: this.id('run'), external_ref: body.external_ref ?? null, status: 'open', final_git_sha: null };
+      const run = {
+        id: this.id('run'),
+        external_ref: body.external_ref ?? null,
+        // Set at open, like the real thing: ADP folds them into the run's
+        // signed predicate, so a rejoin cannot change them afterwards.
+        labels: (body.labels ?? {}) as Record<string, string>,
+        status: 'open',
+        final_git_sha: null,
+      };
       this.runs.set(run.id, run);
       return json(201, run);
     }
@@ -174,6 +191,7 @@ describe('AdpRunRecorder', () => {
       client,
       intentId: 'intent-1',
       externalRef: 'issue:42',
+      labels: { provider: 'anthropic', model: 'claude-sonnet-5' },
       // Batch-of-one keeps these tests about mapping rather than about timers.
       batchSize: 1,
       onError: (error, context) => errors.push({ error, context }),
@@ -187,11 +205,27 @@ describe('AdpRunRecorder', () => {
     expect(adp.sessionByHarness('squad-coordinator')).toBeTruthy();
   });
 
+  it('records what the run was, at open, where the attestation covers it', () => {
+    // A cross-vendor comparison ranks on this. The alternative — a convention
+    // inside `external_ref` — puts the vendor in the idempotency key, which has
+    // to change whenever a variant is re-run.
+    expect(adp.runs.get('run-1')!.labels).toEqual({ provider: 'anthropic', model: 'claude-sonnet-5' });
+  });
+
   it('rejoins an existing run rather than opening a second one', async () => {
-    const second = new AdpRunRecorder({ client, intentId: 'intent-1', externalRef: 'issue:42' });
+    const second = new AdpRunRecorder({
+      client,
+      intentId: 'intent-1',
+      externalRef: 'issue:42',
+      labels: { provider: 'gemini', model: 'gemini-flash-latest' },
+    });
     const run = await second.start(bus);
     expect(run.id).toBe('run-1');
     expect(adp.runs.size).toBe(1);
+    // And rejoining does not relabel it: the run the attestation will describe
+    // already exists, so letting a retry rewrite what it says it was would turn
+    // a signed fact into an editable one.
+    expect(adp.runs.get('run-1')!.labels).toEqual({ provider: 'anthropic', model: 'claude-sonnet-5' });
   });
 
   it('gives each agent its own session', async () => {

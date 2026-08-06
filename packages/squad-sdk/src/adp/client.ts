@@ -55,6 +55,11 @@ export interface AdpRun {
   intent_id: string;
   orchestrator: string;
   external_ref: string | null;
+  /**
+   * What the run was — vendor, model, tier. Optional because an ADP older than
+   * 0.2.0 does not serve the field; a client must not require it to exist.
+   */
+  labels?: Record<string, string>;
   status: 'open' | 'closed' | 'abandoned';
   final_git_sha: string | null;
   trajectory_digest: string | null;
@@ -164,11 +169,25 @@ export class AdpClient {
    * an orchestrator restarting after a crash rejoins the run it already opened
    * rather than forking the trajectory into two halves that each look complete.
    */
-  openRun(input: { intentId: string; orchestrator: string; externalRef?: string }): Promise<AdpRun> {
+  openRun(input: {
+    intentId: string;
+    orchestrator: string;
+    externalRef?: string;
+    /**
+     * What this run is — vendor, model, tier. Set at open and never after:
+     * ADP puts them in the run's signed predicate, so they describe the run
+     * rather than annotating it. Rejoining an existing run ignores them, which
+     * is why a relabel needs a new run rather than a second call.
+     */
+    labels?: Record<string, string>;
+  }): Promise<AdpRun> {
     return this.request<AdpRun>('POST', `${this.repoPath}/runs`, {
       intent_id: input.intentId,
       orchestrator: input.orchestrator,
       external_ref: input.externalRef,
+      // Omitted entirely when unset: an older ADP rejects unknown properties
+      // on some routes, and sending `undefined` is not the same as not sending.
+      ...(input.labels ? { labels: input.labels } : {}),
     });
   }
 

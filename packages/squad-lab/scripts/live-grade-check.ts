@@ -148,18 +148,27 @@ async function main(): Promise<void> {
   console.log(`goal: issue #${goal.issueNumber}, intent ${goal.intentId}`);
 
   const graded: { variantId: string; runId: string }[] = [];
-  for (const [variantId, withTests] of [
-    ['anthropic', false],
-    ['gemini', true],
+  for (const [variantId, model, withTests] of [
+    ['anthropic', 'claude-sonnet-5', false],
+    ['gemini', 'gemini-flash-latest', true],
   ] as const) {
     const workRepo = join(root, variantId, 'work');
     const sha = seedWorkRepo(workRepo, withTests);
 
-    const run = await adp<{ id: string }>(runner, 'POST', `/api/adp/repos/${OWNER}/${REPO}/runs`, {
-      intent_id: goal.intentId,
-      orchestrator: 'squad',
-      external_ref: `live:${variantId}`,
-    });
+    const run = await adp<{ id: string; labels?: Record<string, string> }>(
+      runner,
+      'POST',
+      `/api/adp/repos/${OWNER}/${REPO}/runs`,
+      {
+        intent_id: goal.intentId,
+        orchestrator: 'squad',
+        external_ref: `live:${variantId}`,
+        // The same labels `runVariant` sets, so this exercises the field the
+        // summary ranks on rather than a stand-in for it.
+        labels: { provider: variantId, model, variant: variantId },
+      },
+    );
+    check(`${variantId}: labelled at open`, run.labels?.['provider'] === variantId, run.labels);
     await adp(runner, 'POST', `/api/adp/repos/${OWNER}/${REPO}/runs/${run.id}/close`, {
       final_git_sha: sha,
     });
@@ -198,13 +207,18 @@ async function main(): Promise<void> {
 
   const { runs } = await compareRuns(runner, goal.intentId);
   check('the intent compares two runs', runs.length === 2, runs.map((r) => r.externalRef));
-  // `RunComparison.evals` is the ADP-side M4 change; on a server without it the
-  // single `eval` field is all there is, and that is a known gap, not a failure.
-  const multi = runs.every((r) => (r.evals?.length ?? 0) === 2);
-  console.log(
-    multi
-      ? '  ok   compare rows carry both axes'
-      : '  --   compare rows carry one eval each (ADP §7b not landed — expected before M4)',
+  // Both fields arrived in ADP 0.2.0. A row that carried only the single latest
+  // `eval` would rank on whichever axis was posted last, which is a property of
+  // the POST order and not of the work.
+  check(
+    'compare rows carry every axis',
+    runs.every((r) => (r.evals?.length ?? 0) === 2),
+    runs.map((r) => (r.evals ?? []).map((e) => e.name)),
+  );
+  check(
+    'compare rows carry the provider label',
+    runs.every((r) => Boolean(r.labels?.['provider'])),
+    runs.map((r) => r.labels?.['provider'] ?? null),
   );
 
   console.log(failures === 0 ? '\nall checks passed' : `\n${failures} check(s) failed`);

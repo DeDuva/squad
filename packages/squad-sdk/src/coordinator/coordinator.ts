@@ -95,6 +95,8 @@ export interface AdpAssignmentOptions {
   /** The intent the assignment is against, or the issue to read it from. */
   intentId?: string;
   issueNumber?: number;
+  /** What this run was — vendor, model, tier. Set at open, attested by ADP. */
+  labels?: Record<string, string>;
   /** Recording failures land here — logged at warn, never fatal. */
   onError?: (error: Error, context: string) => void;
 }
@@ -331,6 +333,7 @@ export class SquadCoordinator {
         externalRef: this.adp.externalRef,
         intentId: this.adp.intentId,
         issueNumber: this.adp.issueNumber,
+        labels: this.adp.labels,
         onError: this.adp.onError,
       });
     }

@@ -208,6 +208,17 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
         repoRoot: spec.workspace.workDir,
         externalRef: spec.externalRef,
         intentId: spec.adp.intentId,
+        // What this variant is, said once at open, where ADP signs it into the
+        // run predicate. Without it a comparison has to infer the vendor by
+        // parsing `externalRef` — a format nothing enforces, in a field that
+        // must change whenever a variant is re-run.
+        labels: {
+          provider: spec.provider,
+          model,
+          variant: spec.variantId,
+          experiment: spec.experimentId,
+          ...(spec.tier ? { tier: spec.tier } : {}),
+        },
         onError: (error, context) => phase('recording', { adpError: `${context}: ${error.message}` }),
       },
       fanOutDeps: {
