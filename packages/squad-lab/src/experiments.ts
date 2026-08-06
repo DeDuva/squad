@@ -19,7 +19,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
+import { abandonRun, createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
 import { assertSeparateIdentities, gradeVariant, type GradeRecord } from './grader.js';
 import { prepareWorkspace } from './isolate.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
@@ -85,6 +85,11 @@ export function labRoot(): string {
 
 const expDir = (id: string) => join(labRoot(), 'experiments', id);
 const variantDir = (id: string, vid: string) => join(expDir(id), 'variants', vid);
+
+/** Where an experiment's records live. Exported for the SSE frame log. */
+export function experimentDir(id: string): string {
+  return expDir(id);
+}
 
 /**
  * Write-then-rename, so a reader never sees a half-written record. These files
@@ -292,6 +297,115 @@ async function sequential<T, R>(items: T[], fn: (item: T) => Promise<R>): Promis
 }
 
 /**
+ * Live variant children, so cancelling reaches a real process.
+ *
+ * In-memory on purpose: a pid that outlived the lab belongs to a process this
+ * lab no longer supervises, and signalling a recycled pid is worse than
+ * admitting there is nothing left to stop.
+ */
+const liveChildren = new Map<string, Map<string, ChildProcess>>();
+
+function track(experimentId: string, variantId: string, child: ChildProcess): void {
+  const byVariant = liveChildren.get(experimentId) ?? new Map<string, ChildProcess>();
+  byVariant.set(variantId, child);
+  liveChildren.set(experimentId, byVariant);
+}
+
+function untrack(experimentId: string, variantId: string): void {
+  const byVariant = liveChildren.get(experimentId);
+  if (!byVariant) return;
+  byVariant.delete(variantId);
+  if (byVariant.size === 0) liveChildren.delete(experimentId);
+}
+
+export interface CancelResult {
+  signalled: string[];
+  killed: string[];
+  abandoned: { variantId: string; runId: string }[];
+  abandonErrors: { variantId: string; runId: string; error: string }[];
+}
+
+/**
+ * Stop an experiment: signal, escalate, then close the books in ADP.
+ *
+ * `SIGTERM` first because `session.abort()` is cooperative and a backend given
+ * a moment will unwind its own turn; `SIGKILL` after the grace because a wedged
+ * native call will not. Both matter — killing immediately loses the trajectory
+ * the child had not yet flushed, and waiting forever is not cancelling.
+ *
+ * Then every run the cancelled variants had opened is **abandoned, not closed**.
+ * A cancelled run produced no commit to attest to, and closing one against
+ * nothing would sign a statement about no particular state. Abandoning keeps
+ * the trajectory — which is exactly the run someone will want to read after
+ * cancelling.
+ */
+export async function cancelExperiment(
+  experimentId: string,
+  options: { token: string; graceMs?: number } = { token: '' },
+): Promise<CancelResult> {
+  const experiment = loadExperiment(experimentId);
+  const result: CancelResult = { signalled: [], killed: [], abandoned: [], abandonErrors: [] };
+
+  const byVariant = liveChildren.get(experimentId) ?? new Map<string, ChildProcess>();
+  const stopping = [...byVariant.entries()].map(async ([variantId, child]) => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    child.kill('SIGTERM');
+    result.signalled.push(variantId);
+    const exited = await waitForExit(child, options.graceMs ?? 5_000);
+    if (!exited) {
+      child.kill('SIGKILL');
+      result.killed.push(variantId);
+    }
+  });
+  await Promise.all(stopping);
+
+  for (const state of loadVariantStates(experimentId)) {
+    if (state.phase === 'done' || state.phase === 'cancelled') continue;
+    state.phase = 'cancelled';
+    state.endedAt = state.endedAt ?? new Date().toISOString();
+    saveVariantState(experimentId, state);
+  }
+
+  if (options.token) {
+    const endpoint: AdpEndpoint = {
+      baseUrl: experiment.adp.url,
+      token: options.token,
+      owner: experiment.adp.owner,
+      repo: experiment.adp.repo,
+    };
+    for (const state of loadVariantStates(experimentId)) {
+      if (!state.runId) continue;
+      try {
+        await abandonRun(endpoint, state.runId, 'cancelled by the lab');
+        result.abandoned.push({ variantId: state.id, runId: state.runId });
+      } catch (err) {
+        // A run already closed or abandoned answers 409, which is not a failure
+        // to cancel — it is the run already being in a terminal state.
+        result.abandonErrors.push({
+          variantId: state.id,
+          runId: state.runId,
+          error: (err as Error).message,
+        });
+      }
+    }
+  }
+
+  experiment.status = 'failed';
+  saveExperiment(experiment);
+  return result;
+}
+
+function waitForExit(child: ChildProcess, ms: number): Promise<boolean> {
+  return new Promise((resolvePromise) => {
+    const timer = setTimeout(() => resolvePromise(false), ms);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolvePromise(true);
+    });
+  });
+}
+
+/**
  * Settle the scoring identity before a single model call is made.
  *
  * Two failures are caught here rather than after the bill: no eval token for an
@@ -442,6 +556,8 @@ function runVariantChild(
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
 
+    track(experiment.id, plan.id, child);
+
     const logPath = join(outDir, 'child.log');
     writeFileSync(logPath, '');
     child.stdout?.on('data', (d) => appendLog(logPath, d));
@@ -451,6 +567,7 @@ function runVariantChild(
     const finish = (result: VariantResult) => {
       if (settled) return;
       settled = true;
+      untrack(experiment.id, plan.id);
       state.phase = result.outcome === 'error' ? 'failed' : 'done';
       state.outcome = result.outcome;
       state.runId = result.runId ?? '';

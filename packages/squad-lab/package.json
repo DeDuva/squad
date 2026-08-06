@@ -10,10 +10,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "lab": "npx tsx src/cli.ts",
-    "grade-check": "npx tsx scripts/live-grade-check.ts"
+    "grade-check": "npx tsx scripts/live-grade-check.ts",
+    "stream-check": "npx tsx scripts/live-stream-check.ts"
   },
   "dependencies": {
-    "@deduvafork/squad-sdk": "*"
+    "@deduvafork/squad-sdk": "*",
+    "fastify": "^5.11.2"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

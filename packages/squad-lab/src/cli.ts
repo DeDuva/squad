@@ -23,6 +23,7 @@ import {
   regradeVariant,
 } from './experiments.js';
 import type { GradeRecord } from './grader.js';
+import { startLabServer } from './server.js';
 import { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
@@ -330,10 +331,40 @@ function cmdList(): number {
   return 0;
 }
 
+/**
+ * Run the lab as a server.
+ *
+ * Never returns: this process *is* the lab, and the variant children it forks
+ * are its own.
+ */
+async function cmdServe(): Promise<number> {
+  const tokenEnv = arg('token-env', 'SQUAD_LAB_ADP_TOKEN');
+  const token = process.env[tokenEnv];
+  if (!token) throw new Error(`${tokenEnv} is not set`);
+  // Optional: a lab with no eval identity still runs experiments, it just
+  // refuses to score them — which is better than scoring them as itself.
+  const evalToken = process.env[arg('eval-token-env', 'SQUAD_LAB_EVAL_TOKEN')];
+  const adpUrl = arg('adp-url', 'http://127.0.0.1:8793');
+
+  const { url } = await startLabServer({
+    token,
+    ...(evalToken ? { evalToken } : {}),
+    adpUrl,
+    port: Number(arg('port', '7317')),
+  });
+
+  console.log(`→ squad-lab on ${url}`);
+  console.log(`   ADP    : ${adpUrl}`);
+  console.log(`   scoring: ${evalToken ? 'on — two identities asserted at boot' : 'off — no eval token'}`);
+  await new Promise<void>(() => {});
+  return 0;
+}
+
 const COMMANDS: Record<string, () => number | Promise<number>> = {
   'run-variant': cmdRunVariant,
   launch: cmdLaunch,
   regrade: cmdRegrade,
+  serve: cmdServe,
   summary: cmdSummary,
   list: cmdList,
 };
