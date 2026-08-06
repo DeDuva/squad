@@ -35,6 +35,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
 import type { ConformingSession, SessionFactory } from '../conformance.js';
+import { priceUsage, toMicroUsd, type PriceTable } from '../pricing.js';
 
 /**
  * The providers this loop can reach.
@@ -56,6 +57,14 @@ export interface AiSdkHarnessOptions {
   defaultMaxToolRounds?: number;
   /** Passed explicitly rather than read from the environment. See `defaultResolver`. */
   apiKey?: string;
+  /**
+   * Rates used to price usage the SDK reports without a cost.
+   *
+   * The AI SDK gives tokens and leaves pricing to the caller, so without this
+   * every run on this harness recorded `cost_micro_usd: 0` — unknown wearing
+   * the shape of free. Absent from the table means the run is `unpriced`.
+   */
+  priceTable?: PriceTable;
   /**
    * How a model id becomes a model.
    *
@@ -183,10 +192,27 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
           abortSignal: controller.signal,
           onStepFinish: (step) => {
             steps += 1;
+            const inputTokens = step.usage?.inputTokens ?? 0;
+            const outputTokens = step.usage?.outputTokens ?? 0;
+            const cachedInputTokens = step.usage?.cachedInputTokens ?? 0;
+            // Cache reads are billed at a fraction of the input rate and are
+            // most of a long agent turn, so pricing them as ordinary input
+            // would overstate the run several times over.
+            const priced = priceUsage(
+              modelId,
+              { inputTokens, outputTokens, cachedInputTokens },
+              { ...(options.priceTable ? { table: options.priceTable } : {}) },
+            );
             emit('session:model_usage', {
               model: modelId,
-              inputTokens: step.usage?.inputTokens ?? 0,
-              outputTokens: step.usage?.outputTokens ?? 0,
+              inputTokens,
+              outputTokens,
+              ...(cachedInputTokens ? { cacheReadInputTokens: cachedInputTokens } : {}),
+              // Absent rather than zero when unpriced: CostTracker and ADP both
+              // read a missing field as "no figure", and a `0` as "free".
+              ...(priced.costUsd === null ? {} : { estimatedCost: priced.costUsd }),
+              costBasis: priced.basis,
+              ...(priced.tableDigest ? { priceTable: priced.tableId, priceTableDigest: priced.tableDigest } : {}),
               agentName,
             });
           },
