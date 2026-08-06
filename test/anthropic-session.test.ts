@@ -100,6 +100,11 @@ function installFake(script: (turn: number, prompt: string) => AgentSdkMessage[]
   const seen: { options?: Record<string, unknown>; prompts: string[] } = { prompts: [] };
 
   const mod: AgentSdkModule = {
+    // Enough of the MCP surface for `buildSquadMcpServer` to take its real
+    // branch — otherwise every squad tool test falls into the "no bridge"
+    // path, which is not the one a worker agent uses.
+    tool: (name: unknown) => ({ name }),
+    createSdkMcpServer: (options: unknown) => ({ server: options }),
     query({ prompt, options }) {
       seen.options = options;
       return (async function* () {
@@ -121,6 +126,53 @@ function installFake(script: (turn: number, prompt: string) => AgentSdkMessage[]
 
 afterEach(() => {
   __setAgentSdkForTesting(null);
+});
+
+describe('AnthropicSession — the tool surface', () => {
+  // Squad tools, so the MCP bridge is built and the session takes the branch a
+  // worker agent actually takes.
+  const squadTool = {
+    name: 'write_file',
+    description: 'write a file',
+    parameters: {},
+    execute: async () => 'ok',
+  };
+
+  it('offers the backend built-ins alongside squad tools by default', async () => {
+    const seen = installFake(() => [result({ text: 'done' })]);
+    const session = new AnthropicSession({ tools: [squadTool] as never[] });
+    await session.sendAndWait({ prompt: 'hi' });
+
+    // The right default for getting work done: these are good tools.
+    expect(seen.options?.['allowedTools']).toEqual(expect.arrayContaining(['Read', 'Bash']));
+    expect(seen.options?.['tools']).toBeUndefined();
+    await session.close();
+  });
+
+  it('removes them outright when builtinTools is false', async () => {
+    const seen = installFake(() => [result({ text: 'done' })]);
+    const session = new AnthropicSession({ tools: [squadTool] as never[], builtinTools: false });
+    await session.sendAndWait({ prompt: 'hi' });
+
+    // `tools: []` is the mechanism that deregisters them. Verified the
+    // expensive way first: a run that named only the bridged tools in
+    // `allowedTools` still reached for Bash, Write and Read eleven times,
+    // because `allowedTools` filters permission rather than registration.
+    expect(seen.options?.['tools']).toEqual([]);
+    await session.close();
+  });
+
+  it('keeps squad\'s own tools reachable when the built-ins go', async () => {
+    const seen = installFake(() => [result({ text: 'done' })]);
+    const session = new AnthropicSession({ tools: [squadTool] as never[], builtinTools: false });
+    await session.sendAndWait({ prompt: 'hi' });
+
+    // They arrive through `mcpServers`, so emptying `tools` does not take them
+    // with it — without which "parity" would mean an agent with no tools.
+    expect(seen.options?.['mcpServers']).toBeDefined();
+    expect(seen.options?.['allowedTools']).toEqual(expect.arrayContaining(['mcp__squad__write_file']));
+    await session.close();
+  });
 });
 
 describe('AnthropicSession — turn lifecycle', () => {

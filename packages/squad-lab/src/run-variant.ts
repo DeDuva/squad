@@ -24,10 +24,25 @@ import { SquadCoordinator } from '@deduvafork/squad-sdk/coordinator';
 import { SessionPool } from '@deduvafork/squad-sdk/client';
 import type { AgentCharter } from '@deduvafork/squad-sdk/agents';
 import { VENDORS, type SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
+// Pinned into the harness digest: an SDK upgrade changes how the agents are
+// driven, so it changes the harness, and two runs across it are not the same
+// experiment however identical the configuration looks.
+import { VERSION as SDK_VERSION } from '@deduvafork/squad-sdk';
 
 import { commitAndPush, type Workspace } from './isolate.js';
 import { defaultTools, instrument, type LabTool } from './tools/default.js';
 import { getRun, readGoal, type AdpEndpoint } from './adp.js';
+import {
+  harnessLabels,
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_TOOL_SURFACE,
+  type SystemPromptMode,
+  type ToolSurface,
+} from './harness.js';
+import { MCP_BRIDGE_PREFIX } from './tools/taxonomy.js';
+
+/** The name the Agent SDK matches a bridged squad tool against. */
+const mcpToolName = (name: string) => `${MCP_BRIDGE_PREFIX}${name}`;
 
 export type VariantPhase =
   | 'preparing'
@@ -89,6 +104,16 @@ export interface VariantSpec {
   routing: RoutingRule[];
   tools?: LabTool[];
   limits?: Partial<VariantLimits>;
+  /**
+   * Which tools the agents may reach for. Defaults to `registered`, so both
+   * vendors see one surface and a cross-vendor score means something.
+   */
+  toolSurface?: ToolSurface;
+  /**
+   * Whose system message the agents get. Defaults to `charter-only`, so both
+   * vendors receive identical instructions.
+   */
+  systemPrompt?: SystemPromptMode;
 
   onEvent?: (event: SquadEvent) => void;
   onPhase?: (phase: VariantPhase, detail?: unknown) => void;
@@ -123,6 +148,11 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
   const limits = { ...DEFAULT_LIMITS, ...spec.limits };
   const tier = spec.tier ?? 'standard';
   const model = spec.model ?? VENDORS[spec.provider].models[tier];
+  // Parity by default. An experiment that wants the backend's own tools has to
+  // ask for them, because that is the choice which stops the result being a
+  // comparison.
+  const toolSurface = spec.toolSurface ?? DEFAULT_TOOL_SURFACE;
+  const systemPrompt = spec.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
   const startedAt = Date.now();
 
   const phase = (p: VariantPhase, detail?: unknown) => spec.onPhase?.(p, detail);
@@ -196,6 +226,18 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
     );
     const charters = new Map(spec.agents.map((a) => [a.name, a]));
 
+    // Recorded on the run itself, so "the harness was held constant" is a value
+    // two rows can be compared on rather than a claim in a write-up.
+    const harness = harnessLabels({
+      toolSurface,
+      systemPrompt,
+      agents: spec.agents,
+      routing: spec.routing,
+      tools: tools.map((t) => t.name),
+      limits,
+      sdkVersion: SDK_VERSION,
+    });
+
     coordinator = new SquadCoordinator({
       config: {
         version: '1',
@@ -218,6 +260,10 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
           variant: spec.variantId,
           experiment: spec.experimentId,
           ...(spec.tier ? { tier: spec.tier } : {}),
+          // Two runs are comparable only if these match. Attested alongside the
+          // vendor, so that is a fact a reader can check rather than one the
+          // write-up asserts.
+          ...harness,
         },
         onError: (error, context) => phase('recording', { adpError: `${context}: ${error.message}` }),
       },
@@ -245,7 +291,30 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
             // writes a correct module into entirely the wrong tree.
             workingDirectory: spec.workspace.workDir,
             tools: tools as any,
-            systemMessage: { content: charters.get(agentName)?.prompt ?? '' },
+            // Naming the surface explicitly is what makes the two vendors
+            // comparable. Left unset, the Anthropic backend adds its own
+            // Read/Write/Edit/Glob/Grep/Bash and the Gemini backend does not,
+            // so the two runs are not the same program — which is how the M7
+            // slice ended up reporting a 100x token difference that was a
+            // tooling difference wearing a model's name.
+            ...(toolSurface === 'registered'
+              ? {
+                  availableTools: tools.map((t) => mcpToolName(t.name)),
+                  // Both, and the second one is the one that works.
+                  // `availableTools` filters permission; `builtinTools: false`
+                  // is what stops the backend registering its own tools at all.
+                  builtinTools: false,
+                }
+              : {}),
+            systemMessage:
+              systemPrompt === 'charter-only'
+                ? // `replace` drops the backend's own preset. Without it the
+                  // Anthropic agents get Claude Code's entire system message
+                  // *plus* the charter while the Gemini agents get the charter
+                  // alone — a confound that survives fixing the tools, and a
+                  // quieter one, because nothing in the telemetry shows it.
+                  { mode: 'replace' as const, content: charters.get(agentName)?.prompt ?? '' }
+                : { content: charters.get(agentName)?.prompt ?? '' },
           } as any)) as any;
         },
         sessionPool: pool,

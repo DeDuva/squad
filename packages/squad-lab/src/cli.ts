@@ -177,9 +177,19 @@ async function cmdLaunch(): Promise<number> {
       ? { grader: { path: resolve(arg('grader')), primaryAxis: arg('primary-axis', 'acceptance') } }
       : {}),
     ...(has('deadline-ms') ? { limits: { deadlineMs: Number(arg('deadline-ms')) } } : {}),
+    // Parity is the default; `--tool-surface=native` opts back into the
+    // backend's own tools, which is a legitimate experiment and not a
+    // comparison.
+    harness: {
+      toolSurface: arg('tool-surface', 'registered') as 'registered' | 'native',
+      systemPrompt: arg('system-prompt', 'charter-only') as 'charter-only' | 'backend-preset',
+    },
   });
 
   console.log(`→ experiment ${experiment.id}`);
+  console.log(
+    `   harness : tools=${experiment.harness?.toolSurface} prompt=${experiment.harness?.systemPrompt}`,
+  );
   console.log(`   goal   : issue #${experiment.adp.issueNumber}, intent ${experiment.adp.intentId}`);
   console.log(`   variants: ${experiment.variants.map((v) => `${v.id}(${v.provider})`).join(', ')}`);
 

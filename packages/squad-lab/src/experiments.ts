@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { abandonRun, createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
 import { assertSeparateIdentities, gradeVariant, type GradeRecord } from './grader.js';
 import { prepareWorkspace } from './isolate.js';
+import type { SystemPromptMode, ToolSurface } from './harness.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
 import { defaultTools } from './tools/default.js';
 import type { AgentSpec, RoutingRule, VariantPhase, VariantResult } from './run-variant.js';
@@ -58,6 +59,15 @@ export interface Experiment {
   registeredTools: string[];
   variants: VariantPlan[];
   limits?: { turnTimeoutMs?: number; deadlineMs?: number; graceMs?: number };
+  /**
+   * How the agents are driven, held identical across every variant.
+   *
+   * These are the two settings that decide whether a cross-vendor score is a
+   * comparison at all, so they belong to the *experiment* rather than to a
+   * variant: varying them between variants is a different experiment, and one
+   * whose result would look exactly the same.
+   */
+  harness?: { toolSurface?: ToolSurface; systemPrompt?: SystemPromptMode };
 }
 
 /** Live process state, which ADP has no concept of and should not grow one. */
@@ -145,6 +155,7 @@ export interface CreateExperimentInput {
   agents?: AgentSpec[];
   routing?: RoutingRule[];
   limits?: Experiment['limits'];
+  harness?: Experiment['harness'];
   id?: string;
 }
 
@@ -220,6 +231,7 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
     registeredTools: defaultTools('/').map((t) => t.name),
     variants,
     ...(input.limits ? { limits: input.limits } : {}),
+    ...(input.harness ? { harness: input.harness } : {}),
   };
 
   saveExperiment(experiment);
@@ -621,6 +633,8 @@ function runVariantChild(
         agents: experiment.agents,
         routing: experiment.routing,
         ...(experiment.limits ? { limits: experiment.limits } : {}),
+        ...(experiment.harness?.toolSurface ? { toolSurface: experiment.harness.toolSurface } : {}),
+        ...(experiment.harness?.systemPrompt ? { systemPrompt: experiment.harness.systemPrompt } : {}),
       },
     });
   });

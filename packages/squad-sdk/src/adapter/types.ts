@@ -83,6 +83,21 @@ export interface SquadSessionConfig {
   excludedTools?: string[];
 
   /**
+   * Whether the backend may offer its own built-in tools alongside squad's.
+   *
+   * Defaults to `true`, which is the right default for getting work done: the
+   * Anthropic backend's `Read`/`Write`/`Edit`/`Glob`/`Grep`/`Bash` are good
+   * tools and an agent holding them is more capable.
+   *
+   * Set it to `false` when the run must be **comparable** with one on a backend
+   * that has no built-ins. `availableTools` cannot do this — it filters
+   * permission, not registration — so leaving the built-ins on is precisely how
+   * a cross-vendor experiment ends up measuring the tooling and reporting the
+   * result as a difference between models.
+   */
+  builtinTools?: boolean;
+
+  /**
    * Custom provider configuration (BYOK - Bring Your Own Key).
    * Custom provider endpoint configuration (BYOK — Bring Your Own Key).
    */
