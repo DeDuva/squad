@@ -1,8 +1,9 @@
 /**
  * The lab's command line, ahead of the server.
  *
- * `run-variant` is the M1 primitive: one goal, one vendor, one recorded run,
- * from a clean clone with nothing hand-edited.
+ * `run-variant` is one goal on one vendor. `launch` is the experiment: the same
+ * goal fanned across N vendors, all against one ADP intent, which is what makes
+ * `runs/compare` a ranking rather than a pile of unrelated runs.
  */
 
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -13,6 +14,14 @@ import { runVariant } from './run-variant.js';
 import { prepareWorkspace } from './isolate.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
 import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
+import {
+  createExperiment,
+  launchExperiment,
+  listExperiments,
+  loadExperiment,
+  loadVariantStates,
+} from './experiments.js';
+import { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
 function arg(name: string, fallback?: string): string {
@@ -24,18 +33,17 @@ function arg(name: string, fallback?: string): string {
   return value ?? fallback!;
 }
 
-function flag(name: string): boolean {
-  return process.argv.includes(`--${name}`);
-}
+const has = (name: string) => process.argv.some((a) => a.startsWith(`--${name}=`));
+const flag = (name: string) => process.argv.includes(`--${name}`);
 
 /**
  * Vendor credentials, which are asymmetric and quietly so.
  *
  * Anthropic inherits the `claude` CLI's own credential chain, so there is
- * nothing to pass and nothing to check. Gemini needs its key handed over
- * explicitly — and `GEMINI_API_KEY` merely being in the environment
- * deliberately does not count as choosing that vendor, so it has to be read
- * and passed rather than left to be picked up.
+ * nothing to pass. Gemini needs its key handed over explicitly — and
+ * `GEMINI_API_KEY` merely being in the environment deliberately does not count
+ * as choosing that vendor, so it has to be read and passed rather than left to
+ * be picked up.
  */
 function loadCredentials(provider: SquadProvider): { geminiApiKey?: string } {
   if (provider !== 'gemini') return {};
@@ -48,32 +56,42 @@ function loadCredentials(provider: SquadProvider): { geminiApiKey?: string } {
   throw new Error(`no Gemini key: set GEMINI_API_KEY or write ${keyFile}`);
 }
 
-async function main(): Promise<void> {
-  const command = process.argv[2];
-  if (command !== 'run-variant') {
-    console.error('usage: cli.ts run-variant --seed=<path> --provider=<anthropic|gemini> [...]');
-    process.exit(2);
-  }
-
+function endpointFromArgs(): { endpoint: AdpEndpoint; tokenEnv: string } {
   const tokenEnv = arg('token-env', 'SQUAD_LAB_ADP_TOKEN');
   const token = process.env[tokenEnv];
   if (!token) throw new Error(`${tokenEnv} is not set`);
-
-  const owner = arg('owner', 'lab');
-  const repo = arg('repo');
-  const endpoint: AdpEndpoint = {
-    baseUrl: arg('adp-url', 'http://127.0.0.1:8793'),
-    token,
-    owner,
-    repo,
+  return {
+    tokenEnv,
+    endpoint: {
+      baseUrl: arg('adp-url', 'http://127.0.0.1:8793'),
+      token,
+      owner: arg('owner', 'lab'),
+      repo: arg('repo'),
+    },
   };
+}
 
+/** `--variants=anthropic,gemini` or `anthropic:premium,gemini:fast`. */
+function parseVariants(spec: string) {
+  return spec
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const [provider, tier] = s.split(':');
+      return {
+        provider: provider as SquadProvider,
+        ...(tier ? { tier: tier as 'premium' | 'standard' | 'fast' } : {}),
+      };
+    });
+}
+
+async function cmdRunVariant(): Promise<number> {
+  const { endpoint, tokenEnv } = endpointFromArgs();
   const who = await whoami(endpoint);
   console.log(`→ ADP ${endpoint.baseUrl} as ${who.login}`);
-
   await ensureRepo(endpoint);
 
-  // Either reuse a goal or file one. Filing is what mints the intent.
   let issueNumber = Number(arg('issue', '0'));
   let intentId = arg('intent', '');
   if (!issueNumber || !intentId) {
@@ -92,9 +110,8 @@ async function main(): Promise<void> {
     workDir: join(root, variantId, 'work'),
     seedRepo: resolve(arg('seed')),
     branch: `lab/${experimentId}/${variantId}`,
-    // Push to ADP, not to the seed: closing a run resolves the sha there.
     pushRemote: gitRemote(endpoint),
-    adp: { url: endpoint.baseUrl, repo: `${owner}/${repo}`, tokenEnv },
+    adp: { url: endpoint.baseUrl, repo: `${endpoint.owner}/${endpoint.repo}`, tokenEnv },
   });
   console.log(`→ work repo ${workspace.workDir} on ${workspace.branch}`);
 
@@ -103,28 +120,141 @@ async function main(): Promise<void> {
     variantId,
     provider,
     credentials: loadCredentials(provider),
-    ...(flag('tier') ? {} : {}),
-    ...(process.argv.some((a) => a.startsWith('--model=')) ? { model: arg('model') } : {}),
+    ...(has('model') ? { model: arg('model') } : {}),
     adp: { ...endpoint, issueNumber, intentId, tokenEnv },
     externalRef: `${experimentId}:${variantId}`,
     workspace,
     outDir: join(root, variantId),
     agents: DEFAULT_AGENTS,
     routing: DEFAULT_ROUTING,
-    ...(process.argv.some((a) => a.startsWith('--deadline-ms='))
-      ? { limits: { deadlineMs: Number(arg('deadline-ms')) } }
-      : {}),
-    onPhase: (phase, detail) =>
-      console.log(`   [${phase}]${detail ? ` ${JSON.stringify(detail)}` : ''}`),
+    ...(has('deadline-ms') ? { limits: { deadlineMs: Number(arg('deadline-ms')) } } : {}),
+    onPhase: (phase, detail) => console.log(`   [${phase}]${detail ? ` ${JSON.stringify(detail)}` : ''}`),
   });
 
   console.log(
     `→ ${result.outcome}: run=${result.runId} sha=${result.finalSha} ` +
       `tests=${result.testPassed === null ? 'n/a' : result.testPassed ? 'pass' : 'fail'} ` +
-      `quiesced=${(result.timeToQuiescenceMs / 1000).toFixed(1)}s ` +
-      `wall=${(result.wallClockMs / 1000).toFixed(1)}s`,
+      `quiesced=${(result.timeToQuiescenceMs / 1000).toFixed(1)}s wall=${(result.wallClockMs / 1000).toFixed(1)}s`,
   );
-  process.exit(result.outcome === 'error' ? 1 : 0);
+  return result.outcome === 'error' ? 1 : 0;
+}
+
+async function cmdLaunch(): Promise<number> {
+  const { endpoint, tokenEnv } = endpointFromArgs();
+  const variants = parseVariants(arg('variants', 'anthropic,gemini'));
+
+  const goalFile = has('goal-file') ? resolve(arg('goal-file')) : undefined;
+  const [title, body] = goalFile
+    ? splitGoal(readFileSync(goalFile, 'utf8'))
+    : [arg('title'), arg('body', '')];
+
+  const experiment = await createExperiment({
+    goal: { title, body },
+    adp: { ...endpoint, tokenEnv },
+    seed: { repoUrl: resolve(arg('seed')) },
+    variants,
+    ...(has('grader')
+      ? { grader: { path: resolve(arg('grader')), primaryAxis: arg('primary-axis', 'acceptance') } }
+      : {}),
+    ...(has('deadline-ms') ? { limits: { deadlineMs: Number(arg('deadline-ms')) } } : {}),
+  });
+
+  console.log(`→ experiment ${experiment.id}`);
+  console.log(`   goal   : issue #${experiment.adp.issueNumber}, intent ${experiment.adp.intentId}`);
+  console.log(`   variants: ${experiment.variants.map((v) => `${v.id}(${v.provider})`).join(', ')}`);
+
+  const credentials: Record<string, { geminiApiKey?: string }> = {};
+  for (const v of experiment.variants) credentials[v.id] = loadCredentials(v.provider);
+
+  const results = await launchExperiment(experiment, {
+    token: endpoint.token,
+    sequential: flag('sequential'),
+    credentials,
+    onPhase: (variantId, phase, detail) =>
+      console.log(`   [${variantId}] ${phase}${detail ? ` ${JSON.stringify(detail)}` : ''}`),
+  });
+
+  for (const r of results) {
+    console.log(
+      `→ ${r.variantId}: ${r.outcome} run=${r.runId ?? '-'} sha=${r.finalSha?.slice(0, 12) ?? '-'} ` +
+        `quiesced=${(r.timeToQuiescenceMs / 1000).toFixed(1)}s${r.error ? ` err=${r.error}` : ''}`,
+    );
+  }
+
+  await printSummary(experiment.id, endpoint);
+  return results.every((r) => r.outcome === 'error') ? 1 : 0;
+}
+
+async function cmdSummary(): Promise<number> {
+  const { endpoint } = endpointFromArgs();
+  await printSummary(arg('experiment'), endpoint);
+  return 0;
+}
+
+async function printSummary(experimentId: string, ep: AdpEndpoint): Promise<void> {
+  const exp = loadExperiment(experimentId);
+  const summary = await buildSummary(exp, ep);
+
+  console.log(`\n=== ${exp.goal.title} — ${summary.rows.length} run(s) on intent ${summary.intentId}`);
+  for (const row of summary.rows) {
+    const unpriced = row.provider && UNPRICED_PROVIDERS.has(row.provider);
+    // Never `$0.00`: an unpriced vendor is unpriced, not free, and a dollar
+    // figure here would rank it first for a reason unrelated to the vendor.
+    const cost = unpriced ? 'unpriced' : `$${(row.costMicroUsd / 1_000_000).toFixed(4)}`;
+    console.log(
+      `  ${(row.variantId ?? row.runId).padEnd(18)} ${row.status.padEnd(9)} ` +
+        `events=${String(row.events).padEnd(4)} tools=${row.toolCalls}/${row.toolFailures}f ` +
+        `tokens=${row.tokensIn}in/${row.tokensOut}out cost=${cost}`,
+    );
+  }
+
+  for (const axis of summary.axes) {
+    console.log(`  --- axis: ${axis}`);
+    for (const e of rankByAxis(summary, axis)) {
+      console.log(
+        `      ${e.variantId.padEnd(18)} ${e.score === null ? '—  not measured' : `${e.score.toFixed(2)}  #${e.rank}`}`,
+      );
+    }
+  }
+
+  if (summary.warnings.length > 0) {
+    console.log('  --- warnings');
+    for (const w of summary.warnings) console.log(`      ${JSON.stringify(w)}`);
+  }
+}
+
+function splitGoal(text: string): [string, string] {
+  const lines = text.split('\n');
+  const title = (lines[0] ?? '').replace(/^#\s*/, '').trim();
+  return [title, lines.slice(1).join('\n').trim()];
+}
+
+function cmdList(): number {
+  for (const exp of listExperiments()) {
+    const states = loadVariantStates(exp.id);
+    console.log(
+      `${exp.id}  ${exp.status.padEnd(9)} ${exp.goal.title.slice(0, 40).padEnd(42)} ` +
+        states.map((s) => `${s.id}=${s.phase}`).join(' '),
+    );
+  }
+  return 0;
+}
+
+const COMMANDS: Record<string, () => number | Promise<number>> = {
+  'run-variant': cmdRunVariant,
+  launch: cmdLaunch,
+  summary: cmdSummary,
+  list: cmdList,
+};
+
+async function main(): Promise<void> {
+  const command = process.argv[2] ?? '';
+  const handler = COMMANDS[command];
+  if (!handler) {
+    console.error(`usage: cli.ts <${Object.keys(COMMANDS).join('|')}> [--flags]`);
+    process.exit(2);
+  }
+  process.exit(await handler());
 }
 
 main().catch((error) => {

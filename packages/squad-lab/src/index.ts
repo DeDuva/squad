@@ -14,3 +14,24 @@ export { defaultTools, instrument } from './tools/default.js';
 export type { LabTool } from './tools/default.js';
 export * from './adp.js';
 export { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
+export {
+  createExperiment,
+  launchExperiment,
+  listExperiments,
+  loadExperiment,
+  loadVariantStates,
+  saveExperiment,
+  saveVariantState,
+  labRoot,
+} from './experiments.js';
+export type {
+  Experiment,
+  ExperimentStatus,
+  VariantPlan,
+  VariantState,
+  CreateExperimentInput,
+  LaunchOptions,
+  ChildMessage,
+} from './experiments.js';
+export { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
+export type { Summary, Warning } from './summary.js';
