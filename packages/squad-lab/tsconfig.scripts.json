@@ -1,0 +1,13 @@
+// The live checks are not part of the built package — they run under tsx
+// against a server that has to exist — but they import the same modules the
+// package exports, so they typecheck alongside it. A script excluded from the
+// build and from the typecheck is a script that stops compiling without anyone
+// finding out until the day it is needed.
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts", "src/**/*.ts"]
+}

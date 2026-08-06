@@ -20,10 +20,35 @@ export {
   listExperiments,
   loadExperiment,
   loadVariantStates,
+  regradeVariant,
   saveExperiment,
   saveVariantState,
   labRoot,
 } from './experiments.js';
+export {
+  assertSeparateIdentities,
+  canonicalJson,
+  evalSpec,
+  gradeVariant,
+  parseGraderReport,
+  reportGrade,
+  runGrader,
+  specDigestOf,
+  GraderContractError,
+  SameIdentityError,
+  DEFAULT_GRADER_TIMEOUT_MS,
+} from './grader.js';
+export type {
+  AxisEvalResult,
+  AxisReport,
+  GradeRecord,
+  GradeReportResult,
+  GradeVariantInput,
+  GraderReport,
+  GraderRun,
+  ReportGradeInput,
+  RunGraderInput,
+} from './grader.js';
 export type {
   Experiment,
   ExperimentStatus,

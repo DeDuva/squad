@@ -20,7 +20,9 @@ import {
   listExperiments,
   loadExperiment,
   loadVariantStates,
+  regradeVariant,
 } from './experiments.js';
+import type { GradeRecord } from './grader.js';
 import { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
@@ -69,6 +71,23 @@ function endpointFromArgs(): { endpoint: AdpEndpoint; tokenEnv: string } {
       repo: arg('repo'),
     },
   };
+}
+
+/**
+ * The grader's token, which is a second principal and not a second copy.
+ *
+ * Held only here, never handed to a variant child and never to the grader
+ * itself, so the only thing that can report a score is the lab.
+ */
+function evalTokenFromArgs(): string {
+  const env = arg('eval-token-env', 'SQUAD_LAB_EVAL_TOKEN');
+  const token = process.env[env];
+  if (!token) {
+    throw new Error(
+      `${env} is not set — scoring needs an identity other than the one that opens runs`,
+    );
+  }
+  return token;
 }
 
 /** `--variants=anthropic,gemini` or `anthropic:premium,gemini:fast`. */
@@ -168,10 +187,12 @@ async function cmdLaunch(): Promise<number> {
 
   const results = await launchExperiment(experiment, {
     token: endpoint.token,
+    ...(experiment.grader ? { evalToken: evalTokenFromArgs() } : {}),
     sequential: flag('sequential'),
     credentials,
     onPhase: (variantId, phase, detail) =>
       console.log(`   [${variantId}] ${phase}${detail ? ` ${JSON.stringify(detail)}` : ''}`),
+    onGrade: (variantId, grade) => printGrade(variantId, grade),
   });
 
   for (const r of results) {
@@ -189,6 +210,56 @@ async function cmdSummary(): Promise<number> {
   const { endpoint } = endpointFromArgs();
   await printSummary(arg('experiment'), endpoint);
   return 0;
+}
+
+async function cmdRegrade(): Promise<number> {
+  const { endpoint } = endpointFromArgs();
+  const experimentId = arg('experiment');
+  const evalToken = evalTokenFromArgs();
+
+  const exp = loadExperiment(experimentId);
+  const targets = has('variant')
+    ? [arg('variant')]
+    : exp.variants.map((v) => v.id);
+
+  let scored = 0;
+  for (const variantId of targets) {
+    const grade = await regradeVariant(experimentId, variantId, { token: endpoint.token, evalToken });
+    printGrade(variantId, grade);
+    if (grade.outcome === 'scored') scored += 1;
+  }
+
+  await printSummary(experimentId, endpoint);
+  return scored > 0 ? 0 : 1;
+}
+
+/**
+ * One line per axis, and the reason on the line when there is no score.
+ *
+ * An unscored variant reads as `— unscored (why)` and never as `0.00`: the two
+ * mean opposite things and only one of them is a measurement.
+ */
+function printGrade(variantId: string, grade: GradeRecord): void {
+  if (grade.outcome === 'unscored' && !grade.axes) {
+    console.log(`   [${variantId}] grade: — unscored (${grade.reason ?? 'unknown'})`);
+    return;
+  }
+  const digest = grade.specDigest ? ` digest=${grade.specDigest.slice(0, 12)}` : '';
+  console.log(`   [${variantId}] grade:${digest}`);
+  for (const axis of grade.axes ?? []) {
+    const score = axis.score === null ? '—  not measured' : axis.score.toFixed(2);
+    const auth =
+      axis.separatelyAuthorized === undefined
+        ? ''
+        : axis.separatelyAuthorized
+          ? ' separately_authorized'
+          : ' SELF-REPORTED';
+    console.log(
+      `      ${axis.axis.padEnd(14)} ${String(score).padEnd(16)} gate=${axis.gateName}` +
+        (axis.posted ? auth : ` NOT POSTED (${axis.error ?? 'unknown'})`),
+    );
+  }
+  for (const w of grade.warnings ?? []) console.log(`      ⚠ ${w}`);
 }
 
 async function printSummary(experimentId: string, ep: AdpEndpoint): Promise<void> {
@@ -262,6 +333,7 @@ function cmdList(): number {
 const COMMANDS: Record<string, () => number | Promise<number>> = {
   'run-variant': cmdRunVariant,
   launch: cmdLaunch,
+  regrade: cmdRegrade,
   summary: cmdSummary,
   list: cmdList,
 };

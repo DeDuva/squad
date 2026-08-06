@@ -8,8 +8,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lab": "node --import tsx src/cli.ts"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
+    "lab": "node --import tsx src/cli.ts",
+    "grade-check": "node --import tsx scripts/live-grade-check.ts"
   },
   "dependencies": {
     "@deduvafork/squad-sdk": "*"
