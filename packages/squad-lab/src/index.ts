@@ -9,7 +9,7 @@ export type {
 } from './run-variant.js';
 export { prepareWorkspace, commitAndPush } from './isolate.js';
 export type { Workspace, WorkspaceSpec, AdpWiring } from './isolate.js';
-export { safePath, PathEscapeError } from './tools/jail.js';
+export { safePath, safeDir, PathEscapeError } from './tools/jail.js';
 export { defaultTools, instrument } from './tools/default.js';
 export type { LabTool } from './tools/default.js';
 export * from './adp.js';
@@ -38,6 +38,8 @@ export {
   checkHarnessConformance,
   formatConformance,
 } from './conformance.js';
+export { probeWireParity, compareProfiles, formatProfiles } from './parity.js';
+export type { WireProfile, ParityWarning, ProbeOutcome } from './parity.js';
 export type {
   ConformanceContext,
   ConformanceReport,

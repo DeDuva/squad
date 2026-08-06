@@ -70,15 +70,38 @@ describe('GeminiSession — tool call depth guard', () => {
     vi.restoreAllMocks();
   });
 
-  it('throws after exceeding the default maxToolCallRounds of 10', async () => {
+  it('throws only at the runaway-loop guard, which is far above real work', async () => {
     vi.stubGlobal('fetch', makeLoopingFetch('loop_tool'));
 
     const session = new GeminiSession('fake-key', {
       tools: [makeLoopTool('loop_tool')],
     } as SquadSessionConfig);
 
+    // The default used to be 10, which was a loop guard doing duty as a work
+    // limit — and it was Gemini-only, so a cross-vendor comparison stopped one
+    // side mid-task and let the other run on. The work limit is now
+    // `maxToolRounds`, enforced for every backend in `adapter/client.ts`; this
+    // number only catches a tool that genuinely loops.
     await expect(session.sendMessage({ prompt: 'go' })).rejects.toThrow(
-      /maxToolCallRounds \(10\)/,
+      /maxToolCallRounds \(200\)/,
+    );
+  });
+
+  it('keeps the guard above the work budget rather than equal to it', async () => {
+    vi.stubGlobal('fetch', makeLoopingFetch('loop_tool'));
+
+    // Deriving the guard from the budget made both fire on the same round and
+    // race. Whichever won decided whether a spent budget was reported as a
+    // milestone or as "a tool is returning function calls in a loop" — and it
+    // surfaced only when a model happened to loop far enough, which is to say
+    // intermittently.
+    const session = new GeminiSession('fake-key', {
+      tools: [makeLoopTool('loop_tool')],
+      maxToolRounds: 3,
+    } as SquadSessionConfig);
+
+    await expect(session.sendMessage({ prompt: 'go' })).rejects.toThrow(
+      /maxToolCallRounds \((?!3\))/,
     );
   });
 

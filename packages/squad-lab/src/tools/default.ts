@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { appendFileSync } from 'node:fs';
-import { safePath } from './jail.js';
+import { safeDir, safePath } from './jail.js';
 
 export interface LabTool {
   name: string;
@@ -43,7 +43,11 @@ export function defaultTools(workDir: string): LabTool[] {
         },
       },
       handler: async (args: { path?: string }) => {
-        const root = safePath(workDir, args.path ?? '.');
+        // `safeDir`, not `safePath`: listing the repository root is the whole
+        // point of the tool, and `safePath` rejects it. Empty string and
+        // undefined both mean "the root" — a model that omits an optional
+        // argument and one that passes it empty are asking the same question.
+        const root = safeDir(workDir, args.path ?? '.');
         if (!existsSync(root)) {
           return { textResultForLlm: `no such directory: ${args.path ?? '.'}`, resultType: 'failure' };
         }

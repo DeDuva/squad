@@ -11,7 +11,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { safePath, PathEscapeError } from '../packages/squad-lab/src/tools/jail.js';
+import { safePath, safeDir, PathEscapeError } from '../packages/squad-lab/src/tools/jail.js';
+import { defaultTools } from '../packages/squad-lab/src/tools/default.js';
 
 describe('safePath', () => {
   let root: string;
@@ -67,5 +68,46 @@ describe('safePath', () => {
 
   it('accepts an absolute path that is inside the repo', () => {
     expect(safePath(root, join(root, 'src/x.js'))).toBe(join(root, 'src/x.js'));
+  });
+
+  describe('safeDir', () => {
+    it('allows the repository root, which safePath refuses', () => {
+      // The split that cost a whole experiment: `list_files` shipped on
+      // `safePath`, so calling it with no argument — the most natural thing an
+      // agent can do — always failed. One vendor guessed directory names and
+      // carried on; the other retried the empty call and gave up, and the run was
+      // recorded as the model producing nothing.
+      expect(() => safePath(root, '.')).toThrow(PathEscapeError);
+      expect(safeDir(root, '.')).toBe(realpathSync(root));
+      expect(safeDir(root, '')).toBe(realpathSync(root));
+    });
+
+    it('still refuses to leave the repository', () => {
+      expect(() => safeDir(root, '..')).toThrow(PathEscapeError);
+      expect(() => safeDir(root, '../outside')).toThrow(PathEscapeError);
+      expect(() => safeDir(root, outside)).toThrow(PathEscapeError);
+    });
+  });
+
+  describe('list_files', () => {
+    it('lists the root for every way of asking for it', async () => {
+      mkdirSync(join(root, 'lib'), { recursive: true });
+      writeFileSync(join(root, 'index.js'), 'x');
+      writeFileSync(join(root, 'lib', 'inner.js'), 'y');
+      const listFiles = defaultTools(root).find((t) => t.name === 'list_files')!;
+
+      for (const args of [{}, { path: '' }, { path: '.' }]) {
+        const result = await listFiles.handler(args as never);
+        expect(result.resultType, JSON.stringify(args)).toBe('success');
+        expect(result.textResultForLlm).toContain('index.js');
+        expect(result.textResultForLlm).toContain('lib/inner.js');
+      }
+    });
+
+    it('reports a missing directory as a failure rather than throwing', async () => {
+      const listFiles = defaultTools(root).find((t) => t.name === 'list_files')!;
+      const result = await listFiles.handler({ path: 'nope' } as never);
+      expect(result.resultType).toBe('failure');
+    });
   });
 });
