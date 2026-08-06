@@ -39,6 +39,8 @@ export {
   formatConformance,
 } from './conformance.js';
 export { probeWireParity, compareProfiles, formatProfiles } from './parity.js';
+export { createAiSdkHarness } from './harnesses/ai-sdk.js';
+export type { AiSdkHarnessOptions, AiSdkProvider } from './harnesses/ai-sdk.js';
 export type { WireProfile, ParityWarning, ProbeOutcome } from './parity.js';
 export type {
   ConformanceContext,

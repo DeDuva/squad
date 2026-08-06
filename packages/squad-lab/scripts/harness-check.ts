@@ -27,6 +27,7 @@ import {
   type ConformanceContext,
 } from '../src/conformance.js';
 import { compareProfiles, formatProfiles, probeWireParity, type WireProfile } from '../src/parity.js';
+import { createAiSdkHarness } from '../src/harnesses/ai-sdk.js';
 
 function geminiKey(): string | undefined {
   if (process.env['GEMINI_API_KEY']) return process.env['GEMINI_API_KEY'];
@@ -36,6 +37,31 @@ function geminiKey(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The neutral loop, as a harness the same suite can judge.
+ *
+ * Named `ai-sdk:<provider>` so a report shows it beside the native one rather
+ * than instead of it — the interesting number is the difference.
+ */
+async function aiSdkContextFor(provider: 'anthropic'): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
+  const bus = new EventBus();
+  const seen: SquadEvent[] = [];
+  bus.subscribeAll((e) => {
+    seen.push(e);
+  });
+
+  const createSession = createAiSdkHarness({
+    bus,
+    provider,
+    model: VENDORS[provider].models.fast,
+  });
+
+  return {
+    ctx: { events: () => [...seen], reset: () => { seen.length = 0; }, createSession },
+    close: async () => {},
+  };
 }
 
 async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
@@ -78,6 +104,7 @@ async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceCo
 async function main(): Promise<void> {
   const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'));
   const providers = (requested.length > 0 ? requested : ['anthropic', 'gemini']) as SquadProvider[];
+  const withAiSdk = process.argv.includes('--ai-sdk');
 
   let failed = 0;
   const profiles: WireProfile[] = [];
@@ -99,6 +126,18 @@ async function main(): Promise<void> {
       }
     } finally {
       await close();
+    }
+  }
+
+  if (withAiSdk) {
+    console.log('\n=== ai-sdk:anthropic');
+    const { ctx } = await aiSdkContextFor('anthropic');
+    const report = await checkHarnessConformance('ai-sdk:anthropic', ctx);
+    console.log(formatConformance(report));
+    failed += report.failed;
+    if (wire) {
+      ctx.reset();
+      profiles.push(await probeWireParity('ai-sdk:anthropic', ctx));
     }
   }
 
