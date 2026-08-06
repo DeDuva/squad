@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { abandonRun, createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
 import { assertSeparateIdentities, gradeVariant, type GradeRecord } from './grader.js';
 import { prepareWorkspace } from './isolate.js';
-import type { SystemPromptMode, ToolSurface } from './harness.js';
+import type { HarnessImpl, SystemPromptMode, ToolSurface } from './harness.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
 import { defaultTools } from './tools/default.js';
 import type { AgentSpec, RoutingRule, VariantPhase, VariantResult } from './run-variant.js';
@@ -67,7 +67,12 @@ export interface Experiment {
    * variant: varying them between variants is a different experiment, and one
    * whose result would look exactly the same.
    */
-  harness?: { toolSurface?: ToolSurface; systemPrompt?: SystemPromptMode; maxToolRounds?: number };
+  harness?: {
+    toolSurface?: ToolSurface;
+    systemPrompt?: SystemPromptMode;
+    maxToolRounds?: number;
+    harnessImpl?: HarnessImpl;
+  };
 }
 
 /** Live process state, which ADP has no concept of and should not grow one. */
@@ -636,6 +641,7 @@ function runVariantChild(
         ...(experiment.harness?.toolSurface ? { toolSurface: experiment.harness.toolSurface } : {}),
         ...(experiment.harness?.systemPrompt ? { systemPrompt: experiment.harness.systemPrompt } : {}),
         ...(experiment.harness?.maxToolRounds ? { maxToolRounds: experiment.harness.maxToolRounds } : {}),
+        ...(experiment.harness?.harnessImpl ? { harnessImpl: experiment.harness.harnessImpl } : {}),
       },
     });
   });

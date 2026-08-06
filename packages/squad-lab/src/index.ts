@@ -9,7 +9,7 @@ export type {
 } from './run-variant.js';
 export { prepareWorkspace, commitAndPush } from './isolate.js';
 export type { Workspace, WorkspaceSpec, AdpWiring } from './isolate.js';
-export { safePath, PathEscapeError } from './tools/jail.js';
+export { safePath, safeDir, PathEscapeError } from './tools/jail.js';
 export { defaultTools, instrument } from './tools/default.js';
 export type { LabTool } from './tools/default.js';
 export * from './adp.js';
@@ -30,6 +30,7 @@ export {
 export {
   harnessDigest,
   harnessLabels,
+  DEFAULT_HARNESS_IMPL,
   DEFAULT_MAX_TOOL_ROUNDS,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_TOOL_SURFACE,
@@ -38,13 +39,17 @@ export {
   checkHarnessConformance,
   formatConformance,
 } from './conformance.js';
+export { probeWireParity, compareProfiles, formatProfiles } from './parity.js';
+export { createAiSdkHarness } from './harnesses/ai-sdk.js';
+export type { AiSdkHarnessOptions, AiSdkProvider } from './harnesses/ai-sdk.js';
+export type { WireProfile, ParityWarning, ProbeOutcome } from './parity.js';
 export type {
   ConformanceContext,
   ConformanceReport,
   ClauseResult,
   SessionFactory,
 } from './conformance.js';
-export type { HarnessSpec, SystemPromptMode, ToolSurface } from './harness.js';
+export type { HarnessSpec, HarnessImpl, SystemPromptMode, ToolSurface } from './harness.js';
 export { createLabServer, startLabServer } from './server.js';
 export type { LabServerOptions, StartedLabServer } from './server.js';
 export { ExperimentEventLog, sseFrame, sseHeartbeat } from './event-log.js';

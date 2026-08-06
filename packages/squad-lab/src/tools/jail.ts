@@ -27,6 +27,25 @@ export class PathEscapeError extends Error {
  * because the escape only appears once the link is followed.
  */
 export function safePath(root: string, requested: string): string {
+  return resolveInside(root, requested, false);
+}
+
+/**
+ * As `safePath`, but the repo root itself is a legitimate answer.
+ *
+ * A listing tool has to be able to list the repository, and `safePath` rejects
+ * the root — correctly, for a tool that writes a file, and wrongly for one that
+ * reads a directory. Splitting them was not academic: `list_files` shipped on
+ * `safePath`, so the most natural call an agent could make — no argument at all
+ * — always failed. One vendor guessed subdirectory names and carried on; the
+ * other retried the empty call, gave up, and its run was recorded as the model
+ * producing nothing.
+ */
+export function safeDir(root: string, requested: string): string {
+  return resolveInside(root, requested === '' ? '.' : requested, true);
+}
+
+function resolveInside(root: string, requested: string, allowRoot: boolean): string {
   const rootReal = realpathSync(root);
   const full = resolve(rootReal, requested);
 
@@ -49,7 +68,7 @@ export function safePath(root: string, requested: string): string {
 
   const resolved = remainder.length > 0 ? resolve(ancestor, ...remainder) : ancestor;
   const rel = relative(rootReal, resolved);
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
+  if ((rel === '' && !allowRoot) || rel.startsWith('..') || isAbsolute(rel)) {
     throw new PathEscapeError(requested);
   }
   return resolved;

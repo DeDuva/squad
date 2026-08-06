@@ -26,6 +26,8 @@ import {
   formatConformance,
   type ConformanceContext,
 } from '../src/conformance.js';
+import { compareProfiles, formatProfiles, probeWireParity, type WireProfile } from '../src/parity.js';
+import { createAiSdkHarness, type AiSdkProvider } from '../src/harnesses/ai-sdk.js';
 
 function geminiKey(): string | undefined {
   if (process.env['GEMINI_API_KEY']) return process.env['GEMINI_API_KEY'];
@@ -35,6 +37,33 @@ function geminiKey(): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The neutral loop, as a harness the same suite can judge.
+ *
+ * Named `ai-sdk:<provider>` so a report shows it beside the native one rather
+ * than instead of it — the interesting number is the difference.
+ */
+async function aiSdkContextFor(provider: AiSdkProvider): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
+  const bus = new EventBus();
+  const seen: SquadEvent[] = [];
+  bus.subscribeAll((e) => {
+    seen.push(e);
+  });
+
+  const key = provider === 'gemini' ? geminiKey() : undefined;
+  const createSession = createAiSdkHarness({
+    bus,
+    provider,
+    model: VENDORS[provider].models.fast,
+    ...(key ? { apiKey: key } : {}),
+  });
+
+  return {
+    ctx: { events: () => [...seen], reset: () => { seen.length = 0; }, createSession },
+    close: async () => {},
+  };
 }
 
 async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
@@ -77,8 +106,18 @@ async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceCo
 async function main(): Promise<void> {
   const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'));
   const providers = (requested.length > 0 ? requested : ['anthropic', 'gemini']) as SquadProvider[];
+  // `--ai-sdk` alone runs every provider the loop can reach; `--ai-sdk=gemini`
+  // picks one.
+  const aiSdkArg = process.argv.find((a) => a.startsWith('--ai-sdk'));
+  const withAiSdk: AiSdkProvider[] = !aiSdkArg
+    ? []
+    : aiSdkArg.includes('=')
+      ? (aiSdkArg.split('=')[1]!.split(',') as AiSdkProvider[])
+      : (['anthropic', 'gemini'] as AiSdkProvider[]);
 
   let failed = 0;
+  const profiles: WireProfile[] = [];
+  const wire = !process.argv.includes('--no-wire');
   for (const provider of providers) {
     if (provider === 'gemini' && !geminiKey()) {
       console.log(`\nskipping gemini — no key in GEMINI_API_KEY or ~/.config/squad/gemini.json`);
@@ -90,12 +129,41 @@ async function main(): Promise<void> {
       const report = await checkHarnessConformance(provider, ctx);
       console.log(formatConformance(report));
       failed += report.failed;
+      if (wire) {
+        ctx.reset();
+        profiles.push(await probeWireParity(provider, ctx));
+      }
     } finally {
       await close();
     }
   }
 
+  for (const provider of withAiSdk) {
+    if (provider === 'gemini' && !geminiKey()) continue;
+    console.log(`\n=== ai-sdk:${provider}`);
+    const { ctx } = await aiSdkContextFor(provider);
+    const report = await checkHarnessConformance(`ai-sdk:${provider}`, ctx);
+    console.log(formatConformance(report));
+    failed += report.failed;
+    if (wire) {
+      ctx.reset();
+      profiles.push(await probeWireParity(`ai-sdk:${provider}`, ctx));
+    }
+  }
+
+  if (profiles.length > 0) {
+    console.log('\n=== wire parity');
+    console.log(formatProfiles(profiles));
+  }
+  // A capability mismatch is not a harness bug — it is a fact about the
+  // providers, and the experiment that spans them is what it invalidates. So it
+  // is reported loudly and does not fail the check.
+  const mismatches = compareProfiles(profiles);
+
   console.log(failed === 0 ? '\nevery harness conforms' : `\n${failed} clause failure(s)`);
+  if (mismatches.length > 0) {
+    console.log(`${mismatches.length} wire difference(s) — any experiment spanning these providers has to account for them`);
+  }
   process.exit(failed === 0 ? 0 : 1);
 }
 

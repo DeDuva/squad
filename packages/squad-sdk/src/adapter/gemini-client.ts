@@ -225,7 +225,14 @@ export class GeminiSession implements SquadSession {
     // far above anything legitimate work does; the actual limit is
     // `maxToolRounds`, enforced identically for every backend in
     // `adapter/client.ts`.
-    this.maxToolCallRounds = config.maxToolRounds ?? config.maxToolCallRounds ?? 200;
+    // Strictly *above* any budget it was given, never equal to it. Deriving the
+    // guard from `maxToolRounds` made the two fire at the same round and race:
+    // whichever won decided whether a spent budget arrived as a milestone or as
+    // "a tool is returning function calls in a loop". A guard against a runaway
+    // tool and a limit on legitimate work are different numbers, and the guard
+    // has to be the larger one or it becomes the limit.
+    this.maxToolCallRounds =
+      config.maxToolCallRounds ?? Math.max(200, (config.maxToolRounds ?? 0) * 2 + 10);
 
     if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
       console.warn(

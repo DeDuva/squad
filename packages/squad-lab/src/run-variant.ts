@@ -32,11 +32,14 @@ import { VERSION as SDK_VERSION } from '@deduvafork/squad-sdk';
 import { commitAndPush, type Workspace } from './isolate.js';
 import { defaultTools, instrument, type LabTool } from './tools/default.js';
 import { getRun, readGoal, type AdpEndpoint } from './adp.js';
+import { createAiSdkHarness, type AiSdkProvider } from './harnesses/ai-sdk.js';
 import {
   harnessLabels,
+  DEFAULT_HARNESS_IMPL,
   DEFAULT_MAX_TOOL_ROUNDS,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_TOOL_SURFACE,
+  type HarnessImpl,
   type SystemPromptMode,
   type ToolSurface,
 } from './harness.js';
@@ -117,6 +120,15 @@ export interface VariantSpec {
   systemPrompt?: SystemPromptMode;
   /** Sequential tool rounds per agent. Enforced identically for every backend. */
   maxToolRounds?: number;
+  /**
+   * Which agent loop drives the model.
+   *
+   * `squad-native` is the SDK's own backends; `ai-sdk` is the neutral loop.
+   * Selectable per variant so the same model can be run under both, which is
+   * the only way to measure how much of a difference is the scaffold rather
+   * than the model — the question four confounds in a row have raised.
+   */
+  harnessImpl?: HarnessImpl;
 
   onEvent?: (event: SquadEvent) => void;
   onPhase?: (phase: VariantPhase, detail?: unknown) => void;
@@ -157,6 +169,7 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
   const toolSurface = spec.toolSurface ?? DEFAULT_TOOL_SURFACE;
   const systemPrompt = spec.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
   const maxToolRounds = spec.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
+  const harnessImpl = spec.harnessImpl ?? DEFAULT_HARNESS_IMPL;
   const startedAt = Date.now();
 
   const phase = (p: VariantPhase, detail?: unknown) => spec.onPhase?.(p, detail);
@@ -224,6 +237,21 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
     } as any);
     await client.connect();
 
+    // Built whichever arm is selected, so a misconfigured neutral loop fails
+    // here rather than at the first agent turn.
+    const aiSdk =
+      harnessImpl === 'ai-sdk'
+        ? createAiSdkHarness({
+            bus,
+            provider: spec.provider as AiSdkProvider,
+            model,
+            defaultMaxToolRounds: maxToolRounds,
+            ...(spec.provider === 'gemini' && spec.credentials?.geminiApiKey
+              ? { apiKey: spec.credentials.geminiApiKey }
+              : {}),
+          })
+        : undefined;
+
     const pool = new SessionPool();
     const tools = (spec.tools ?? defaultTools(spec.workspace.workDir)).map((t) =>
       instrument(t, toolLog),
@@ -240,6 +268,7 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
       tools: tools.map((t) => t.name),
       limits,
       maxToolRounds,
+      harnessImpl,
       sdkVersion: SDK_VERSION,
     });
 
@@ -287,6 +316,17 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
         resolveModel: async () => model,
         createSession: async (config: any) => {
           const agentName = String(config.clientName ?? '').replace(/^squad-agent-/, '');
+          if (harnessImpl === 'ai-sdk') {
+            // The same tools, charter and budget as the native path — only the
+            // loop differs, which is what makes the two arms comparable.
+            return (await aiSdk!({
+              model: config.model,
+              agentName,
+              tools: tools as never,
+              systemMessage: { mode: 'replace', content: charters.get(agentName)?.prompt ?? '' },
+              maxToolRounds,
+            })) as any;
+          }
           return (await client!.createSession({
             model: config.model,
             clientName: config.clientName,

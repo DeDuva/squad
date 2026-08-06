@@ -33,6 +33,7 @@ const BASE: HarnessSpec = {
   tools: ['write_file', 'read_file', 'run_node_test'],
   limits: { turnTimeoutMs: 300_000, deadlineMs: 900_000, graceMs: 15_000 },
   maxToolRounds: 120,
+  harnessImpl: 'squad-native',
   sdkVersion: '0.11.0',
 };
 
@@ -50,6 +51,8 @@ describe('the harness digest moves when the harness does', () => {
     // The omission that let a ten-round vendor and an unbounded one report the
     // same harness through an entire comparison.
     ['the tool-round budget', { maxToolRounds: 10 }],
+    // Two arms of the same experiment must not claim the same harness.
+    ['the agent loop itself', { harnessImpl: 'ai-sdk' as const }],
     ['the SDK version', { sdkVersion: '0.12.0' }],
     ['a routing rule', { routing: [{ workType: 'implement', agents: ['Backend'], confidence: 'high', examples: ['a'] }] }],
   ])('changes with %s', (_label, patch) => {
@@ -92,6 +95,7 @@ describe('the labels a run carries', () => {
     expect(labels['system_prompt']).toBe('charter-only');
     expect(labels['harness']).toMatch(/^[0-9a-f]{64}$/);
     expect(labels['max_tool_rounds']).toBe('120');
+    expect(labels['harness_impl']).toBe('squad-native');
   });
 
   it('defaults to the comparable configuration', () => {

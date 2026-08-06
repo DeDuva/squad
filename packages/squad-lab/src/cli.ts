@@ -184,13 +184,14 @@ async function cmdLaunch(): Promise<number> {
       toolSurface: arg('tool-surface', 'registered') as 'registered' | 'native',
       systemPrompt: arg('system-prompt', 'charter-only') as 'charter-only' | 'backend-preset',
       ...(has('max-tool-rounds') ? { maxToolRounds: Number(arg('max-tool-rounds')) } : {}),
+      harnessImpl: arg('harness', 'squad-native') as 'squad-native' | 'ai-sdk',
     },
   });
 
   console.log(`→ experiment ${experiment.id}`);
   console.log(
     `   harness : tools=${experiment.harness?.toolSurface} prompt=${experiment.harness?.systemPrompt}` +
-      ` rounds=${experiment.harness?.maxToolRounds ?? 'default'}`,
+      ` rounds=${experiment.harness?.maxToolRounds ?? 'default'} impl=${experiment.harness?.harnessImpl}`,
   );
   console.log(`   goal   : issue #${experiment.adp.issueNumber}, intent ${experiment.adp.intentId}`);
   console.log(`   variants: ${experiment.variants.map((v) => `${v.id}(${v.provider})`).join(', ')}`);
