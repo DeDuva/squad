@@ -30,6 +30,7 @@ export {
 export {
   harnessDigest,
   harnessLabels,
+  DEFAULT_HARNESS_IMPL,
   DEFAULT_MAX_TOOL_ROUNDS,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_TOOL_SURFACE,
@@ -48,7 +49,7 @@ export type {
   ClauseResult,
   SessionFactory,
 } from './conformance.js';
-export type { HarnessSpec, SystemPromptMode, ToolSurface } from './harness.js';
+export type { HarnessSpec, HarnessImpl, SystemPromptMode, ToolSurface } from './harness.js';
 export { createLabServer, startLabServer } from './server.js';
 export type { LabServerOptions, StartedLabServer } from './server.js';
 export { ExperimentEventLog, sseFrame, sseHeartbeat } from './event-log.js';

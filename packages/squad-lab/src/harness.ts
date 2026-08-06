@@ -51,6 +51,16 @@ export type ToolSurface = 'registered' | 'native';
  */
 export type SystemPromptMode = 'charter-only' | 'backend-preset';
 
+/**
+ * Which agent loop drives the model.
+ *
+ * `squad-native` wraps a vendor agent SDK on one side and a hand-written
+ * streaming loop on the other — one interface over two different programs.
+ * `ai-sdk` is one loop for every provider. In the digest because they are not
+ * the same harness, and running two arms is the point.
+ */
+export type HarnessImpl = 'squad-native' | 'ai-sdk';
+
 export interface HarnessSpec {
   toolSurface: ToolSurface;
   systemPrompt: SystemPromptMode;
@@ -68,6 +78,7 @@ export interface HarnessSpec {
    * ran unbounded.
    */
   maxToolRounds: number;
+  harnessImpl: HarnessImpl;
   /** Pinned so an SDK upgrade shows up as a different harness, which it is. */
   sdkVersion: string;
 }
@@ -81,6 +92,8 @@ export const DEFAULT_TOOL_SURFACE: ToolSurface = 'registered';
  * and was stopped at ten on the capped one.
  */
 export const DEFAULT_MAX_TOOL_ROUNDS = 120;
+/** The shipped loop. The neutral one is opt-in until it has a track record. */
+export const DEFAULT_HARNESS_IMPL: HarnessImpl = 'squad-native';
 export const DEFAULT_SYSTEM_PROMPT: SystemPromptMode = 'charter-only';
 
 /**
@@ -106,6 +119,7 @@ export function harnessDigest(spec: HarnessSpec): string {
     tools: [...spec.tools].sort(),
     limits: spec.limits,
     maxToolRounds: spec.maxToolRounds,
+    harnessImpl: spec.harnessImpl,
     sdkVersion: spec.sdkVersion,
   };
   return createHash('sha256').update(canonicalJson(canonical), 'utf8').digest('hex');
@@ -118,5 +132,6 @@ export function harnessLabels(spec: HarnessSpec): Record<string, string> {
     tool_surface: spec.toolSurface,
     system_prompt: spec.systemPrompt,
     max_tool_rounds: String(spec.maxToolRounds),
+    harness_impl: spec.harnessImpl,
   };
 }
