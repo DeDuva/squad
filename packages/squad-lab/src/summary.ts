@@ -8,7 +8,9 @@
  * eventually, and the disagreement would surface mid-demo.
  */
 
-import { compareRuns, type AdpEndpoint, type RunComparisonRow } from './adp.js';
+import { compareRuns, runStats, type AdpEndpoint, type RunComparisonRow } from './adp.js';
+import { classifyTools, type ToolBreakdown, type ToolStat } from './tools/taxonomy.js';
+import { defaultTools } from './tools/default.js';
 import type { Experiment } from './experiments.js';
 
 export type Warning =
@@ -16,7 +18,8 @@ export type Warning =
   | { kind: 'missing_axis'; axis: string; variantId: string }
   | { kind: 'cost_incomparable'; providers: string[] }
   | { kind: 'unscored'; variantId: string }
-  | { kind: 'run_missing'; variantId: string };
+  | { kind: 'run_missing'; variantId: string }
+  | { kind: 'tools_not_like_for_like'; variantIds: string[] };
 
 export interface Summary {
   experimentId: string;
@@ -24,8 +27,22 @@ export interface Summary {
   axes: string[];
   primaryAxis?: string;
   graderSha256?: string;
-  rows: (RunComparisonRow & { variantId?: string; provider?: string })[];
+  rows: SummaryRow[];
   warnings: Warning[];
+}
+
+export interface SummaryRow extends RunComparisonRow {
+  variantId?: string;
+  provider?: string;
+  /**
+   * Registered versus backend-supplied tool use.
+   *
+   * `toolCalls` on the ADP row is every tool the run invoked, which is not
+   * comparable across vendors because one backend ships file tools of its own
+   * and the other does not. This splits it so the headline can count the set
+   * both vendors actually shared.
+   */
+  tools?: ToolBreakdown;
 }
 
 /**
@@ -38,6 +55,18 @@ export interface Summary {
  * says so out loud.
  */
 export const UNPRICED_PROVIDERS = new Set(['gemini']);
+
+/**
+ * Which tools the experiment registered.
+ *
+ * Records written before the field existed fall back to the default set, which
+ * is what they would have used. Defaulting to *nothing* would be worse than a
+ * guess: every tool would classify as backend-supplied, and the summary would
+ * report a like-for-like disparity that never happened.
+ */
+function registeredToolsOf(exp: Experiment): string[] {
+  return exp.registeredTools ?? defaultTools('/').map((t) => t.name);
+}
 
 /** Map a run back to the variant that produced it, by its external ref. */
 function variantFor(exp: Experiment, row: RunComparisonRow): { id: string; provider: string } | undefined {
@@ -55,9 +84,29 @@ export async function buildSummary(exp: Experiment, ep: AdpEndpoint): Promise<Su
   const { runs } = await compareRuns(ep, exp.adp.intentId);
   const warnings: Warning[] = [];
 
-  const rows = runs.map((row) => {
+  // `/runs/compare` gives one tool total per run and no names, so the
+  // registered/built-in split needs the per-run stats. One extra request per
+  // variant, and an experiment is a handful of variants — the alternative is a
+  // headline number that silently means different things per vendor.
+  const breakdowns = await Promise.all(
+    runs.map(async (row) => {
+      try {
+        const stats = (await runStats(ep, row.runId)) as { tools?: ToolStat[] };
+        return classifyTools(stats.tools ?? [], registeredToolsOf(exp));
+      } catch {
+        // Stats are an enrichment; losing them must not lose the summary.
+        return undefined;
+      }
+    }),
+  );
+
+  const rows: SummaryRow[] = runs.map((row, i) => {
     const v = variantFor(exp, row);
-    return { ...row, ...(v ? { variantId: v.id, provider: v.provider } : {}) };
+    return {
+      ...row,
+      ...(v ? { variantId: v.id, provider: v.provider } : {}),
+      ...(breakdowns[i] ? { tools: breakdowns[i] } : {}),
+    };
   });
 
   for (const plan of exp.variants) {
@@ -104,6 +153,17 @@ export async function buildSummary(exp: Experiment, ep: AdpEndpoint): Promise<Su
   const unpriced = providers.filter((p) => UNPRICED_PROVIDERS.has(p));
   if (unpriced.length > 0 && unpriced.length < providers.length) {
     warnings.push({ kind: 'cost_incomparable', providers: unpriced });
+  }
+
+  // A backend that brings its own tools makes the raw call count mean
+  // something different on that side. Only worth saying when the set is mixed:
+  // if every variant has built-ins, or none does, the totals still line up.
+  const withBuiltins = rows.filter((r) => r.tools?.hasBuiltins);
+  if (withBuiltins.length > 0 && withBuiltins.length < rows.length) {
+    warnings.push({
+      kind: 'tools_not_like_for_like',
+      variantIds: withBuiltins.map((r) => r.variantId ?? r.runId),
+    });
   }
 
   return {

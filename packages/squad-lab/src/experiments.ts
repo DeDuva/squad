@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
 import { prepareWorkspace } from './isolate.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
+import { defaultTools } from './tools/default.js';
 import type { AgentSpec, RoutingRule, VariantPhase, VariantResult } from './run-variant.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
@@ -46,6 +47,14 @@ export interface Experiment {
   grader?: { path: string; sha256: string; primaryAxis?: string };
   agents: AgentSpec[];
   routing: RoutingRule[];
+  /**
+   * The tools the lab registered for this experiment.
+   *
+   * Recorded because a backend adds tools of its own, and telling the two
+   * apart afterwards has to be a lookup against what we actually supplied
+   * rather than a guess from the tool's name.
+   */
+  registeredTools: string[];
   variants: VariantPlan[];
   limits?: { turnTimeoutMs?: number; deadlineMs?: number; graceMs?: number };
 }
@@ -196,6 +205,7 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
       : {}),
     agents: input.agents ?? DEFAULT_AGENTS,
     routing: input.routing ?? DEFAULT_ROUTING,
+    registeredTools: defaultTools('/').map((t) => t.name),
     variants,
     ...(input.limits ? { limits: input.limits } : {}),
   };

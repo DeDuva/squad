@@ -25,6 +25,7 @@ function experiment(): Experiment {
     grader: { path: '/grader.mjs', sha256: 'deadbeef', primaryAxis: 'acceptance' },
     agents: [],
     routing: [],
+    registeredTools: ['write_file', 'read_file', 'run_node_test'],
     variants: [
       { id: 'anthropic', provider: 'anthropic', externalRef: 'exp_1:anthropic' },
       { id: 'gemini', provider: 'gemini', externalRef: 'exp_1:gemini' },
@@ -212,5 +213,96 @@ describe('rankByAxis', () => {
     expect(ranked.find((e) => e.variantId === 'a')!.rank).toBe(1);
     expect(ranked.find((e) => e.variantId === 'b')!.rank).toBe(1);
     expect(ranked.find((e) => e.variantId === 'c')!.rank).toBe(3);
+  });
+});
+
+describe('buildSummary tool taxonomy', () => {
+  /** Answers `/runs/compare` and `/runs/{id}/stats` differently. */
+  function adpWithStats(rows: any[], statsByRun: Record<string, unknown>): AdpEndpoint {
+    return {
+      baseUrl: 'http://adp.test',
+      token: 't',
+      owner: 'lab',
+      repo: 'duration',
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        const hit = Object.keys(statsByRun).find((id) => url.includes(`/runs/${id}/stats`));
+        const body = hit
+          ? statsByRun[hit]
+          : { intent_id: 'intent-1', runs: rows };
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch,
+    };
+  }
+
+  it('splits registered from backend-supplied tools per run', async () => {
+    const rows = [row('exp_1:anthropic', [{ name: 'acceptance', score: 1 }]), row('exp_1:gemini', [{ name: 'acceptance', score: 1 }])];
+    const s = await buildSummary(
+      experiment(),
+      adpWithStats(rows, {
+        'run-exp_1:anthropic': {
+          tools: [
+            { name: 'Bash', count: 3, failures: 0 },
+            { name: 'mcp__squad__write_file', count: 1, failures: 0 },
+          ],
+        },
+        'run-exp_1:gemini': { tools: [{ name: 'write_file', count: 4, failures: 0 }] },
+      }),
+    );
+
+    const a = s.rows.find((r) => r.variantId === 'anthropic')!;
+    const g = s.rows.find((r) => r.variantId === 'gemini')!;
+    expect(a.tools!.registeredCalls).toBe(1);
+    expect(a.tools!.builtinCalls).toBe(3);
+    expect(g.tools!.registeredCalls).toBe(4);
+    expect(g.tools!.hasBuiltins).toBe(false);
+  });
+
+  it('warns when only some variants had backend tools, which is when totals stop matching', async () => {
+    const rows = [row('exp_1:anthropic', [{ name: 'acceptance', score: 1 }]), row('exp_1:gemini', [{ name: 'acceptance', score: 1 }])];
+    const s = await buildSummary(
+      experiment(),
+      adpWithStats(rows, {
+        'run-exp_1:anthropic': { tools: [{ name: 'Bash', count: 3, failures: 0 }] },
+        'run-exp_1:gemini': { tools: [{ name: 'write_file', count: 4, failures: 0 }] },
+      }),
+    );
+    expect(s.warnings).toContainEqual({ kind: 'tools_not_like_for_like', variantIds: ['anthropic'] });
+  });
+
+  it('does not warn when no variant had backend tools', async () => {
+    const rows = [row('exp_1:anthropic', [{ name: 'acceptance', score: 1 }]), row('exp_1:gemini', [{ name: 'acceptance', score: 1 }])];
+    const s = await buildSummary(
+      experiment(),
+      adpWithStats(rows, {
+        'run-exp_1:anthropic': { tools: [{ name: 'write_file', count: 2, failures: 0 }] },
+        'run-exp_1:gemini': { tools: [{ name: 'write_file', count: 4, failures: 0 }] },
+      }),
+    );
+    expect(s.warnings.filter((w) => w.kind === 'tools_not_like_for_like')).toHaveLength(0);
+  });
+
+  it('still produces a summary when stats are unavailable', async () => {
+    // Stats are an enrichment; a summary that vanishes because one extra
+    // request failed is worse than one without the split.
+    const ep: AdpEndpoint = {
+      baseUrl: 'http://adp.test',
+      token: 't',
+      owner: 'lab',
+      repo: 'duration',
+      fetchImpl: (async (input: any) => {
+        if (String(input).includes('/stats')) return new Response('nope', { status: 500 });
+        return new Response(JSON.stringify({ intent_id: 'intent-1', runs: [row('exp_1:gemini', [{ name: 'acceptance', score: 1 }])] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch,
+    };
+    const s = await buildSummary(experiment(), ep);
+    expect(s.rows).toHaveLength(1);
+    expect(s.rows[0]!.tools).toBeUndefined();
   });
 });
