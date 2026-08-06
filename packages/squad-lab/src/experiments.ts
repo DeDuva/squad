@@ -20,6 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from './adp.js';
+import { assertSeparateIdentities, gradeVariant, type GradeRecord } from './grader.js';
 import { prepareWorkspace } from './isolate.js';
 import { DEFAULT_AGENTS, DEFAULT_ROUTING } from './defaults.js';
 import { defaultTools } from './tools/default.js';
@@ -70,6 +71,12 @@ export interface VariantState {
   endedAt?: string;
   outcome?: VariantResult['outcome'];
   error?: string;
+  /**
+   * Enough of the grade to render a row without re-reading `grade.json`. The
+   * scores themselves stay in ADP: a second copy here would be a second source
+   * of truth, and the two would disagree eventually.
+   */
+  grade?: { outcome: GradeRecord['outcome']; reason?: string; specDigest?: string; axes?: string[] };
 }
 
 export function labRoot(): string {
@@ -217,11 +224,20 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
 
 export interface LaunchOptions {
   token: string;
+  /**
+   * The grader's token, which must resolve to a different login.
+   *
+   * Required whenever the experiment has a grader: a launch that spends money
+   * and then finds it cannot score anything has failed at the cheapest possible
+   * moment to have failed instead.
+   */
+  evalToken?: string;
   /** Run variants one at a time. Slower, and removes every isolation risk but cwd. */
   sequential?: boolean;
   credentials?: Record<string, { geminiApiKey?: string; anthropicApiKey?: string }>;
   onPhase?: (variantId: string, phase: string, detail?: unknown) => void;
   onEvent?: (variantId: string, event: unknown) => void;
+  onGrade?: (variantId: string, grade: GradeRecord) => void;
 }
 
 /** What the parent and the forked child say to each other. */
@@ -247,10 +263,19 @@ export async function launchExperiment(
   experiment: Experiment,
   options: LaunchOptions,
 ): Promise<VariantResult[]> {
+  const evalEndpoint = await resolveEvalEndpoint(experiment, options);
+
   experiment.status = 'running';
   saveExperiment(experiment);
 
-  const runOne = (plan: VariantPlan) => runVariantChild(experiment, plan, options);
+  const runOne = async (plan: VariantPlan) => {
+    const result = await runVariantChild(experiment, plan, options);
+    // Grade as each variant lands rather than in a second pass at the end: a
+    // long experiment should not hold every score back until its slowest
+    // variant finishes, and a crash after variant one should not lose it.
+    await gradeIfConfigured(experiment, plan, result, evalEndpoint, options);
+    return result;
+  };
   const results = options.sequential
     ? await sequential(experiment.variants, runOne)
     : await Promise.all(experiment.variants.map(runOne));
@@ -264,6 +289,118 @@ async function sequential<T, R>(items: T[], fn: (item: T) => Promise<R>): Promis
   const out: R[] = [];
   for (const item of items) out.push(await fn(item));
   return out;
+}
+
+/**
+ * Settle the scoring identity before a single model call is made.
+ *
+ * Two failures are caught here rather than after the bill: no eval token for an
+ * experiment that has a grader, and an eval token that turns out to be the same
+ * principal as the runner's. The second is the dangerous one — it produces
+ * evals that are indistinguishable from independent scores at a glance and are
+ * self-reports underneath.
+ */
+async function resolveEvalEndpoint(
+  experiment: Experiment,
+  options: LaunchOptions,
+): Promise<AdpEndpoint | undefined> {
+  if (!experiment.grader) return undefined;
+
+  const runner: AdpEndpoint = {
+    baseUrl: experiment.adp.url,
+    token: options.token,
+    owner: experiment.adp.owner,
+    repo: experiment.adp.repo,
+  };
+  if (!options.evalToken) {
+    throw new Error(
+      'this experiment has a grader but no eval token — scoring a run with the identity that ' +
+        'opened it is a self-report, so set the grader identity before launching',
+    );
+  }
+  const grader: AdpEndpoint = { ...runner, token: options.evalToken };
+  await assertSeparateIdentities(runner, grader);
+  return grader;
+}
+
+async function gradeIfConfigured(
+  experiment: Experiment,
+  plan: VariantPlan,
+  result: VariantResult,
+  evalEndpoint: AdpEndpoint | undefined,
+  options: LaunchOptions,
+): Promise<void> {
+  if (!experiment.grader) return;
+  const outDir = variantDir(experiment.id, plan.id);
+
+  const grade = await gradeVariant({
+    graderPath: experiment.grader.path,
+    graderSha256: experiment.grader.sha256,
+    ...(experiment.grader.primaryAxis ? { primaryAxis: experiment.grader.primaryAxis } : {}),
+    workRepo: join(outDir, 'work'),
+    runId: result.runId ?? null,
+    outDir,
+    ...(result.finalSha ? { gitSha: result.finalSha } : {}),
+    ...(evalEndpoint ? { evalEndpoint } : {}),
+  });
+
+  recordGrade(experiment.id, plan.id, grade);
+  options.onGrade?.(plan.id, grade);
+}
+
+/** Fold a grade into the variant's live state without disturbing the rest of it. */
+function recordGrade(experimentId: string, variantId: string, grade: GradeRecord): void {
+  const path = join(variantDir(experimentId, variantId), 'variant.json');
+  const state = existsSync(path) ? readJson<VariantState>(path) : { id: variantId, phase: 'queued' as const };
+  state.grade = {
+    outcome: grade.outcome,
+    ...(grade.reason ? { reason: grade.reason } : {}),
+    ...(grade.specDigest ? { specDigest: grade.specDigest } : {}),
+    ...(grade.axes ? { axes: grade.axes.filter((a) => a.posted).map((a) => a.axis) } : {}),
+  };
+  saveVariantState(experimentId, state);
+}
+
+/**
+ * Score a variant again against the run it already produced.
+ *
+ * Evals are append-only and resolve latest-per-name, so a regrade after a
+ * grader fix supersedes the old score rather than competing with it — and the
+ * new `spec_digest` says out loud that the rubric changed.
+ */
+export async function regradeVariant(
+  experimentId: string,
+  variantId: string,
+  options: { token: string; evalToken: string },
+): Promise<GradeRecord> {
+  const experiment = loadExperiment(experimentId);
+  if (!experiment.grader) throw new Error(`experiment ${experimentId} has no grader`);
+
+  const plan = experiment.variants.find((v) => v.id === variantId);
+  if (!plan) throw new Error(`no variant '${variantId}' in ${experimentId}`);
+
+  // Re-digest the file rather than trusting the record: regrading is the one
+  // moment the grader is most likely to have been edited, and pinning the old
+  // digest onto new content is exactly the confusion the digest exists to stop.
+  const graderSha256 = createHash('sha256').update(readFileSync(experiment.grader.path)).digest('hex');
+
+  const evalEndpoint = await resolveEvalEndpoint(experiment, options);
+  const state = loadVariantStates(experimentId).find((s) => s.id === variantId);
+  const outDir = variantDir(experimentId, variantId);
+
+  const grade = await gradeVariant({
+    graderPath: experiment.grader.path,
+    graderSha256,
+    ...(experiment.grader.primaryAxis ? { primaryAxis: experiment.grader.primaryAxis } : {}),
+    workRepo: join(outDir, 'work'),
+    runId: state?.runId ?? null,
+    outDir,
+    ...(state?.finalSha ? { gitSha: state.finalSha } : {}),
+    ...(evalEndpoint ? { evalEndpoint } : {}),
+  });
+
+  recordGrade(experimentId, variantId, grade);
+  return grade;
 }
 
 function runVariantChild(
