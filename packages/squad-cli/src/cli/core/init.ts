@@ -165,7 +165,16 @@ export async function runInit(dest: string, options: RunInitOptions = {}): Promi
   // ── Worktree guard ────────────────────────────────────────────────
   // Prevent silently scaffolding a duplicate .squad/ when running init
   // from a git worktree that already has .squad/ in the main checkout.
-  const mainCheckout = resolveWorktreeMainCheckout(dest);
+  //
+  // Only when this directory has none of its own. If it does, there is no
+  // duplicate to prevent and no strategy left to choose — that choice was made
+  // when the directory appeared, and in a repo that tracks .squad/ it appeared
+  // with the branch, so every worktree has one. Prompting anyway asks a
+  // question with a single possible answer, and the shared branch then returns
+  // early without ever reporting the .squad/ that is plainly present.
+  const hasOwnSquadDir =
+    storage.existsSync(path.join(dest, '.squad')) || storage.existsSync(path.join(dest, '.ai-team'));
+  const mainCheckout = hasOwnSquadDir ? null : resolveWorktreeMainCheckout(dest);
   if (mainCheckout) {
     const mainSquadDir = path.join(mainCheckout, '.squad');
     if (storage.existsSync(mainSquadDir)) {
