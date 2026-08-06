@@ -27,7 +27,7 @@ import {
   type ConformanceContext,
 } from '../src/conformance.js';
 import { compareProfiles, formatProfiles, probeWireParity, type WireProfile } from '../src/parity.js';
-import { createAiSdkHarness } from '../src/harnesses/ai-sdk.js';
+import { createAiSdkHarness, type AiSdkProvider } from '../src/harnesses/ai-sdk.js';
 
 function geminiKey(): string | undefined {
   if (process.env['GEMINI_API_KEY']) return process.env['GEMINI_API_KEY'];
@@ -45,17 +45,19 @@ function geminiKey(): string | undefined {
  * Named `ai-sdk:<provider>` so a report shows it beside the native one rather
  * than instead of it — the interesting number is the difference.
  */
-async function aiSdkContextFor(provider: 'anthropic'): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
+async function aiSdkContextFor(provider: AiSdkProvider): Promise<{ ctx: ConformanceContext; close: () => Promise<void> }> {
   const bus = new EventBus();
   const seen: SquadEvent[] = [];
   bus.subscribeAll((e) => {
     seen.push(e);
   });
 
+  const key = provider === 'gemini' ? geminiKey() : undefined;
   const createSession = createAiSdkHarness({
     bus,
     provider,
     model: VENDORS[provider].models.fast,
+    ...(key ? { apiKey: key } : {}),
   });
 
   return {
@@ -104,7 +106,14 @@ async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceCo
 async function main(): Promise<void> {
   const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'));
   const providers = (requested.length > 0 ? requested : ['anthropic', 'gemini']) as SquadProvider[];
-  const withAiSdk = process.argv.includes('--ai-sdk');
+  // `--ai-sdk` alone runs every provider the loop can reach; `--ai-sdk=gemini`
+  // picks one.
+  const aiSdkArg = process.argv.find((a) => a.startsWith('--ai-sdk'));
+  const withAiSdk: AiSdkProvider[] = !aiSdkArg
+    ? []
+    : aiSdkArg.includes('=')
+      ? (aiSdkArg.split('=')[1]!.split(',') as AiSdkProvider[])
+      : (['anthropic', 'gemini'] as AiSdkProvider[]);
 
   let failed = 0;
   const profiles: WireProfile[] = [];
@@ -129,15 +138,16 @@ async function main(): Promise<void> {
     }
   }
 
-  if (withAiSdk) {
-    console.log('\n=== ai-sdk:anthropic');
-    const { ctx } = await aiSdkContextFor('anthropic');
-    const report = await checkHarnessConformance('ai-sdk:anthropic', ctx);
+  for (const provider of withAiSdk) {
+    if (provider === 'gemini' && !geminiKey()) continue;
+    console.log(`\n=== ai-sdk:${provider}`);
+    const { ctx } = await aiSdkContextFor(provider);
+    const report = await checkHarnessConformance(`ai-sdk:${provider}`, ctx);
     console.log(formatConformance(report));
     failed += report.failed;
     if (wire) {
       ctx.reset();
-      profiles.push(await probeWireParity('ai-sdk:anthropic', ctx));
+      profiles.push(await probeWireParity(`ai-sdk:${provider}`, ctx));
     }
   }
 

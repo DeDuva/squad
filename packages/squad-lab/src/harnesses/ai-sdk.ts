@@ -29,14 +29,23 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText, jsonSchema, stepCountIs, tool, type LanguageModel, type ModelMessage } from 'ai';
 import { randomUUID } from 'node:crypto';
 
 import type { EventBus } from '@deduvafork/squad-sdk/runtime/event-bus';
 import type { ConformingSession, SessionFactory } from '../conformance.js';
 
-/** The providers this loop can reach. Anthropic first, deliberately. */
-export type AiSdkProvider = 'anthropic';
+/**
+ * The providers this loop can reach.
+ *
+ * Anthropic was meant to come first, so the migration could be controlled — same
+ * model, two harnesses, any difference attributable to the harness. It is
+ * reachable in code and unvalidated live: the SDK provider wants an API key and
+ * this machine authenticates through the `claude` CLI's OAuth chain instead.
+ * Gemini goes first in practice for the mundane reason that its key is a key.
+ */
+export type AiSdkProvider = 'anthropic' | 'gemini';
 
 export interface AiSdkHarnessOptions {
   bus: EventBus;
@@ -45,6 +54,8 @@ export interface AiSdkHarnessOptions {
   model?: string;
   /** Rounds allowed when a session does not name its own. */
   defaultMaxToolRounds?: number;
+  /** Passed explicitly rather than read from the environment. See `defaultResolver`. */
+  apiKey?: string;
   /**
    * How a model id becomes a model.
    *
@@ -80,6 +91,22 @@ function readToolResult(raw: unknown): { text: string; failed: boolean } {
   return { text: typeof raw === 'string' ? raw : JSON.stringify(raw ?? null), failed: false };
 }
 
+/**
+ * One line per provider, which is the point of the abstraction.
+ *
+ * Gemini's key is passed explicitly rather than left to the environment: the
+ * lab's rule everywhere else is that `GEMINI_API_KEY` merely being set does not
+ * select that vendor, and a harness that picked a provider up from ambient
+ * state would be a second way for a run to differ without saying so.
+ */
+function defaultResolver(options: AiSdkHarnessOptions): (id: string) => LanguageModel {
+  if (options.provider === 'gemini') {
+    const google = createGoogleGenerativeAI(options.apiKey ? { apiKey: options.apiKey } : {});
+    return (id: string) => google(id);
+  }
+  return (id: string) => anthropic(id);
+}
+
 export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory {
   const { bus } = options;
 
@@ -89,7 +116,7 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
     const budget = config.maxToolRounds ?? options.defaultMaxToolRounds ?? 120;
     const modelId = config.model ?? options.model ?? 'claude-sonnet-4-5';
     const labTools = (config.tools ?? []) as unknown as LabToolLike[];
-    const resolveModel = options.resolveModel ?? ((id: string) => anthropic(id));
+    const resolveModel = options.resolveModel ?? defaultResolver(options);
 
     const emit = (type: string, payload: Record<string, unknown>): void => {
       void bus.emit({ type, sessionId, agentName, payload, timestamp: new Date() } as never);
