@@ -59,11 +59,28 @@ export interface HarnessSpec {
   /** Registered tool names, sorted — the surface, not the implementations. */
   tools: string[];
   limits: VariantLimits;
+  /**
+   * Sequential tool rounds an agent may spend.
+   *
+   * In the digest because two runs with different budgets are not the same
+   * experiment — the first version of this file omitted it, and a vendor whose
+   * backend capped rounds at ten still produced a digest identical to one that
+   * ran unbounded.
+   */
+  maxToolRounds: number;
   /** Pinned so an SDK upgrade shows up as a different harness, which it is. */
   sdkVersion: string;
 }
 
 export const DEFAULT_TOOL_SURFACE: ToolSurface = 'registered';
+/**
+ * Generous enough that real work is not what stops an agent.
+ *
+ * The old effective ceiling was ten, on one vendor only, and a real task needed
+ * more: the run that exposed it made 105 tool calls on the unbounded backend
+ * and was stopped at ten on the capped one.
+ */
+export const DEFAULT_MAX_TOOL_ROUNDS = 120;
 export const DEFAULT_SYSTEM_PROMPT: SystemPromptMode = 'charter-only';
 
 /**
@@ -88,6 +105,7 @@ export function harnessDigest(spec: HarnessSpec): string {
       .sort((a, b) => a.workType.localeCompare(b.workType)),
     tools: [...spec.tools].sort(),
     limits: spec.limits,
+    maxToolRounds: spec.maxToolRounds,
     sdkVersion: spec.sdkVersion,
   };
   return createHash('sha256').update(canonicalJson(canonical), 'utf8').digest('hex');
@@ -99,5 +117,6 @@ export function harnessLabels(spec: HarnessSpec): Record<string, string> {
     harness: harnessDigest(spec),
     tool_surface: spec.toolSurface,
     system_prompt: spec.systemPrompt,
+    max_tool_rounds: String(spec.maxToolRounds),
   };
 }

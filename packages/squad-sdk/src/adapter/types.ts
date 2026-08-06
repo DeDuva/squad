@@ -148,6 +148,21 @@ export interface SquadSessionConfig {
   maxToolCallRounds?: number;
 
   /**
+   * Sequential tool rounds this agent may spend before it is stopped.
+   *
+   * Vendor-neutral, and enforced in one place for every backend, which is the
+   * whole point: the Gemini client used to cap rounds at ten and throw, while
+   * the Anthropic client had no ceiling at all. A comparison across those two
+   * stopped one vendor mid-exploration and let the other run to a hundred tool
+   * calls, and nothing surfaced that the result was meaningless.
+   *
+   * Spending the budget is reported as an `agent:milestone` of
+   * `budget.exhausted` and the turn is aborted — an outcome, not a crash.
+   * Unset means no ceiling.
+   */
+  maxToolRounds?: number;
+
+  /**
    * Custom agent configurations for the session.
    */
   customAgents?: SquadCustomAgentConfig[];

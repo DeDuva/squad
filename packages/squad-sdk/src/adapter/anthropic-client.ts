@@ -95,6 +95,16 @@ export class AnthropicSession implements SquadSession {
 
   /** Resolves when the in-flight turn's `result` arrives. */
   private pendingTurn: Deferred<string> | null = null;
+  /**
+   * Whether this turn is ending because we asked it to.
+   *
+   * An interrupted turn arrives from the SDK as `error_during_execution`, which
+   * is indistinguishable from a genuine failure — so a deadline or a spent
+   * tool-round budget surfaced as "agent run failed" and the variant looked
+   * broken rather than stopped. Deliberate stops resolve with whatever the
+   * agent had produced; only undirected failures reject.
+   */
+  private abortRequested = false;
   /** Serializes turns so a concurrent send can't bind to another turn's result. */
   private turnChain: Promise<unknown> = Promise.resolve();
   /** Text accumulated for the turn currently in flight. */
@@ -451,6 +461,14 @@ export class AnthropicSession implements SquadSession {
     this.pendingTurn = null;
 
     if (!result.ok) {
+      if (this.abortRequested) {
+        // We stopped it, so this is an outcome and not an error: the caller
+        // gets the partial work and decides what it means.
+        this.abortRequested = false;
+        this.emit({ type: 'turn_end' });
+        pending?.resolve(this.turnText || '');
+        return;
+      }
       const error = new Error(result.errorMessage ?? 'agent run failed');
       this.emit({ type: 'error', error: error.message });
       pending?.reject(error);
@@ -490,6 +508,8 @@ export class AnthropicSession implements SquadSession {
 
   private runTurn(prompt: string, timeoutMs?: number): Promise<string> {
     if (this.closed) return Promise.reject(new Error('Session is closed'));
+    // A new turn is not the aborted one.
+    this.abortRequested = false;
 
     const run = async (): Promise<string> => {
       if (this.closed) throw new Error('Session is closed');
@@ -527,6 +547,7 @@ export class AnthropicSession implements SquadSession {
   }
 
   async abort(): Promise<void> {
+    this.abortRequested = true;
     try {
       await this.query?.interrupt?.();
     } catch {

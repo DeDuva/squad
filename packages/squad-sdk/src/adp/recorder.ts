@@ -414,6 +414,20 @@ export class AdpRunRecorder {
           });
           return;
         }
+        // A spent budget is not a model call either, and it is not a failure:
+        // the agent was stopped by a limit it was given. Recorded as `custom`
+        // so the trajectory says why the run ends where it does — which is the
+        // whole difference between an unscored variant and an unexplained one.
+        if (payload.event === 'budget.exhausted') {
+          this.enqueue(sessionId, {
+            kind: 'custom',
+            type: payload.event,
+            payload,
+            status: 'success',
+            occurred_at: occurredAt,
+          });
+          return;
+        }
         // The model milestones are model selection — a fallback is a model
         // call that failed and a retry under another model. Recording them as
         // `model_call` with a failure status is what makes "which models cost
