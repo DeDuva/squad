@@ -27,6 +27,13 @@ export {
   saveVariantState,
   labRoot,
 } from './experiments.js';
+export {
+  harnessDigest,
+  harnessLabels,
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_TOOL_SURFACE,
+} from './harness.js';
+export type { HarnessSpec, SystemPromptMode, ToolSurface } from './harness.js';
 export { createLabServer, startLabServer } from './server.js';
 export type { LabServerOptions, StartedLabServer } from './server.js';
 export { ExperimentEventLog, sseFrame, sseHeartbeat } from './event-log.js';

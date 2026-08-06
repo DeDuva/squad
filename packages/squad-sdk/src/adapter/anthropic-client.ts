@@ -272,6 +272,18 @@ export class AnthropicSession implements SquadSession {
     if (bridged) {
       options['mcpServers'] = { squad: bridged.server };
       options['allowedTools'] = c.availableTools ?? [...DEFAULT_WORKER_TOOLS, ...bridged.toolNames];
+      // `allowedTools` is a permission filter, not a registration list. Naming
+      // only the bridged tools in it does **not** take the built-ins away —
+      // verified the expensive way: a session configured exactly that way still
+      // reached for `Bash`, `Write` and `Read` eleven times in one run.
+      // Emptying `tools` is the mechanism that removes them, and the MCP tools
+      // survive it because they arrive through `mcpServers` instead.
+      //
+      // This is what makes a cross-vendor comparison possible at all: the
+      // Gemini backend has no built-ins, so while these are on, the two vendors
+      // are running different programs and no score difference between them can
+      // be attributed to the model.
+      if (c.builtinTools === false) options['tools'] = [];
     } else {
       // No squad tools: a coordinator or init session. Deny everything.
       options['tools'] = [];
