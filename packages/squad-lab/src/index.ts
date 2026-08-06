@@ -34,4 +34,6 @@ export type {
   ChildMessage,
 } from './experiments.js';
 export { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
-export type { Summary, Warning } from './summary.js';
+export type { Summary, SummaryRow, Warning } from './summary.js';
+export { classifyTools, normalizeToolName, MCP_BRIDGE_PREFIX } from './tools/taxonomy.js';
+export type { ToolBreakdown, ToolStat } from './tools/taxonomy.js';

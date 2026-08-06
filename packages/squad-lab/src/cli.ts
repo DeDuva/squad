@@ -201,11 +201,30 @@ async function printSummary(experimentId: string, ep: AdpEndpoint): Promise<void
     // Never `$0.00`: an unpriced vendor is unpriced, not free, and a dollar
     // figure here would rank it first for a reason unrelated to the vendor.
     const cost = unpriced ? 'unpriced' : `$${(row.costMicroUsd / 1_000_000).toFixed(4)}`;
+    // The headline counts the tools both vendors actually shared. Built-ins are
+    // reported beside it, never folded in — one backend supplies its own file
+    // tools and the other does not, so a combined total compares two different
+    // things and looks like a tie.
+    const t = row.tools;
+    const tools = t
+      ? `tools=${t.registeredCalls}/${t.registeredFailures}f` +
+        (t.hasBuiltins ? ` (+${t.builtinCalls} built-in)` : '')
+      : `tools=${row.toolCalls}/${row.toolFailures}f`;
     console.log(
       `  ${(row.variantId ?? row.runId).padEnd(18)} ${row.status.padEnd(9)} ` +
-        `events=${String(row.events).padEnd(4)} tools=${row.toolCalls}/${row.toolFailures}f ` +
+        `events=${String(row.events).padEnd(4)} ${tools.padEnd(28)} ` +
         `tokens=${row.tokensIn}in/${row.tokensOut}out cost=${cost}`,
     );
+    if (t && t.registered.length > 0) {
+      console.log(
+        `      registered: ${t.registered.map((x) => `${x.name}×${x.count}${x.failures ? `(${x.failures}f)` : ''}`).join(' ')}`,
+      );
+    }
+    if (t?.hasBuiltins) {
+      console.log(
+        `      built-in  : ${t.builtin.map((x) => `${x.name}×${x.count}${x.failures ? `(${x.failures}f)` : ''}`).join(' ')}`,
+      );
+    }
   }
 
   for (const axis of summary.axes) {
