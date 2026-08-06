@@ -40,6 +40,13 @@ export interface StartAssignmentRecordingOptions {
    */
   intentId?: string;
   issueNumber?: number;
+  /**
+   * What this run was — vendor, model, tier — recorded at open and covered by
+   * ADP's run attestation. An A/B test needs this to be an attested field
+   * rather than a convention inside `externalRef`, which is already the
+   * idempotency key and whose format nothing enforces.
+   */
+  labels?: Record<string, string>;
   /** Recording failures land here. They are never allowed to fail the work. */
   onError?: (error: Error, context: string) => void;
   env?: NodeJS.ProcessEnv;
@@ -73,6 +80,7 @@ export async function startAssignmentRecording(
       client: resolved.client,
       intentId,
       externalRef: options.externalRef,
+      ...(options.labels ? { labels: options.labels } : {}),
       spoolRoot: join(options.repoRoot, '.squad', 'spool'),
       onError: options.onError,
     });

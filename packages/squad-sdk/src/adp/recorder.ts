@@ -62,6 +62,12 @@ export interface AdpRecorderOptions {
   intentId: string;
   /** Squad's own id for the assignment; makes opening the run idempotent. */
   externalRef?: string;
+  /**
+   * What this run was — vendor, model, tier. Recorded at open, where ADP folds
+   * them into the run's signed predicate, so a cross-vendor comparison reads
+   * an attested field rather than parsing `externalRef`.
+   */
+  labels?: Record<string, string>;
   /** Harness identifier recorded for agent sessions. */
   harness?: string;
   /** Flush when this many events are buffered for one session. */
@@ -165,6 +171,7 @@ export class AdpRunRecorder {
       intentId: this.options.intentId,
       orchestrator: ORCHESTRATOR,
       externalRef: this.options.externalRef,
+      ...(this.options.labels ? { labels: this.options.labels } : {}),
     });
 
     // Rejoin before recording anything new. `openRun` is idempotent on
