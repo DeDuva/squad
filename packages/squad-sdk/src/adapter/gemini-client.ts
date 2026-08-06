@@ -217,7 +217,15 @@ export class GeminiSession implements SquadSession {
     }
 
     this.hooks = config.hooks;
-    this.maxToolCallRounds = config.maxToolCallRounds ?? 10;
+    // The vendor-neutral budget wins when set, and the ceiling is otherwise
+    // high enough not to be the thing that stops a real task. Ten was a
+    // loop-guard doing duty as a work limit: it stopped a real run
+    // mid-exploration on a task needing more, while the Anthropic client — which
+    // has no such ceiling — ran on. A guard against a runaway tool should sit
+    // far above anything legitimate work does; the actual limit is
+    // `maxToolRounds`, enforced identically for every backend in
+    // `adapter/client.ts`.
+    this.maxToolCallRounds = config.maxToolRounds ?? config.maxToolCallRounds ?? 200;
 
     if (config.mcpServers && Object.keys(config.mcpServers).length > 0) {
       console.warn(
@@ -393,6 +401,9 @@ export class GeminiSession implements SquadSession {
   ): Promise<void> {
     this.toolCallRound++;
     if (this.toolCallRound > this.maxToolCallRounds) {
+      // Reached only when a tool really is looping: the ordinary budget stops
+      // the agent long before this, as a milestone. Kept as a throw because at
+      // this depth something is genuinely wrong.
       throw new Error(
         `Tool call depth exceeded maxToolCallRounds (${this.maxToolCallRounds}). ` +
         `This usually means a tool is returning function calls in a loop.`,

@@ -14,7 +14,8 @@
     "stream-check": "npx tsx scripts/live-stream-check.ts",
     "web:dev": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
-    "ui-check": "npx tsx scripts/live-ui-check.ts"
+    "ui-check": "npx tsx scripts/live-ui-check.ts",
+    "harness-check": "npx tsx scripts/harness-check.ts"
   },
   "dependencies": {
     "@deduvafork/squad-sdk": "*",

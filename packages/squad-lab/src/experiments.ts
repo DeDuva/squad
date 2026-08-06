@@ -67,7 +67,7 @@ export interface Experiment {
    * variant: varying them between variants is a different experiment, and one
    * whose result would look exactly the same.
    */
-  harness?: { toolSurface?: ToolSurface; systemPrompt?: SystemPromptMode };
+  harness?: { toolSurface?: ToolSurface; systemPrompt?: SystemPromptMode; maxToolRounds?: number };
 }
 
 /** Live process state, which ADP has no concept of and should not grow one. */
@@ -635,6 +635,7 @@ function runVariantChild(
         ...(experiment.limits ? { limits: experiment.limits } : {}),
         ...(experiment.harness?.toolSurface ? { toolSurface: experiment.harness.toolSurface } : {}),
         ...(experiment.harness?.systemPrompt ? { systemPrompt: experiment.harness.systemPrompt } : {}),
+        ...(experiment.harness?.maxToolRounds ? { maxToolRounds: experiment.harness.maxToolRounds } : {}),
       },
     });
   });

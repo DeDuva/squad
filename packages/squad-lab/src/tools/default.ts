@@ -2,14 +2,18 @@
  * The tools a variant's agents get, jailed to the work repo.
  *
  * Deliberately small and identical across vendors: the comparison is only
- * like-for-like if both squads had the same reach. Note that the Anthropic
- * backend additionally ships its own Read/Write/Edit/Bash, scoped by
- * `workingDirectory`, so tool *counts* still are not strictly comparable —
- * which is why the run report separates registered tools from built-ins.
+ * like-for-like if both squads had the same reach — which has to include the
+ * reach to *discover* what is in the repository, not just to read paths the
+ * brief happened to name.
+ *
+ * With `toolSurface: 'native'` the Anthropic backend additionally ships its own
+ * Read/Write/Edit/Bash, scoped by `workingDirectory`, so tool counts are not
+ * comparable in that mode — which is why the run report separates registered
+ * tools from built-ins, and why `registered` is the default.
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { appendFileSync } from 'node:fs';
 import { safePath } from './jail.js';
 
@@ -22,6 +26,47 @@ export interface LabTool {
 
 export function defaultTools(workDir: string): LabTool[] {
   return [
+    {
+      // Without this an agent denied the backend's built-ins cannot see what
+      // is in the repository at all — it can only read paths it already knows
+      // the names of. A three-model run made that concrete: with built-ins
+      // off, one model spent its whole budget guessing paths and never wrote
+      // anything. "The same reach for both vendors" has to include the reach
+      // to find out what is there.
+      name: 'list_files',
+      description:
+        'List files in the repository, recursively, as repo-relative paths. Use this first to see what exists.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Repo-relative directory, defaults to the root' },
+        },
+      },
+      handler: async (args: { path?: string }) => {
+        const root = safePath(workDir, args.path ?? '.');
+        if (!existsSync(root)) {
+          return { textResultForLlm: `no such directory: ${args.path ?? '.'}`, resultType: 'failure' };
+        }
+        const found: string[] = [];
+        const walk = (dir: string, prefix: string): void => {
+          for (const entry of readdirSync(dir).sort()) {
+            // A repository's own history is not part of the task, and walking
+            // it buries the actual source in thousands of object paths.
+            if (entry === '.git' || entry === 'node_modules') continue;
+            const full = `${dir}/${entry}`;
+            const rel = prefix ? `${prefix}/${entry}` : entry;
+            if (statSync(full).isDirectory()) walk(full, rel);
+            else found.push(rel);
+            if (found.length >= 500) return;
+          }
+        };
+        walk(root, args.path && args.path !== '.' ? args.path.replace(/\/+$/, '') : '');
+        return {
+          textResultForLlm: found.length > 0 ? found.join('\n') : '(empty)',
+          resultType: 'success',
+        };
+      },
+    },
     {
       name: 'write_file',
       description: 'Write a UTF-8 text file in the repository, creating or overwriting it.',

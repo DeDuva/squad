@@ -138,6 +138,22 @@ export type AgentMilestonePayload =
       agentName: string;
       from: string;
       reason: string;
+    }
+  | {
+      /**
+       * The agent spent its tool-round budget and was stopped.
+       *
+       * A milestone rather than a `session:error` on purpose: a run that spent
+       * its budget and a run that crashed are the same empty row in a summary
+       * unless something tells them apart. Reporting it as an error also made a
+       * deliberate limit read as a malfunction — "a tool is returning function
+       * calls in a loop" — which is how one vendor's ten-round ceiling went
+       * unnoticed through an entire three-model comparison.
+       */
+      event: 'budget.exhausted';
+      agentName: string;
+      rounds: number;
+      budget: number;
     };
 
 // ============================================================================

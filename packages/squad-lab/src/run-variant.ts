@@ -34,6 +34,7 @@ import { defaultTools, instrument, type LabTool } from './tools/default.js';
 import { getRun, readGoal, type AdpEndpoint } from './adp.js';
 import {
   harnessLabels,
+  DEFAULT_MAX_TOOL_ROUNDS,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_TOOL_SURFACE,
   type SystemPromptMode,
@@ -114,6 +115,8 @@ export interface VariantSpec {
    * vendors receive identical instructions.
    */
   systemPrompt?: SystemPromptMode;
+  /** Sequential tool rounds per agent. Enforced identically for every backend. */
+  maxToolRounds?: number;
 
   onEvent?: (event: SquadEvent) => void;
   onPhase?: (phase: VariantPhase, detail?: unknown) => void;
@@ -153,6 +156,7 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
   // comparison.
   const toolSurface = spec.toolSurface ?? DEFAULT_TOOL_SURFACE;
   const systemPrompt = spec.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+  const maxToolRounds = spec.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
   const startedAt = Date.now();
 
   const phase = (p: VariantPhase, detail?: unknown) => spec.onPhase?.(p, detail);
@@ -235,6 +239,7 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
       routing: spec.routing,
       tools: tools.map((t) => t.name),
       limits,
+      maxToolRounds,
       sdkVersion: SDK_VERSION,
     });
 
@@ -291,6 +296,8 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
             // writes a correct module into entirely the wrong tree.
             workingDirectory: spec.workspace.workDir,
             tools: tools as any,
+            // One budget, enforced in `adapter/client.ts` for every backend.
+            maxToolRounds,
             // Naming the surface explicitly is what makes the two vendors
             // comparable. Left unset, the Anthropic backend adds its own
             // Read/Write/Edit/Glob/Grep/Bash and the Gemini backend does not,

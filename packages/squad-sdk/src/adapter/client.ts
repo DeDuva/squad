@@ -293,6 +293,21 @@ export class SquadClient {
         // Held from the call to its result: the arguments (the result event
         // carries none) and the start time (nothing else measures a tool).
         const pendingTools = new Map<string, { args: Record<string, unknown>; startedAt: number }>();
+
+        // The tool-round budget, enforced here rather than in each backend.
+        //
+        // This is the only place that sees every tool result from every client,
+        // so it is the only place a budget can mean the same thing across
+        // vendors. It used to live inside the Gemini client — ten rounds, throw
+        // on exceeding — with no Anthropic equivalent, which made any
+        // cross-vendor comparison on a task longer than ten rounds a
+        // measurement of the ceiling rather than of the models.
+        //
+        // Stopping is a milestone and an abort, never an error: a variant that
+        // spent its budget is a legitimate, recordable outcome.
+        let toolRounds = 0;
+        let budgetSpent = false;
+        const budget = config.maxToolRounds;
         session.on('tool_call', (event: SquadSessionEvent) => {
           const id = String(event['toolCallId'] ?? '');
           pendingTools.set(id, {
@@ -322,6 +337,21 @@ export class SquadClient {
             },
             timestamp: new Date(),
           });
+
+          toolRounds += 1;
+          if (budget !== undefined && !budgetSpent && toolRounds >= budget) {
+            budgetSpent = true;
+            void bus.emit({
+              type: 'agent:milestone',
+              sessionId: sid,
+              agentName,
+              payload: { event: 'budget.exhausted', agentName, rounds: toolRounds, budget },
+              timestamp: new Date(),
+            });
+            // Cooperative, like every other stop in the system. A backend that
+            // ignores it is caught by the variant deadline above it.
+            void session.abort?.();
+          }
         });
       }
 
