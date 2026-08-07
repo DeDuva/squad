@@ -251,6 +251,35 @@ describe('axesDisagree', () => {
     expect(axesDisagree(cs, 'acc', 'edge')).toBe(true);
   });
 
+  it('does not call an all-tied axis a disagreement', () => {
+    // `api-shape` scored 1.000 in every cell of the real study. An axis with
+    // nothing but ties has no ordering to disagree with, and comparing sort
+    // positions instead of ranks reported it as disagreeing with all three
+    // other axes — six confident findings from an axis that said nothing.
+    const cs = cells(
+      [
+        run('csv', 'a', 'ai-sdk', { acc: 1, shape: 1 }),
+        run('csv', 'b', 'ai-sdk', { acc: 0.5, shape: 1 }),
+        run('csv', 'c', 'ai-sdk', { acc: 0.2, shape: 1 }),
+      ],
+      ['acc', 'shape'],
+    );
+    expect(axesDisagree(cs, 'acc', 'shape')).toBe(false);
+  });
+
+  it('lets tied cells share a rank rather than being ordered arbitrarily', () => {
+    // a and b tie on both axes; c is last on both. No disagreement.
+    const cs = cells(
+      [
+        run('csv', 'a', 'ai-sdk', { acc: 1, edge: 0.8 }),
+        run('csv', 'b', 'ai-sdk', { acc: 1, edge: 0.8 }),
+        run('csv', 'c', 'ai-sdk', { acc: 0.5, edge: 0.1 }),
+      ],
+      ['acc', 'edge'],
+    );
+    expect(axesDisagree(cs, 'acc', 'edge')).toBe(false);
+  });
+
   it('needs at least two comparable cells to disagree about anything', () => {
     const cs = cells([run('csv', 'a', 'ai-sdk', { acc: 1, edge: 0 })], ['acc', 'edge']);
     expect(axesDisagree(cs, 'acc', 'edge')).toBe(false);

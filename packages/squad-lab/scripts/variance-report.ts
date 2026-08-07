@@ -20,6 +20,7 @@ import {
   harnessContrasts,
   modelSpread,
   noiseFloor,
+  resourceContrasts,
   type Cell,
   type RunObservation,
 } from '../src/variance.js';
@@ -95,8 +96,15 @@ async function main(): Promise<void> {
     }
   }
 
+  // A model whose provider refused most of its requests contributes noise that
+  // is not the system's noise, and it lands in the denominator of every
+  // contrast. Excluding it is a stated choice with a stated reason, not a
+  // quiet filter — the excluded cells are still printed above.
+  const excluded = arg('exclude-models', '').split(',').map((s) => s.trim()).filter(Boolean);
+
   const axes = [...axisNames].sort();
   const cs = cells(observations, axes);
+  const kept = excluded.length > 0 ? cs.filter((c) => !excluded.includes(c.model)) : cs;
   const lines: string[] = [];
   const say = (s = '') => lines.push(s);
 
@@ -116,8 +124,15 @@ async function main(): Promise<void> {
   say(`| axis | within-cell sd | cells contributing |`);
   say(`|---|---|---|`);
   for (const axis of axes) {
-    const floor = noiseFloor(cs, axis);
+    const floor = noiseFloor(kept, axis);
     say(`| \`${axis}\` | ${floor ? n2(floor.sd) : '—'} | ${floor?.cells ?? 0} |`);
+  }
+  if (excluded.length > 0) {
+    say();
+    say(`> Excluding ${excluded.map((m) => `\`${m}\``).join(', ')} from every contrast below.`);
+    say(`> Its runs were refused by the provider rather than answered badly, and noise`);
+    say(`> that is the provider's rather than the system's still lands in the denominator`);
+    say(`> of every effect measured against it. The excluded cells remain in the table above.`);
   }
   say();
 
@@ -161,7 +176,7 @@ async function main(): Promise<void> {
   say(`its size in units of the within-cell sd above. Under 1 is indistinguishable`);
   say(`from a repeat.`);
   for (const axis of axes) {
-    const contrasts = harnessContrasts(cs, axis);
+    const contrasts = harnessContrasts(kept, axis);
     if (contrasts.length === 0) continue;
     say();
     say(`### \`${axis}\``);
@@ -174,12 +189,34 @@ async function main(): Promise<void> {
   }
   say();
 
+  // --- what a run consumed, which is where the differences actually are ----
+  say(`## The harness effect on what a run consumed`);
+  say();
+  say(`The same contrast applied to resources rather than scores, as a ratio —`);
+  say(`\`ai-sdk\` over \`squad-native\`. Not measured against the noise floor, which`);
+  say(`is computed on bounded scores and means nothing here.`);
+  for (const metric of ['tokensIn', 'costMicroUsd', 'toolCalls', 'durationMs'] as const) {
+    const contrasts = resourceContrasts(kept, metric);
+    if (contrasts.length === 0) continue;
+    say();
+    say(`### \`${metric}\``);
+    say();
+    say(`| task | model | squad-native | ai-sdk | ratio |`);
+    say(`|---|---|---|---|---|`);
+    for (const c of contrasts) {
+      const fmt = (v: number) =>
+        metric === 'costMicroUsd' ? money(v) : metric === 'durationMs' ? `${(v / 1000).toFixed(0)}s` : Math.round(v).toLocaleString();
+      say(`| ${c.task} | ${c.model} | ${fmt(c.meanA)} | ${fmt(c.meanB)} | ${n2(c.ratio, 2)}x |`);
+    }
+  }
+  say();
+
   // --- model --------------------------------------------------------------
   say(`## The model effect`);
   say();
   say(`Best cell mean minus worst, with the harness and task held fixed.`);
   for (const axis of axes) {
-    const spreads = modelSpread(cs, axis);
+    const spreads = modelSpread(kept, axis);
     if (spreads.length === 0) continue;
     say();
     say(`### \`${axis}\``);
@@ -202,7 +239,7 @@ async function main(): Promise<void> {
   say(`|---|---|---|`);
   for (let i = 0; i < axes.length; i += 1) {
     for (let j = i + 1; j < axes.length; j += 1) {
-      const disagree = axesDisagree(cs, axes[i]!, axes[j]!);
+      const disagree = axesDisagree(kept, axes[i]!, axes[j]!);
       say(`| \`${axes[i]}\` | \`${axes[j]}\` | ${disagree ? '**no**' : 'yes'} |`);
     }
   }
@@ -221,7 +258,7 @@ async function main(): Promise<void> {
   // opening the file.
   console.log(`\n${observations.length} runs, ${cs.length} cells`);
   for (const axis of axes) {
-    const floor = noiseFloor(cs, axis);
+    const floor = noiseFloor(kept, axis);
     console.log(`  ${axis.padEnd(12)} noise sd=${floor ? n2(floor.sd) : '—'}`);
   }
 }
