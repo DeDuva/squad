@@ -103,6 +103,26 @@ describe('cells', () => {
     expect(cs[0]!.costMicroUsd).toBeNull();
   });
 
+  it('counts runs that carried no score at all', () => {
+    // The gemini-pro cells: the provider returned a quota error, the run
+    // closed with nothing, and the cell mean is then conditional on the runs
+    // that survived. Averaging over survivors without saying so is how an
+    // infrastructure failure becomes a finding about a model.
+    const cs = cells(
+      [
+        run('semver', 'pro', 'ai-sdk', { acc: 0.96 }),
+        run('semver', 'pro', 'ai-sdk', { acc: null }),
+        run('semver', 'pro', 'ai-sdk', { acc: null }),
+      ],
+      ['acc'],
+    );
+    expect(cs[0]!.n).toBe(3);
+    expect(cs[0]!.scored).toBe(1);
+    expect(cs[0]!.unscored).toBe(2);
+    // The mean still describes the survivor, and is not diluted toward zero.
+    expect(cs[0]!.byAxis['acc']?.mean).toBeCloseTo(0.96, 10);
+  });
+
   it('computes a tool failure rate over calls, not over runs', () => {
     const cs = cells(
       [

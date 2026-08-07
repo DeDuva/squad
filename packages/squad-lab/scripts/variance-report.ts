@@ -126,18 +126,32 @@ async function main(): Promise<void> {
   say();
   say(`\`mean ± sd\` over repeats.`);
   say();
-  say(`| task | model | harness | n | ${axes.map((a) => `\`${a}\``).join(' | ')} | tokens in | cost | tools |`);
+  say(`A cell with unscored runs is averaging over its survivors. Those rows are`);
+  say(`marked, and the mean beside the mark is conditional on surviving.`);
+  say();
+  say(`| task | model | harness | scored/n | ${axes.map((a) => `\`${a}\``).join(' | ')} | tokens in | cost | tools |`);
   say(`|---|---|---|---|${axes.map(() => '---').join('|')}|---|---|---|`);
   for (const c of cs) {
     const cost = c.costMicroUsd ? money(c.costMicroUsd.mean) : 'unpriced';
+    const survival = c.unscored > 0 ? `**${c.scored}/${c.n}**` : `${c.scored}/${c.n}`;
     say(
-      `| ${c.task} | ${c.model} | ${c.harness} | ${c.n} | ` +
+      `| ${c.task} | ${c.model} | ${c.harness} | ${survival} | ` +
         `${axes.map((a) => spread(c.byAxis[a] ?? null)).join(' | ')} | ` +
         `${c.tokensIn ? Math.round(c.tokensIn.mean).toLocaleString() : '—'} | ${cost} | ` +
         `${c.toolCalls ? n2(c.toolCalls.mean, 1) : '—'} |`,
     );
   }
   say();
+
+  const partial = cs.filter((c) => c.unscored > 0);
+  if (partial.length > 0) {
+    say(`> **${partial.length} cell(s) lost runs.** ` +
+      partial.map((c) => `${c.model}/${c.harness} on ${c.task} (${c.unscored} of ${c.n})`).join('; ') +
+      `. A run can end unscored because the agent delivered nothing, or because the provider refused to serve it — ` +
+      `a quota or rate-limit error is an absence of a measurement rather than a low one, and a cell holding either ` +
+      `should not be read as a score for that model or that harness.`);
+    say();
+  }
 
   // --- harness ------------------------------------------------------------
   say(`## The harness effect`);
