@@ -20,6 +20,31 @@ const VENDORS: Record<string, string[]> = {
   gemini: ['premium', 'standard', 'fast'],
 };
 
+type HarnessImpl = 'squad-native' | 'ai-sdk';
+
+/**
+ * A picked cell. `model` empty means "the vendor's model for this tier".
+ *
+ * `key` exists because provider+tier is not unique: the comparison this lab is
+ * for is the *same* model under two harnesses, which is two rows that agree on
+ * everything the chip grid can express.
+ */
+interface Pick {
+  key: string;
+  provider: string;
+  tier: string;
+  model?: string;
+  harnessImpl?: HarnessImpl;
+}
+
+let nextKey = 0;
+const pick = (provider: string, tier: string, rest: Partial<Pick> = {}): Pick => ({
+  key: `v${(nextKey += 1)}`,
+  provider,
+  tier,
+  ...rest,
+});
+
 export default function NewExperiment() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
@@ -30,19 +55,58 @@ export default function NewExperiment() {
   const [owner, setOwner] = useState('lab');
   const [repo, setRepo] = useState('');
   const [deadlineMs, setDeadlineMs] = useState(900_000);
-  const [picked, setPicked] = useState<{ provider: string; tier: string }[]>([
-    { provider: 'anthropic', tier: 'standard' },
-    { provider: 'gemini', tier: 'standard' },
+  const [picked, setPicked] = useState<Pick[]>([
+    pick('anthropic', 'standard'),
+    pick('gemini', 'standard'),
   ]);
+  // The experiment-wide harness. A variant may override the impl below, which
+  // is how one model runs under both arms in a single comparison.
+  const [harnessImpl, setHarnessImpl] = useState<HarnessImpl>('squad-native');
+  const [toolSurface, setToolSurface] = useState<'registered' | 'native'>('registered');
+  const [systemPrompt, setSystemPrompt] = useState<'charter-only' | 'backend-preset'>('charter-only');
+  const [maxToolRounds, setMaxToolRounds] = useState(120);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // A chip removes *every* row for that cell, so clicking an on-chip off always
+  // clears it rather than peeling one duplicate at a time.
   const toggle = (provider: string, tier: string) => {
     setPicked((prev) => {
-      const hit = prev.findIndex((v) => v.provider === provider && v.tier === tier);
-      return hit >= 0 ? prev.filter((_, i) => i !== hit) : [...prev, { provider, tier }];
+      const has = prev.some((v) => v.provider === provider && v.tier === tier);
+      return has
+        ? prev.filter((v) => !(v.provider === provider && v.tier === tier))
+        : [...prev, pick(provider, tier)];
     });
   };
+
+  const amend = (key: string, patch: Partial<Pick>) => {
+    setPicked((prev) => prev.map((v) => (v.key === key ? { ...v, ...patch } : v)));
+  };
+
+  /**
+   * A second row for the same cell.
+   *
+   * This is how the four-cell matrix gets written down without a flag: pin one
+   * model, duplicate the row, and set the two harnesses. The chip grid cannot
+   * express it, because the whole point is two variants that agree on every
+   * axis the grid has.
+   */
+  const duplicate = (key: string) => {
+    setPicked((prev) => {
+      const at = prev.findIndex((v) => v.key === key);
+      if (at < 0) return prev;
+      const source = prev[at]!;
+      const copy = pick(source.provider, source.tier, {
+        ...(source.model ? { model: source.model } : {}),
+        // The copy takes the *other* arm, since comparing a row with itself is
+        // the one thing duplicating it cannot be for.
+        harnessImpl: source.harnessImpl === 'ai-sdk' ? 'squad-native' : 'ai-sdk',
+      });
+      return [...prev.slice(0, at + 1), copy, ...prev.slice(at + 1)];
+    });
+  };
+
+  const remove = (key: string) => setPicked((prev) => prev.filter((v) => v.key !== key));
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,9 +117,18 @@ export default function NewExperiment() {
         goal: { title, body },
         adp: { owner, repo },
         seed: { repoUrl: seed },
-        variants: picked,
+        // Empty strings are dropped rather than sent: an unset model means "the
+        // vendor's model for this tier", and `model: ''` would pin nothing under
+        // a name that claims to.
+        variants: picked.map((v) => ({
+          provider: v.provider,
+          tier: v.tier,
+          ...(v.model?.trim() ? { model: v.model.trim() } : {}),
+          ...(v.harnessImpl ? { harnessImpl: v.harnessImpl } : {}),
+        })),
         ...(grader ? { grader: { path: grader, primaryAxis } } : {}),
         limits: { deadlineMs },
+        harness: { harnessImpl, toolSurface, systemPrompt, maxToolRounds },
       });
       navigate(`/e/${experiment.id}`);
     } catch (err) {
@@ -118,7 +191,132 @@ export default function NewExperiment() {
             )}
           </div>
           <p className="muted small">
-            Two variants on one vendor is a legitimate experiment — two tiers, or two attempts.
+            Two variants on one vendor is a legitimate experiment — two tiers, two harnesses, or two
+            attempts.
+          </p>
+
+          {picked.length > 0 && (
+            <table className="variant-config">
+              <thead>
+                <tr>
+                  <th>variant</th>
+                  <th>model — blank means the vendor's model for this tier</th>
+                  <th>harness</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {picked.map((v) => (
+                  <tr key={v.key}>
+                    <td className="mono">
+                      {v.provider} · {v.tier}
+                    </td>
+                    <td>
+                      <input
+                        value={v.model ?? ''}
+                        placeholder="e.g. claude-sonnet-5"
+                        onChange={(e) => amend(v.key, { model: e.target.value })}
+                        data-testid={`model-${v.key}`}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        value={v.harnessImpl ?? ''}
+                        onChange={(e) =>
+                          amend(v.key, {
+                            harnessImpl: (e.target.value || undefined) as HarnessImpl | undefined,
+                          })
+                        }
+                        data-testid={`harness-${v.key}`}
+                      >
+                        <option value="">inherit — {harnessImpl}</option>
+                        <option value="squad-native">squad-native</option>
+                        <option value="ai-sdk">ai-sdk</option>
+                      </select>
+                    </td>
+                    <td className="row-actions">
+                      <button
+                        type="button"
+                        onClick={() => duplicate(v.key)}
+                        title="another run of this cell under the other harness"
+                        data-testid={`duplicate-${v.key}`}
+                      >
+                        + arm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(v.key)}
+                        title="drop this variant"
+                        data-testid={`remove-${v.key}`}
+                      >
+                        −
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="muted small">
+            Pin the model when the result is one you intend to cite: a tier is an alias, and it moves
+            under you. <strong>+ arm</strong> adds the same cell again under the other harness — one
+            model, two loops, which is the comparison the summary bands rather than ranks across.
+          </p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Harness</legend>
+          <div className="row">
+            <label>
+              Agent loop
+              <select
+                value={harnessImpl}
+                onChange={(e) => setHarnessImpl(e.target.value as HarnessImpl)}
+                data-testid="harness-impl"
+              >
+                <option value="squad-native">squad-native — the vendor SDK on each side</option>
+                <option value="ai-sdk">ai-sdk — one neutral loop for every provider</option>
+              </select>
+            </label>
+            <label>
+              Tool surface
+              <select
+                value={toolSurface}
+                onChange={(e) => setToolSurface(e.target.value as 'registered' | 'native')}
+                data-testid="tool-surface"
+              >
+                <option value="registered">registered — the lab's tools only</option>
+                <option value="native">native — plus whatever the backend brings</option>
+              </select>
+            </label>
+          </div>
+          <div className="row">
+            <label>
+              System prompt
+              <select
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value as 'charter-only' | 'backend-preset')}
+                data-testid="system-prompt"
+              >
+                <option value="charter-only">charter-only — identical text for both vendors</option>
+                <option value="backend-preset">backend-preset — the backend's own, plus the charter</option>
+              </select>
+            </label>
+            <label>
+              Max tool rounds
+              <input
+                type="number"
+                value={maxToolRounds}
+                onChange={(e) => setMaxToolRounds(Number(e.target.value))}
+                min={1}
+                data-testid="max-tool-rounds"
+              />
+            </label>
+          </div>
+          <p className="muted small">
+            The defaults are the comparable configuration. <code>native</code> tools and{' '}
+            <code>backend-preset</code> give one vendor six more tools and a system message the other
+            never sees — a legitimate experiment, but not a cross-vendor comparison.
           </p>
         </fieldset>
 

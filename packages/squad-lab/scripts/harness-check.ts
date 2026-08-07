@@ -23,21 +23,27 @@ import { VENDORS, type SquadProvider } from '@deduvafork/squad-sdk/config/vendor
 
 import {
   checkHarnessConformance,
+  compareTelemetry,
   formatConformance,
+  formatTelemetryDiff,
   type ConformanceContext,
+  type ConformanceReport,
 } from '../src/conformance.js';
 import { compareProfiles, formatProfiles, probeWireParity, type WireProfile } from '../src/parity.js';
 import { createAiSdkHarness, type AiSdkProvider } from '../src/harnesses/ai-sdk.js';
 
-function geminiKey(): string | undefined {
-  if (process.env['GEMINI_API_KEY']) return process.env['GEMINI_API_KEY'];
-  const file = join(homedir(), '.config', 'squad', 'gemini.json');
+function vendorKey(provider: SquadProvider): string | undefined {
+  const fromEnv = process.env[VENDORS[provider].apiKeyEnv];
+  if (fromEnv) return fromEnv;
+  const file = join(homedir(), '.config', 'squad', `${provider}.json`);
   try {
     return (JSON.parse(readFileSync(file, 'utf8')) as { apiKey?: string }).apiKey;
   } catch {
     return undefined;
   }
 }
+
+const geminiKey = () => vendorKey('gemini');
 
 /**
  * The neutral loop, as a harness the same suite can judge.
@@ -52,7 +58,10 @@ async function aiSdkContextFor(provider: AiSdkProvider): Promise<{ ctx: Conforma
     seen.push(e);
   });
 
-  const key = provider === 'gemini' ? geminiKey() : undefined;
+  // Both vendors now, not just Gemini: the neutral loop takes its key
+  // explicitly for either provider rather than reading one from the ambient
+  // environment for one of them.
+  const key = vendorKey(provider);
   const createSession = createAiSdkHarness({
     bus,
     provider,
@@ -117,6 +126,8 @@ async function main(): Promise<void> {
 
   let failed = 0;
   const profiles: WireProfile[] = [];
+  // Kept so the two arms for one provider can be diffed against each other.
+  const reports = new Map<string, ConformanceReport>();
   const wire = !process.argv.includes('--no-wire');
   for (const provider of providers) {
     if (provider === 'gemini' && !geminiKey()) {
@@ -127,6 +138,7 @@ async function main(): Promise<void> {
     const { ctx, close } = await contextFor(provider);
     try {
       const report = await checkHarnessConformance(provider, ctx);
+      reports.set(`squad-native:${provider}`, report);
       console.log(formatConformance(report));
       failed += report.failed;
       if (wire) {
@@ -143,11 +155,33 @@ async function main(): Promise<void> {
     console.log(`\n=== ai-sdk:${provider}`);
     const { ctx } = await aiSdkContextFor(provider);
     const report = await checkHarnessConformance(`ai-sdk:${provider}`, ctx);
+    reports.set(`ai-sdk:${provider}`, report);
     console.log(formatConformance(report));
     failed += report.failed;
     if (wire) {
       ctx.reset();
       profiles.push(await probeWireParity(`ai-sdk:${provider}`, ctx));
+    }
+  }
+
+  // The two arms for one provider, diffed on what reached the bus. Unlike a
+  // wire mismatch this *is* a harness bug: the same model doing the same work
+  // under two loops must leave the same kinds of trace, or the trajectories are
+  // not comparable and the difference gets attributed to the model.
+  let telemetryMismatches = 0;
+  const pairs = [...reports.keys()]
+    .filter((k) => k.startsWith('ai-sdk:'))
+    .map((k) => [`squad-native:${k.slice('ai-sdk:'.length)}`, k] as const)
+    .filter(([native]) => reports.has(native));
+  if (pairs.length > 0) {
+    console.log('\n=== telemetry parity');
+    for (const [native, neutral] of pairs) {
+      const diff = compareTelemetry(reports.get(native)!, reports.get(neutral)!);
+      console.log(formatTelemetryDiff(native, neutral, diff));
+      // Only a missing *required* type fails. A conditional difference is
+      // printed above and left for a human, because whether a probe run
+      // exhausted its budget is the model's decision, not the harness's.
+      if (!diff.ok) telemetryMismatches += 1;
     }
   }
 
@@ -161,10 +195,13 @@ async function main(): Promise<void> {
   const mismatches = compareProfiles(profiles);
 
   console.log(failed === 0 ? '\nevery harness conforms' : `\n${failed} clause failure(s)`);
+  if (telemetryMismatches > 0) {
+    console.log(`${telemetryMismatches} telemetry mismatch(es) — the arms do not record the same kinds of event`);
+  }
   if (mismatches.length > 0) {
     console.log(`${mismatches.length} wire difference(s) — any experiment spanning these providers has to account for them`);
   }
-  process.exit(failed === 0 ? 0 : 1);
+  process.exit(failed === 0 && telemetryMismatches === 0 ? 0 : 1);
 }
 
 main().catch((err) => {

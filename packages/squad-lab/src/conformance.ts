@@ -71,6 +71,13 @@ export interface ConformanceReport {
   passed: number;
   failed: number;
   clauses: ClauseResult[];
+  /**
+   * Every distinct event type this harness put on the bus, sorted.
+   *
+   * Carried on the report rather than asserted in a clause because telemetry
+   * parity is not a property of one harness. See `compareTelemetry`.
+   */
+  emitted: string[];
 }
 
 const TOOL_ROUND_BUDGET = 3;
@@ -116,7 +123,15 @@ export async function checkHarnessConformance(
   const record = (clause: string, because: string, ok: boolean, detail?: string) =>
     clauses.push({ clause, because, ok, ...(detail ? { detail } : {}) });
 
+  // Accumulated across every clause, because `ctx.reset()` drops the buffer
+  // between them and the vocabulary is the union of the whole session.
+  const emitted = new Set<string>();
+  const observe = () => {
+    for (const type of typesOf(ctx.events())) emitted.add(type);
+  };
+
   // --- 1. lifecycle -------------------------------------------------------
+  observe();
   ctx.reset();
   try {
     const calls = { n: 0 };
@@ -160,6 +175,7 @@ export async function checkHarnessConformance(
   }
 
   // --- 2. the turn resolves on completion, not on dispatch ----------------
+  observe();
   ctx.reset();
   try {
     const calls = { n: 0 };
@@ -191,6 +207,7 @@ export async function checkHarnessConformance(
   }
 
   // --- 3. a failing tool is an event, not a crash -------------------------
+  observe();
   ctx.reset();
   try {
     const session = await ctx.createSession({
@@ -223,6 +240,7 @@ export async function checkHarnessConformance(
   }
 
   // --- 4. abort is honoured ------------------------------------------------
+  observe();
   ctx.reset();
   try {
     const session = await ctx.createSession({
@@ -251,6 +269,7 @@ export async function checkHarnessConformance(
   }
 
   // --- 5. the tool-round budget, which is the clause that matters ---------
+  observe();
   ctx.reset();
   const calls = { n: 0 };
   try {
@@ -310,12 +329,108 @@ export async function checkHarnessConformance(
     );
   }
 
+  observe();
   return {
     harness,
     passed: clauses.filter((c) => c.ok).length,
     failed: clauses.filter((c) => !c.ok).length,
     clauses,
+    emitted: [...emitted].sort(),
   };
+}
+
+/**
+ * The event types every harness must produce, whatever the model does.
+ *
+ * These two carry the trajectory's numbers — what was spent and what was
+ * called — and clause 1 exercises both on every run, so their absence is a
+ * fact about the harness rather than about how a particular probe went.
+ * Everything else is conditional: `agent:milestone` appears only if that run
+ * happened to hit its budget or get aborted, which is the model's decision.
+ */
+export const REQUIRED_EVENT_TYPES = ['session:model_usage', 'session:tool_call'] as const;
+
+export interface TelemetryDiff {
+  /** Event types only the first harness emitted, and only the second. */
+  onlyInA: string[];
+  onlyInB: string[];
+  shared: string[];
+  /** Required types absent from either side. Empty is the gate. */
+  missingRequired: { harness: string; types: string[] }[];
+  /**
+   * No required type is missing. This is what fails a check.
+   *
+   * Deliberately weaker than `identical`, because set equality over a probe run
+   * is not deterministic: a model that finishes early never exhausts its budget
+   * and so never emits the milestone that a chattier model does. Gating on that
+   * would fail for a reason that has nothing to do with the harness — and a
+   * check that cries wolf gets switched off, which is how the harness confounds
+   * this suite was written for went unnoticed in the first place.
+   */
+  ok: boolean;
+  /** The two arms emitted exactly the same vocabulary. Reported, not gated. */
+  identical: boolean;
+}
+
+/**
+ * Whether two harnesses tell ADP the same *kind* of story.
+ *
+ * Telemetry parity cannot be a clause, because a clause can only assert an
+ * absolute — and every absolute list we tried was wrong. `session:created` is
+ * emitted by fan-out for both arms, so asserting it made the harnesses look
+ * responsible for something they do not own; `session:message` is emitted by
+ * neither, so asserting it failed both. A contract that cries wolf gets
+ * switched off, and this one nearly was.
+ *
+ * The property that actually matters is comparative: two runs are comparable
+ * only if the same events reached the recorder, because the trajectory is what
+ * a reader will use to explain the difference between them. A harness that
+ * reports one fewer kind of thing produces a run that looks quieter rather than
+ * one that was.
+ */
+export function compareTelemetry(a: ConformanceReport, b: ConformanceReport): TelemetryDiff {
+  const setA = new Set(a.emitted);
+  const setB = new Set(b.emitted);
+  const onlyInA = a.emitted.filter((t) => !setB.has(t));
+  const onlyInB = b.emitted.filter((t) => !setA.has(t));
+
+  const missingRequired = [a, b]
+    .map((report) => ({
+      harness: report.harness,
+      types: REQUIRED_EVENT_TYPES.filter((t) => !report.emitted.includes(t)),
+    }))
+    .filter((x) => x.types.length > 0)
+    .map((x) => ({ harness: x.harness, types: [...x.types] }));
+
+  return {
+    onlyInA,
+    onlyInB,
+    shared: a.emitted.filter((t) => setB.has(t)),
+    missingRequired,
+    ok: missingRequired.length === 0,
+    identical: onlyInA.length === 0 && onlyInB.length === 0,
+  };
+}
+
+/** Human-readable telemetry diff, in the same shape as the clause report. */
+export function formatTelemetryDiff(a: string, b: string, diff: TelemetryDiff): string {
+  const verdict = !diff.ok ? 'FAIL' : diff.identical ? 'ok' : 'ok — differs only in conditional events';
+  const lines = [
+    `telemetry parity: ${a} vs ${b} — ${verdict}`,
+    `  shared: ${diff.shared.join(', ') || '(none)'}`,
+  ];
+  if (diff.onlyInA.length > 0) lines.push(`  only ${a}: ${diff.onlyInA.join(', ')}`);
+  if (diff.onlyInB.length > 0) lines.push(`  only ${b}: ${diff.onlyInB.join(', ')}`);
+  for (const missing of diff.missingRequired) {
+    lines.push(`  ${missing.harness} never emitted: ${missing.types.join(', ')}`);
+  }
+  if (!diff.ok) {
+    lines.push(
+      '  A harness that omits these records a run that looks quieter than it was, and the',
+      '  quiet gets read as a property of the model.',
+    );
+  }
+  return lines.join('\n');
 }
 
 /** Human-readable report. Failures print why the clause exists. */
