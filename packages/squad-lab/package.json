@@ -16,7 +16,9 @@
     "web:build": "vite build --config web/vite.config.ts",
     "ui-check": "npx tsx scripts/live-ui-check.ts",
     "harness-check": "npx tsx scripts/harness-check.ts",
-    "pricing-check": "npx tsx scripts/pricing-check.ts"
+    "pricing-check": "npx tsx scripts/pricing-check.ts",
+    "study": "npx tsx scripts/study.ts",
+    "variance-report": "npx tsx scripts/variance-report.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.93",
