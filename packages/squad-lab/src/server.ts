@@ -49,6 +49,36 @@ import { ExperimentEventLog, sseFrame, sseHeartbeat } from './event-log.js';
 import { assertSeparateIdentities } from './grader.js';
 import { buildSummary } from './summary.js';
 
+const HARNESS_IMPLS = ['squad-native', 'ai-sdk'] as const;
+const TOOL_SURFACES = ['registered', 'native'] as const;
+const SYSTEM_PROMPTS = ['charter-only', 'backend-preset'] as const;
+
+/** The first thing wrong with the harness block, or `undefined`. */
+function invalidHarness(body: Omit<CreateExperimentInput, 'adp'>): string | undefined {
+  const bad = (field: string, value: unknown, allowed: readonly string[]) =>
+    `harness.${field} must be one of ${allowed.join(' | ')} — got ${JSON.stringify(value)}`;
+
+  const h = body.harness;
+  if (h?.harnessImpl && !HARNESS_IMPLS.includes(h.harnessImpl)) {
+    return bad('harnessImpl', h.harnessImpl, HARNESS_IMPLS);
+  }
+  if (h?.toolSurface && !TOOL_SURFACES.includes(h.toolSurface)) {
+    return bad('toolSurface', h.toolSurface, TOOL_SURFACES);
+  }
+  if (h?.systemPrompt && !SYSTEM_PROMPTS.includes(h.systemPrompt)) {
+    return bad('systemPrompt', h.systemPrompt, SYSTEM_PROMPTS);
+  }
+  if (h?.maxToolRounds !== undefined && (!Number.isInteger(h.maxToolRounds) || h.maxToolRounds < 1)) {
+    return `harness.maxToolRounds must be a positive integer — got ${JSON.stringify(h.maxToolRounds)}`;
+  }
+  for (const v of body.variants ?? []) {
+    if (v.harnessImpl && !HARNESS_IMPLS.includes(v.harnessImpl)) {
+      return bad(`harnessImpl on variant ${v.id ?? v.provider}`, v.harnessImpl, HARNESS_IMPLS);
+    }
+  }
+  return undefined;
+}
+
 export interface LabServerOptions {
   /** Opens runs and appends trajectory. */
   token: string;
@@ -115,6 +145,14 @@ export function createLabServer(options: LabServerOptions): FastifyInstance {
     const body = req.body as Omit<CreateExperimentInput, 'adp'> & { adp?: { owner: string; repo: string } };
     if (!body?.adp?.owner || !body?.adp?.repo) {
       reply.code(422).send({ message: 'adp.owner and adp.repo are required' });
+      return;
+    }
+    // This body reaches `fork()` eventually, and an unrecognised harness name
+    // would arrive there as a string nothing branches on — producing a run
+    // labelled with an arm that does not exist. A refusal is cheaper to read.
+    const invalid = invalidHarness(body);
+    if (invalid) {
+      reply.code(422).send({ message: invalid });
       return;
     }
     const experiment = await createExperiment({

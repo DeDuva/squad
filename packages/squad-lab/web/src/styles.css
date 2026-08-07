@@ -105,11 +105,19 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
 .form { display: grid; gap: 0.9rem; max-width: 760px; }
 .form label { display: grid; gap: 0.3rem; }
 .form .row { display: grid; gap: 0.9rem; grid-template-columns: 1fr 1fr; }
-input, textarea {
+input, textarea, select {
   background: var(--panel); color: var(--text); border: 1px solid var(--line);
   border-radius: 6px; padding: 0.45rem 0.6rem; font: inherit; width: 100%;
 }
 fieldset { border: 1px solid var(--line); border-radius: 8px; }
+
+/* Per-variant model and harness — one row per picked cell. */
+.variant-config { margin-top: 0.8rem; }
+.variant-config th { font-size: 0.75rem; }
+.variant-config td { padding: 0.35rem 0.5rem 0.35rem 0; }
+.mono { font-family: ui-monospace, monospace; font-size: 0.85rem; white-space: nowrap; }
+.row-actions { display: flex; gap: 0.3rem; white-space: nowrap; }
+.row-actions button { padding: 0.3rem 0.5rem; font-size: 0.8rem; }
 .vendors { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .chip { border-radius: 999px; font-size: 0.85rem; }
 .chip-on { border-color: var(--accent); color: var(--accent); }

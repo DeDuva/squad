@@ -246,9 +246,12 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
             provider: spec.provider as AiSdkProvider,
             model,
             defaultMaxToolRounds: maxToolRounds,
-            ...(spec.provider === 'gemini' && spec.credentials?.geminiApiKey
-              ? { apiKey: spec.credentials.geminiApiKey }
-              : {}),
+            // Either vendor's key, passed rather than inherited. The Anthropic
+            // half used to be omitted here, so the neutral arm fell back to
+            // whatever `ANTHROPIC_API_KEY` the child happened to inherit —
+            // which is the one arm that had no business reading the ambient
+            // environment, since not reading it is what it is for.
+            ...(apiKeyFor(spec) ? { apiKey: apiKeyFor(spec)! } : {}),
           })
         : undefined;
 
@@ -485,6 +488,13 @@ export async function runVariant(spec: VariantSpec): Promise<VariantResult> {
  * backend honours and the Gemini one accepts and ignores. This is the outer
  * guarantee that does not depend on either.
  */
+/** The key for this variant's vendor, whichever vendor that is. */
+function apiKeyFor(spec: VariantSpec): string | undefined {
+  return spec.provider === 'gemini'
+    ? spec.credentials?.geminiApiKey
+    : spec.credentials?.anthropicApiKey;
+}
+
 async function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

@@ -23,8 +23,10 @@ import {
   regradeVariant,
 } from './experiments.js';
 import type { GradeRecord } from './grader.js';
+import type { HarnessImpl, SystemPromptMode, ToolSurface } from './harness.js';
 import { startLabServer } from './server.js';
 import { buildSummary, rankByAxis, UNPRICED_PROVIDERS } from './summary.js';
+import { parseVariants } from './variants.js';
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
 function arg(name: string, fallback?: string): string {
@@ -39,24 +41,60 @@ function arg(name: string, fallback?: string): string {
 const has = (name: string) => process.argv.some((a) => a.startsWith(`--${name}=`));
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
+/** `~/.config/squad/<provider>.json`, written 0600 by `squad auth setup`. */
+function readKeyFile(provider: SquadProvider): string | undefined {
+  const keyFile = join(homedir(), '.config', 'squad', `${provider}.json`);
+  if (!existsSync(keyFile)) return undefined;
+  const parsed = JSON.parse(readFileSync(keyFile, 'utf8')) as { apiKey?: string };
+  return parsed.apiKey;
+}
+
+const keyFileFor = (provider: SquadProvider) =>
+  join(homedir(), '.config', 'squad', `${provider}.json`);
+
 /**
- * Vendor credentials, which are asymmetric and quietly so.
+ * Vendor credentials, which used to be asymmetric and quietly so.
  *
- * Anthropic inherits the `claude` CLI's own credential chain, so there is
- * nothing to pass. Gemini needs its key handed over explicitly — and
- * `GEMINI_API_KEY` merely being in the environment deliberately does not count
- * as choosing that vendor, so it has to be read and passed rather than left to
- * be picked up.
+ * Both vendors are now read the same way — environment first, then the key
+ * file — because the asymmetry was never about the vendors. It was about the
+ * harness: the native Anthropic arm wraps the `claude` CLI's agent SDK and
+ * inherits its credential chain, so it needs nothing passed. The neutral loop
+ * has no such chain, and an Anthropic key that only ever arrived through
+ * ambient `ANTHROPIC_API_KEY` was the one place a run could differ without
+ * saying so.
+ *
+ * `requireKey` is how a caller says which of those two it is. Absent, a missing
+ * Anthropic key is fine and the native arm falls back to the CLI's chain;
+ * present, it is an error raised before a workspace is cloned or a model is
+ * called.
  */
-function loadCredentials(provider: SquadProvider): { geminiApiKey?: string } {
-  if (provider !== 'gemini') return {};
-  if (process.env['GEMINI_API_KEY']) return { geminiApiKey: process.env['GEMINI_API_KEY'] };
-  const keyFile = join(homedir(), '.config', 'squad', 'gemini.json');
-  if (existsSync(keyFile)) {
-    const parsed = JSON.parse(readFileSync(keyFile, 'utf8')) as { apiKey?: string };
-    if (parsed.apiKey) return { geminiApiKey: parsed.apiKey };
+export interface VendorCredentials {
+  geminiApiKey?: string;
+  anthropicApiKey?: string;
+}
+
+function loadCredentials(
+  provider: SquadProvider,
+  options: { requireKey?: boolean; optional?: boolean } = {},
+): VendorCredentials {
+  if (provider === 'gemini') {
+    // `GEMINI_API_KEY` merely being in the environment deliberately does not
+    // count as *choosing* Gemini — but once chosen, it is where the key lives.
+    const key = process.env['GEMINI_API_KEY'] ?? readKeyFile('gemini');
+    if (key) return { geminiApiKey: key };
+    if (options.optional) return {};
+    throw new Error(`no Gemini key: set GEMINI_API_KEY or write ${keyFileFor('gemini')}`);
   }
-  throw new Error(`no Gemini key: set GEMINI_API_KEY or write ${keyFile}`);
+
+  const key = process.env['ANTHROPIC_API_KEY'] ?? readKeyFile('anthropic');
+  if (key) return { anthropicApiKey: key };
+  if (options.requireKey && !options.optional) {
+    throw new Error(
+      `no Anthropic key: set ANTHROPIC_API_KEY or write ${keyFileFor('anthropic')} — ` +
+        'the ai-sdk harness cannot use the `claude` CLI login the native arm falls back to',
+    );
+  }
+  return {};
 }
 
 function endpointFromArgs(): { endpoint: AdpEndpoint; tokenEnv: string } {
@@ -91,21 +129,6 @@ function evalTokenFromArgs(): string {
   return token;
 }
 
-/** `--variants=anthropic,gemini` or `anthropic:premium,gemini:fast`. */
-function parseVariants(spec: string) {
-  return spec
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => {
-      const [provider, tier] = s.split(':');
-      return {
-        provider: provider as SquadProvider,
-        ...(tier ? { tier: tier as 'premium' | 'standard' | 'fast' } : {}),
-      };
-    });
-}
-
 async function cmdRunVariant(): Promise<number> {
   const { endpoint, tokenEnv } = endpointFromArgs();
   const who = await whoami(endpoint);
@@ -122,6 +145,7 @@ async function cmdRunVariant(): Promise<number> {
   }
 
   const provider = arg('provider', 'anthropic') as SquadProvider;
+  const harnessImpl = arg('harness', 'squad-native') as HarnessImpl;
   const experimentId = arg('experiment', `exp_${Date.now()}`);
   const variantId = arg('variant', provider);
   const root = arg('root', mkdtempSync(join(tmpdir(), 'squad-lab-')));
@@ -139,7 +163,8 @@ async function cmdRunVariant(): Promise<number> {
     experimentId,
     variantId,
     provider,
-    credentials: loadCredentials(provider),
+    credentials: loadCredentials(provider, { requireKey: harnessImpl === 'ai-sdk' }),
+    harnessImpl,
     ...(has('model') ? { model: arg('model') } : {}),
     adp: { ...endpoint, issueNumber, intentId, tokenEnv },
     externalRef: `${experimentId}:${variantId}`,
@@ -181,10 +206,12 @@ async function cmdLaunch(): Promise<number> {
     // backend's own tools, which is a legitimate experiment and not a
     // comparison.
     harness: {
-      toolSurface: arg('tool-surface', 'registered') as 'registered' | 'native',
-      systemPrompt: arg('system-prompt', 'charter-only') as 'charter-only' | 'backend-preset',
+      toolSurface: arg('tool-surface', 'registered') as ToolSurface,
+      systemPrompt: arg('system-prompt', 'charter-only') as SystemPromptMode,
       ...(has('max-tool-rounds') ? { maxToolRounds: Number(arg('max-tool-rounds')) } : {}),
-      harnessImpl: arg('harness', 'squad-native') as 'squad-native' | 'ai-sdk',
+      // The experiment-wide default. A variant may name its own with
+      // `provider/ai-sdk`, which is how one model runs under both arms.
+      harnessImpl: arg('harness', 'squad-native') as HarnessImpl,
     },
   });
 
@@ -194,10 +221,24 @@ async function cmdLaunch(): Promise<number> {
       ` rounds=${experiment.harness?.maxToolRounds ?? 'default'} impl=${experiment.harness?.harnessImpl}`,
   );
   console.log(`   goal   : issue #${experiment.adp.issueNumber}, intent ${experiment.adp.intentId}`);
-  console.log(`   variants: ${experiment.variants.map((v) => `${v.id}(${v.provider})`).join(', ')}`);
+  console.log(
+    `   variants: ${experiment.variants
+      .map(
+        (v) =>
+          `${v.id}(${v.provider}${v.model ? ` ${v.model}` : ''}` +
+          `${v.harnessImpl ? ` ${v.harnessImpl}` : ''})`,
+      )
+      .join(', ')}`,
+  );
 
-  const credentials: Record<string, { geminiApiKey?: string }> = {};
-  for (const v of experiment.variants) credentials[v.id] = loadCredentials(v.provider);
+  // Every key the launch will need, resolved before the first workspace is
+  // cloned. A variant that discovers its vendor is unreachable after three
+  // others have already spent has failed at the most expensive possible moment.
+  const credentials: Record<string, VendorCredentials> = {};
+  for (const v of experiment.variants) {
+    const impl = v.harnessImpl ?? experiment.harness?.harnessImpl ?? 'squad-native';
+    credentials[v.id] = loadCredentials(v.provider, { requireKey: impl === 'ai-sdk' });
+  }
 
   const results = await launchExperiment(experiment, {
     token: endpoint.token,
@@ -359,16 +400,34 @@ async function cmdServe(): Promise<number> {
   const evalToken = process.env[arg('eval-token-env', 'SQUAD_LAB_EVAL_TOKEN')];
   const adpUrl = arg('adp-url', 'http://127.0.0.1:8793');
 
+  // The server used to pass none of these, so every web-launched variant ran
+  // with `credentials: undefined`: the neutral Gemini arm then built its
+  // provider with no key and fell through to `GOOGLE_GENERATIVE_AI_API_KEY`,
+  // which is not the variable the rest of squad uses. Read once at boot,
+  // keyed by provider — `launchExperiment` refuses a variant whose vendor is
+  // missing, so an absent key is a 422 at launch and not a failed model call
+  // four minutes in.
+  const credentials: Record<string, VendorCredentials> = {};
+  for (const provider of ['anthropic', 'gemini'] as const) {
+    const loaded = loadCredentials(provider, { optional: true });
+    if (loaded.anthropicApiKey || loaded.geminiApiKey) credentials[provider] = loaded;
+  }
+
   const { url } = await startLabServer({
     token,
     ...(evalToken ? { evalToken } : {}),
+    credentials,
     adpUrl,
     port: Number(arg('port', '7317')),
   });
 
+  const armed = Object.keys(credentials);
   console.log(`→ squad-lab on ${url}`);
   console.log(`   ADP    : ${adpUrl}`);
   console.log(`   scoring: ${evalToken ? 'on — two identities asserted at boot' : 'off — no eval token'}`);
+  console.log(
+    `   vendors: ${armed.length ? `${armed.join(', ')} — key resolved` : 'none — no vendor key found'}`,
+  );
   await new Promise<void>(() => {});
   return 0;
 }

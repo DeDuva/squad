@@ -19,7 +19,8 @@ export type Warning =
   | { kind: 'cost_incomparable'; providers: string[] }
   | { kind: 'unscored'; variantId: string }
   | { kind: 'run_missing'; variantId: string }
-  | { kind: 'tools_not_like_for_like'; variantIds: string[] };
+  | { kind: 'tools_not_like_for_like'; variantIds: string[] }
+  | { kind: 'harness_mismatch'; harnesses: { harness: string; impl?: string; variantIds: string[] }[] };
 
 export interface Summary {
   experimentId: string;
@@ -163,6 +164,31 @@ export async function buildSummary(exp: Experiment, ep: AdpEndpoint): Promise<Su
     warnings.push({
       kind: 'tools_not_like_for_like',
       variantIds: withBuiltins.map((r) => r.variantId ?? r.runId),
+    });
+  }
+
+  // Runs driven by different agent loops, in one table.
+  //
+  // Deliberate — one model under both arms is the comparison the lab exists
+  // for — but the rows are then not like-for-like, and a single ranking across
+  // them would read as a statement about the models. The digest is the
+  // attested one from the run's own labels, so this is a fact about what ADP
+  // holds rather than about what the lab meant to do.
+  const byHarness = new Map<string, { impl?: string; variantIds: string[] }>();
+  for (const row of rows) {
+    const harness = row.labels?.['harness'];
+    if (!harness) continue;
+    const band = byHarness.get(harness) ?? {
+      ...(row.labels?.['harness_impl'] ? { impl: row.labels['harness_impl'] } : {}),
+      variantIds: [],
+    };
+    band.variantIds.push(row.variantId ?? row.runId);
+    byHarness.set(harness, band);
+  }
+  if (byHarness.size > 1) {
+    warnings.push({
+      kind: 'harness_mismatch',
+      harnesses: [...byHarness].map(([harness, band]) => ({ harness, ...band })),
     });
   }
 

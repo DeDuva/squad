@@ -35,6 +35,17 @@ export interface VariantPlan {
   provider: SquadProvider;
   model?: string;
   tier?: 'premium' | 'standard' | 'fast';
+  /**
+   * Which agent loop drives this variant, overriding the experiment's own.
+   *
+   * The harness is an experiment-wide setting by default, because varying it
+   * *accidentally* between variants is the confound this whole file exists to
+   * prevent. Varying it deliberately is the opposite: one model, one charter,
+   * one tool surface, two loops, and the difference is the scaffold. That
+   * comparison is unreachable without this field, and the summary bands the
+   * arms rather than ranking across them.
+   */
+  harnessImpl?: HarnessImpl;
   /** `${experimentId}:${id}` — the run's idempotency key. */
   externalRef: string;
 }
@@ -155,7 +166,13 @@ export interface CreateExperimentInput {
   goal: { title: string; body: string };
   adp: AdpEndpoint & { tokenEnv: string };
   seed: { repoUrl: string; ref?: string };
-  variants: { id?: string; provider: SquadProvider; model?: string; tier?: 'premium' | 'standard' | 'fast' }[];
+  variants: {
+    id?: string;
+    provider: SquadProvider;
+    model?: string;
+    tier?: 'premium' | 'standard' | 'fast';
+    harnessImpl?: HarnessImpl;
+  }[];
   grader?: { path: string; primaryAxis?: string };
   agents?: AgentSpec[];
   routing?: RoutingRule[];
@@ -191,9 +208,12 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
 
   const seen = new Set<string>();
   const variants: VariantPlan[] = input.variants.map((v, i) => {
-    // Two variants on one vendor is a legitimate experiment (two tiers, or two
-    // attempts), so the id has to stay unique without assuming one per vendor.
-    let vid = v.id ?? (v.tier ? `${v.provider}-${v.tier}` : v.provider);
+    // Two variants on one vendor is a legitimate experiment (two tiers, two
+    // harnesses, or two attempts), so the id has to stay unique without
+    // assuming one per vendor. The harness joins the name whenever a variant
+    // names its own: `anthropic-standard` twice, differing only by a suffix
+    // nothing explains, is a summary nobody can read.
+    let vid = v.id ?? [v.provider, v.tier, v.harnessImpl].filter(Boolean).join('-');
     if (seen.has(vid)) vid = `${vid}-${i + 1}`;
     seen.add(vid);
     return {
@@ -201,6 +221,7 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
       provider: v.provider,
       ...(v.model ? { model: v.model } : {}),
       ...(v.tier ? { tier: v.tier } : {}),
+      ...(v.harnessImpl ? { harnessImpl: v.harnessImpl } : {}),
       externalRef: `${id}:${vid}`,
     };
   });
@@ -286,6 +307,7 @@ export async function launchExperiment(
   options: LaunchOptions,
 ): Promise<VariantResult[]> {
   const evalEndpoint = await resolveEvalEndpoint(experiment, options);
+  assertVendorCredentials(experiment, options);
 
   experiment.status = 'running';
   saveExperiment(experiment);
@@ -305,6 +327,39 @@ export async function launchExperiment(
   experiment.status = results.every((r) => r.outcome === 'error') ? 'failed' : 'complete';
   saveExperiment(experiment);
   return results;
+}
+
+/** The arm a variant runs under: its own if it names one, else the experiment's. */
+export function harnessImplFor(experiment: Experiment, plan: VariantPlan): HarnessImpl | undefined {
+  return plan.harnessImpl ?? experiment.harness?.harnessImpl;
+}
+
+/**
+ * Every vendor key the launch will need, checked before the first clone.
+ *
+ * The native Anthropic arm inherits the `claude` CLI's credential chain and so
+ * needs nothing here. Every other cell needs a key in hand, and the moment to
+ * discover it is missing is now — not after three sibling variants have run to
+ * completion and spent real money, which is what happened when the server
+ * forwarded no credentials at all.
+ */
+function assertVendorCredentials(experiment: Experiment, options: LaunchOptions): void {
+  const missing: string[] = [];
+  for (const plan of experiment.variants) {
+    const creds = options.credentials?.[plan.id] ?? options.credentials?.[plan.provider] ?? {};
+    const impl = harnessImplFor(experiment, plan) ?? 'squad-native';
+    const needed = plan.provider === 'gemini' ? creds.geminiApiKey : creds.anthropicApiKey;
+    if (needed) continue;
+    // The one exemption, and it is the harness's doing rather than the vendor's.
+    if (plan.provider === 'anthropic' && impl === 'squad-native') continue;
+    missing.push(`${plan.id} (${plan.provider}, ${impl})`);
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `no vendor key for ${missing.join(', ')} — the lab holds no usable credential for ` +
+        'these variants, and a launch that spends on its siblings first has failed later than it had to',
+    );
+  }
 }
 
 async function sequential<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -641,7 +696,9 @@ function runVariantChild(
         ...(experiment.harness?.toolSurface ? { toolSurface: experiment.harness.toolSurface } : {}),
         ...(experiment.harness?.systemPrompt ? { systemPrompt: experiment.harness.systemPrompt } : {}),
         ...(experiment.harness?.maxToolRounds ? { maxToolRounds: experiment.harness.maxToolRounds } : {}),
-        ...(experiment.harness?.harnessImpl ? { harnessImpl: experiment.harness.harnessImpl } : {}),
+        // The variant's own arm wins over the experiment's default, which is
+        // what makes "same model, both harnesses" one experiment.
+        ...(harnessImplFor(experiment, plan) ? { harnessImpl: harnessImplFor(experiment, plan) } : {}),
       },
     });
   });

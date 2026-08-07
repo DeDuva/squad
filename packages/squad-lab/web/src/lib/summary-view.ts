@@ -79,6 +79,9 @@ export interface AxisCell {
   rank: number | null;
   passed: boolean;
   display: string;
+  /** The attested harness digest, when the run carried one. */
+  harness?: string;
+  harnessImpl?: string;
 }
 
 export interface AxisColumn {
@@ -87,9 +90,19 @@ export interface AxisColumn {
   specDigest?: string;
   /** True when variants disagree on the rubric; ranks are suppressed. */
   mismatched: boolean;
+  /**
+   * True when the column spans more than one harness.
+   *
+   * Ranks are then computed **within** each harness rather than across the
+   * column: two loops driving the same model is a comparison of the loops, and
+   * a single ordering over both would be read as a comparison of the models.
+   */
+  banded: boolean;
   note?: string;
   cells: AxisCell[];
 }
+
+const harnessOf = (row: SummaryRowView): string => row.labels?.['harness'] ?? '';
 
 /** `— not measured`, never `0.00`: the two mean opposite things. */
 export function formatScore(score: number | null): string {
@@ -111,20 +124,31 @@ export function axisColumn(summary: SummaryView, axis: string): AxisColumn {
   const digests = [...new Set(found.map((x) => x.hit!.specDigest))];
   const mismatched = digests.length > 1;
 
+  const banded = new Set(found.map((x) => harnessOf(x.row))).size > 1;
+
   const scored = found
     .filter((x) => x.hit!.score !== null)
     .sort((a, b) => b.hit!.score! - a.hit!.score!);
 
+  // One ranking per harness when the column is banded, one overall when it is
+  // not. Same tie rules either way: equal scores share a position.
   const ranks = new Map<string, number>();
-  let rank = 0;
-  let last: number | null = null;
-  scored.forEach((x, i) => {
-    if (x.hit!.score !== last) {
-      rank = i + 1;
-      last = x.hit!.score;
-    }
-    ranks.set(x.row.runId, rank);
-  });
+  const groups = banded
+    ? [...new Set(scored.map((x) => harnessOf(x.row)))].map((h) =>
+        scored.filter((x) => harnessOf(x.row) === h),
+      )
+    : [scored];
+  for (const group of groups) {
+    let rank = 0;
+    let last: number | null = null;
+    group.forEach((x, i) => {
+      if (x.hit!.score !== last) {
+        rank = i + 1;
+        last = x.hit!.score;
+      }
+      ranks.set(x.row.runId, rank);
+    });
+  }
 
   const cells: AxisCell[] = summary.rows.map((row) => {
     const hit = evalsOf(row).find((e) => e.name === axis);
@@ -138,6 +162,8 @@ export function axisColumn(summary: SummaryView, axis: string): AxisColumn {
       rank: mismatched ? null : (ranks.get(row.runId) ?? null),
       passed: hit?.passed ?? false,
       display: formatScore(score),
+      ...(row.labels?.['harness'] ? { harness: row.labels['harness'] } : {}),
+      ...(row.labels?.['harness_impl'] ? { harnessImpl: row.labels['harness_impl'] } : {}),
     };
   });
 
@@ -154,7 +180,12 @@ export function axisColumn(summary: SummaryView, axis: string): AxisColumn {
     axis,
     ...(digests[0] ? { specDigest: digests[0] } : {}),
     mismatched,
-    ...(mismatched ? { note: 'scored under different rubrics — not a ranking' } : {}),
+    banded,
+    ...(mismatched
+      ? { note: 'scored under different rubrics — not a ranking' }
+      : banded
+        ? { note: 'ranked within each harness — the arms are not like-for-like' }
+        : {}),
     cells,
   };
 }
@@ -270,6 +301,13 @@ export function describeWarning(warning: { kind: string; [k: string]: unknown })
       return `${warning['variantId']} produced no run`;
     case 'tools_not_like_for_like':
       return `tool totals are not like-for-like: ${(warning['variantIds'] as string[])?.join(', ')} had backend-supplied tools as well`;
+    case 'harness_mismatch': {
+      const bands = (warning['harnesses'] as { impl?: string; harness: string; variantIds: string[] }[]) ?? [];
+      const described = bands
+        .map((b) => `${b.impl ?? b.harness.slice(0, 8)} (${b.variantIds.join(', ')})`)
+        .join(' vs ');
+      return `these runs were driven by different harnesses — ${described} — so each axis is ranked within a harness, not across them`;
+    }
     default:
       return warning.kind;
   }

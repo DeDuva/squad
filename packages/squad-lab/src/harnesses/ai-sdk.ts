@@ -28,8 +28,9 @@
  *    of the pattern, avoided by not owning the wire format.
  */
 
-import { anthropic } from '@ai-sdk/anthropic';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { VENDORS } from '@deduvafork/squad-sdk/config/vendors';
 import { generateText, jsonSchema, stepCountIs, tool, type LanguageModel, type ModelMessage } from 'ai';
 import { randomUUID } from 'node:crypto';
 
@@ -103,16 +104,20 @@ function readToolResult(raw: unknown): { text: string; failed: boolean } {
 /**
  * One line per provider, which is the point of the abstraction.
  *
- * Gemini's key is passed explicitly rather than left to the environment: the
+ * Both keys are passed explicitly rather than left to the environment: the
  * lab's rule everywhere else is that `GEMINI_API_KEY` merely being set does not
  * select that vendor, and a harness that picked a provider up from ambient
- * state would be a second way for a run to differ without saying so.
+ * state would be a second way for a run to differ without saying so. Anthropic
+ * used to be the exception — a bare `anthropic(id)` reading whatever
+ * `ANTHROPIC_API_KEY` happened to hold — which made the one arm this file was
+ * written to enable the one arm that broke its own rule.
  */
 function defaultResolver(options: AiSdkHarnessOptions): (id: string) => LanguageModel {
   if (options.provider === 'gemini') {
     const google = createGoogleGenerativeAI(options.apiKey ? { apiKey: options.apiKey } : {});
     return (id: string) => google(id);
   }
+  const anthropic = createAnthropic(options.apiKey ? { apiKey: options.apiKey } : {});
   return (id: string) => anthropic(id);
 }
 
@@ -123,7 +128,9 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
     const sessionId = randomUUID();
     const agentName = config.agentName ?? 'agent';
     const budget = config.maxToolRounds ?? options.defaultMaxToolRounds ?? 120;
-    const modelId = config.model ?? options.model ?? 'claude-sonnet-4-5';
+    // The registry, not a literal. The last hardcoded default outlived the
+    // model it named and pointed at an id the vendor list no longer carried.
+    const modelId = config.model ?? options.model ?? VENDORS[options.provider].models.standard;
     const labTools = (config.tools ?? []) as unknown as LabToolLike[];
     const resolveModel = options.resolveModel ?? defaultResolver(options);
 
@@ -170,12 +177,24 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
       ]),
     );
 
+    // No `session:created` here, and no `session:message` either. Both were
+    // tried and both were wrong: fan-out emits the lifecycle pair around
+    // whatever session factory it was handed, so emitting one here would
+    // double-count it, and *neither* arm emits `session:message` — the
+    // recorder's `kind: 'message'` case is reachable only from a producer that
+    // does not exist yet. Adding it to this arm alone would have created the
+    // asymmetry this file exists to remove, in the other direction.
     const runTurn = async (prompt: string): Promise<string> => {
       abortRequested = false;
       controller = new AbortController();
       messages.push({ role: 'user', content: prompt });
 
       let steps = 0;
+      // Wall-clock per step, kept here because the SDK reports usage without
+      // timing and ADP has a `duration_ms` column per event. Left unset, every
+      // model call on this arm recorded 0 against the native arm's real
+      // seconds — a run that looks instant rather than one that was.
+      let stepStartedAt = Date.now();
       try {
         const result = await generateText({
           model: resolveModel(modelId),
@@ -192,6 +211,8 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
           abortSignal: controller.signal,
           onStepFinish: (step) => {
             steps += 1;
+            const durationMs = Date.now() - stepStartedAt;
+            stepStartedAt = Date.now();
             const inputTokens = step.usage?.inputTokens ?? 0;
             const outputTokens = step.usage?.outputTokens ?? 0;
             const cachedInputTokens = step.usage?.cachedInputTokens ?? 0;
@@ -213,6 +234,7 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
               ...(priced.costUsd === null ? {} : { estimatedCost: priced.costUsd }),
               costBasis: priced.basis,
               ...(priced.tableDigest ? { priceTable: priced.tableId, priceTableDigest: priced.tableDigest } : {}),
+              durationMs,
               agentName,
             });
           },
@@ -229,8 +251,12 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
         return result.text;
       } catch (err) {
         if (abortRequested || controller.signal.aborted) {
-          // We stopped it, so this is an outcome and not an error.
-          emit('agent:milestone', { event: 'budget.exhausted', agentName, rounds: steps, budget });
+          // We stopped it, so this is an outcome and not an error — but it is
+          // not the *same* outcome as running out of rounds, and this used to
+          // report both as `budget.exhausted`. A variant stopped by its
+          // deadline would then be recorded as having spent a budget it never
+          // reached, which is a wrong answer to "why did this one stop?".
+          emit('agent:milestone', { event: 'turn.aborted', agentName, rounds: steps, budget });
           return '';
         }
         emit('session:error', { agentName, error: (err as Error).message });

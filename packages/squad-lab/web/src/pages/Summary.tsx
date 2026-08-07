@@ -86,6 +86,12 @@ export default function Summary() {
                   <td>
                     <Link to={`/e/${id}/v/${variantId}`}>{variantId}</Link>
                     <div className="muted">{row.labels?.['model'] ?? row.provider ?? ''}</div>
+                    {/* The arm, attested on the run rather than remembered by
+                        the lab. Without it two rows differing only by harness
+                        read as one configuration scoring twice. */}
+                    {row.labels?.['harness_impl'] && (
+                      <div className="digest">{row.labels['harness_impl']}</div>
+                    )}
                   </td>
                   {columns.map((column) => {
                     const cell = column.cells.find((c) => c.runId === row.runId)!;
