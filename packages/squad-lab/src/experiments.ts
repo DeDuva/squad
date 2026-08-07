@@ -277,6 +277,14 @@ export interface LaunchOptions {
   evalToken?: string;
   /** Run variants one at a time. Slower, and removes every isolation risk but cwd. */
   sequential?: boolean;
+  /**
+   * Most variants in flight at once. Defaults to all of them.
+   *
+   * Matters for any experiment large enough to be a study: forty concurrent
+   * agents share one machine and one rate limit, and the durations they record
+   * then describe the contention rather than the work.
+   */
+  maxConcurrency?: number;
   credentials?: Record<string, { geminiApiKey?: string; anthropicApiKey?: string }>;
   onPhase?: (variantId: string, phase: string, detail?: unknown) => void;
   onEvent?: (variantId: string, event: unknown) => void;
@@ -320,12 +328,36 @@ export async function launchExperiment(
     await gradeIfConfigured(experiment, plan, result, evalEndpoint, options);
     return result;
   };
-  const results = options.sequential
-    ? await sequential(experiment.variants, runOne)
-    : await Promise.all(experiment.variants.map(runOne));
+  // `sequential` is the same thing as a pool of one, and saying so keeps one
+  // scheduler rather than two.
+  const limit = options.sequential ? 1 : Math.max(1, options.maxConcurrency ?? experiment.variants.length);
+  const results = await pooled(experiment.variants, limit, runOne);
 
   experiment.status = results.every((r) => r.outcome === 'error') ? 'failed' : 'complete';
   saveExperiment(experiment);
+  return results;
+}
+
+/**
+ * Run at most `limit` variants at once, preserving input order in the results.
+ *
+ * Unbounded fan-out is fine for the four-cell experiments this started as and
+ * wrong for a study: forty agents on one machine contend for CPU, file handles
+ * and the same rate limit, and every duration the run records then measures the
+ * contention instead of the work. A variance study whose noise floor is its own
+ * scheduler cannot answer the question it was built to ask.
+ */
+async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      results[index] = await fn(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
 }
 
@@ -360,12 +392,6 @@ function assertVendorCredentials(experiment: Experiment, options: LaunchOptions)
         'these variants, and a launch that spends on its siblings first has failed later than it had to',
     );
   }
-}
-
-async function sequential<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  for (const item of items) out.push(await fn(item));
-  return out;
 }
 
 /**
