@@ -223,11 +223,11 @@ jobs:
           print(f"stats bridge ok, computed by adp-replay {v}")
           PY
 
-      - name: Install node dependencies
-        run: npm ci --ignore-scripts
-
-      - name: duva-bench tests
-        run: npx vitest run test/lab-duvabench-*.test.ts
+      # Deliberately no TypeScript tests here. The `test` job above already runs
+      # them, and running them a second time would need a full workspace build
+      # for squad-sdk/dist — cost with no coverage. This job exists for the one
+      # thing nothing else does: proving the statistics install from their pin
+      # and answer.
 
   # Skip labels: skip-changelog, skip-exports-check, skip-samples-ci,
   # skip-workspace-check, skip-version-check, skip-export-smoke, large-deletion-approved
