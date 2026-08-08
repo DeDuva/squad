@@ -31,6 +31,8 @@ commands:
   version              print the package version
   harness-check        certify each arm against the 8-clause contract
                        (costs a few model calls per arm; no ADP)
+  validate             check a study spec and report every problem at once
+  digest               print the study digest, arm digests and prereg readings
   goal                 file a goal issue, minting the intent runs hang off
   trial                run exactly one trial against an existing intent
 
@@ -39,6 +41,7 @@ options:
   --help, -h           print this message
   --provider=<name>    harness-check: providers to certify (comma-separated,
                        default anthropic,gemini)
+  --file=<path>        validate/digest: the study spec (YAML or JSON)
 `;
 
 /**
@@ -69,6 +72,15 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     const { runHarnessCheck } = await import('./harness-check.js');
     const result = await runHarnessCheck(providers, process.cwd());
     return { code: result.failed === 0 ? 0 : 1, stdout: result.output, stderr: '' };
+  }
+
+  if (command === 'validate' || command === 'digest') {
+    const flag = argv.find((a) => a.startsWith('--file='));
+    if (!flag) {
+      return { code: 2, stdout: '', stderr: `duva-bench ${command}: missing required --file=\n` };
+    }
+    const { describeStudyFile } = await import('./study-report.js');
+    return describeStudyFile(flag.slice('--file='.length), command);
   }
 
   if (command === 'goal' || command === 'trial') {

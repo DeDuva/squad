@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@deduvafork/squad-lab": "*",
-    "@deduvafork/squad-sdk": "*"
+    "@deduvafork/squad-sdk": "*",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

@@ -24,5 +24,26 @@ export type {
   TrialOutcome,
   TrialPhase,
 } from './runner.js';
+export {
+  Study,
+  Arm,
+  TaskRef,
+  ModelRef,
+  PreRegistration,
+  Amendment,
+  ExclusionRule,
+  ToolsetRef,
+  armDigest,
+  armFingerprint,
+  digestOf,
+  parseStudy,
+  preAmendmentOf,
+  preRegistrationReading,
+  shortDigest,
+  studyDigest,
+  studyFingerprint,
+} from './study.js';
+export type { DocsGrade, HarnessRef, Topology, ParseResult, PreRegistrationReading } from './study.js';
+export { loadStudyFile, graderSha256, resolveFrom } from './study-file.js';
 export { openArm, resolveArmModel } from './arms/index.js';
 export type { ArmHarness, ArmSpec, OpenArm, OpenArmContext } from './arms/index.js';
