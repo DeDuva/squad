@@ -284,6 +284,16 @@ the file, subscribe-before-read, cache keyed by file path.
 **Done when:** `npm run ui-check` (Playwright) walks define → run (smoke) → analyze; server
 kill/restart mid-study loses no frames (`Last-Event-ID` resume test).
 
+**Which option was taken (recorded 2026-08-08):** *mount alongside*, not *extend*. duva-bench
+serves its own Fastify instance and a single no-build page (`src/server-page.ts`); squad-lab's
+React SPA is untouched. The reasoning is in that file's own header — this package has no bundler,
+and adding Vite plus React to something whose purpose is to stay liftable into a standalone repo
+would buy three views at the price of a build pipeline to maintain and then extract.
+
+This is one of the two options the deliverable above offers, so it is a **choice, not a
+deviation** — noted because the plan left the choice open and nothing recorded which way it went.
+A later audit read the no-build page as an unresolved deviation on exactly that basis.
+
 ### S7 — Study A, squad track
 
 **Deliverable:** `studies/a-tool-familiarity/` — **the same tasks and graders as the Harbor
