@@ -1,0 +1,10 @@
+# The statistics both duva-bench tracks share.
+#
+# Pinned by commit, not by range. Two tracks whose numbers are meant to differ
+# only by their data cannot float their statistics independently, and a study
+# re-analysed months later must give the same answer or say why. `statsVersion`
+# in the study digest records which pin produced a result, so changing this line
+# changes the digest rather than quietly changing the numbers.
+#
+# Bumping: change the sha, run scripts/setup-stats.sh, re-run the analysis tests.
+adp-replay @ git+https://github.com/DeDuva/adp-replay@18dfbbdbb5a0d4f5bbecbb29a23eed0e96373d9f

@@ -53,3 +53,7 @@ artifacts/
 
 # The ADP recorder's durable buffer: a crash-recovery log, never history.
 .squad/spool/
+
+# Built by packages/duva-bench/scripts/setup-stats.sh from a pinned requirements
+# file. Never committed: it holds an installed copy of adp-replay.
+packages/duva-bench/.venv/

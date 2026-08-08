@@ -8,14 +8,15 @@
  * statistics did — and the pair of tracks is itself an experiment, so that
  * ambiguity would be fatal to the point of running both.
  *
- * It is a subprocess rather than a port because the library is Python and the
- * venv already exists. No install step, no dependency added here: the path is
- * configurable and the failure when it is absent says exactly what is missing.
+ * It is a subprocess rather than a port because the library is Python. The venv
+ * lives inside this package and is built by `scripts/setup-stats.sh` from a
+ * commit-pinned requirements file, so a fresh clone can reproduce an analysis
+ * without a sibling working copy on disk. The path stays configurable, and the
+ * failure when it is absent says exactly what is missing and how to fix it.
  */
 
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -56,6 +57,13 @@ export interface PairStat {
 }
 
 export interface StatsResult {
+  /**
+   * The adp-replay version that computed this, or `unknown` when it is not
+   * installed as a package. Travels with the answer rather than the study
+   * digest: re-analysing a study does not make it a different study, but a
+   * number computed by different statistics is a different number.
+   */
+  stats_version: string;
   axis: string | null;
   baseline: string | null;
   seed: number;
@@ -65,9 +73,24 @@ export interface StatsResult {
   pairs: PairStat[];
 }
 
-/** The interpreter that already has the library. Overridable, never installed. */
+/**
+ * The interpreter that has the library.
+ *
+ * Defaults to a venv **inside this package**, built by `scripts/setup-stats.sh`
+ * from a commit-pinned `requirements-stats.txt`. It used to default to
+ * `~/dev/adp-replay/.venv` — a sibling working copy — which meant the statistics
+ * behind a published number were whatever happened to be checked out on one
+ * laptop, that CI could not run this path at all, and that nothing recorded
+ * which version produced a result.
+ *
+ * `DUVA_BENCH_PYTHON` still overrides, for anyone who has the library elsewhere.
+ */
+export function packageVenvPython(): string {
+  return join(dirname(dirname(fileURLToPath(import.meta.url))), '.venv', 'bin', 'python');
+}
+
 export function pythonPath(env: NodeJS.ProcessEnv = process.env): string {
-  return env.DUVA_BENCH_PYTHON ?? join(homedir(), 'dev', 'adp-replay', '.venv', 'bin', 'python');
+  return env.DUVA_BENCH_PYTHON ?? packageVenvPython();
 }
 
 export function bridgeScript(): string {
@@ -87,7 +110,8 @@ export async function pairedStats(request: StatsRequest): Promise<StatsResult> {
   const python = pythonPath();
   if (!existsSync(python)) {
     throw new StatsBridgeUnavailable(
-      `no Python interpreter at ${python} — set DUVA_BENCH_PYTHON to one with adp_replay on its path`,
+      `no Python interpreter at ${python}. Run packages/duva-bench/scripts/setup-stats.sh to ` +
+        `build it, or set DUVA_BENCH_PYTHON to one that already has adp_replay installed.`,
     );
   }
 
