@@ -17,6 +17,7 @@ import type { StreamDelta } from '@bradygaster/squad-sdk';
 
 // Client sub-path exports: SquadClientWithPool, EventBus
 import { SquadClientWithPool, EventBus } from '@bradygaster/squad-sdk/client';
+import type { SquadSession } from '@bradygaster/squad-sdk/client';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Agent definitions
@@ -28,6 +29,7 @@ interface AgentInfo {
   color: string;
   keywords: string[];
   sessionId?: string;
+  session?: SquadSession;
   systemPrompt: string;
 }
 
@@ -133,29 +135,20 @@ async function simulateStreaming(
 // ────────────────────────────────────────────────────────────────────────────
 
 async function sendLiveMessage(
-  client: SquadClientWithPool,
   pipeline: StreamingPipeline,
   agent: AgentInfo,
   message: string,
 ): Promise<void> {
   const sessionId = agent.sessionId;
-  if (!sessionId) {
+  // Hold onto the SquadSession handle returned by createSession rather than
+  // looking it up again by id — SquadClientWithPool has no resumeSession.
+  const session = agent.session;
+  if (!sessionId || !session) {
     console.error(`  ${DIM}(no session for ${agent.name})${RESET}`);
     return;
   }
 
   pipeline.markMessageStart(sessionId);
-
-  // Retrieve the session from the pool and send
-  const sessions = await client.listSessions();
-  const meta = sessions.find((s) => s.sessionId === sessionId);
-  if (!meta) {
-    console.error(`  ${DIM}(session ${sessionId} not found)${RESET}`);
-    return;
-  }
-
-  // Resume the session to get a SquadSession handle, then send
-  const session = await client.resumeSession(sessionId);
 
   // Register delta listener to feed the pipeline
   const handler = (event: { type: string; [key: string]: unknown }) => {
@@ -244,6 +237,7 @@ export async function main(): Promise<void> {
           systemMessage: { mode: 'append', content: agent.systemPrompt },
         });
         agent.sessionId = session.sessionId;
+        agent.session = session;
         pipeline.attachToSession(session.sessionId);
       }
 
@@ -308,7 +302,7 @@ export async function main(): Promise<void> {
 
     // Stream response
     if (client) {
-      await sendLiveMessage(client, pipeline, agent, input);
+      await sendLiveMessage(pipeline, agent, input);
     } else {
       await simulateStreaming(pipeline, agent, input);
     }

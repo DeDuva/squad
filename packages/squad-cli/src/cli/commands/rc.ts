@@ -8,8 +8,8 @@
 import path from 'node:path';
 // createReadStream retained — streaming not in StorageProvider scope
 import { createReadStream } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { FSStorageProvider, RemoteBridge } from '@deduvafork/squad-sdk';
+import { resolveRemoteUiDir } from '../core/remote-ui-dir.js';
 
 const storage = new FSStorageProvider();
 import type { RemoteBridgeConfig } from '@deduvafork/squad-sdk';
@@ -111,10 +111,7 @@ export async function runRC(cwd: string, options: RCOptions): Promise<void> {
 
   // Serve PWA static files
   bridge.setStaticHandler((req, res) => {
-    const uiDir = path.resolve(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../../remote-ui'
-    );
+    const uiDir = resolveRemoteUiDir();
 
     // #18: Guard against malformed URI encoding
     let decodedUrl: string;

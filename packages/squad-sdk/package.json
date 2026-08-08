@@ -1,6 +1,6 @@
 {
   "name": "@deduvafork/squad-sdk",
-  "version": "0.11.0-build.6",
+  "version": "0.12.0-preview",
   "description": "Squad SDK \u2014 Programmable multi-agent runtime",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,10 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js"
+    },
+    "./adp": {
+      "types": "./dist/adp/index.d.ts",
+      "import": "./dist/adp/index.js"
     },
     "./config": {
       "types": "./dist/config/index.d.ts",

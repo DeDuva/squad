@@ -91,19 +91,30 @@ This project is in **consult mode**. Your personal squad has been copied into \`
 function getSquadAgentTemplatePath(): string | null {
   // Use fileURLToPath for cross-platform compatibility (handles Windows drive letters, URL encoding)
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  
-  // Try relative to this file (in dist/)
+
+  // Try relative to this file, assuming it's squad-sdk's own dist/sharing/consult.js
+  // (true when squad-sdk runs unbundled, e.g. as a normal node_modules dependency).
   const distPath = path.resolve(currentDir, '../../templates/squad.agent.md.template');
   if (storage.existsSync(distPath)) {
     return distPath;
   }
-  
-  // Try relative to package root
+
+  // When squad-sdk's source is esbuild-bundled into squad-cli's single-file
+  // dist/squad.js (airgap build), import.meta.url points at squad-cli/dist/
+  // instead of squad-sdk/dist/sharing/ — the two extra path segments above no
+  // longer apply. squad-cli ships its own synced copy of the templates dir as
+  // a sibling of dist/, so check that location before falling back further.
+  const siblingPath = path.resolve(currentDir, '../templates/squad.agent.md.template');
+  if (storage.existsSync(siblingPath)) {
+    return siblingPath;
+  }
+
+  // Monorepo dev fallback — checked last, same reasoning as getSDKTemplatesDir().
   const pkgPath = path.resolve(currentDir, '../../../templates/squad.agent.md.template');
   if (storage.existsSync(pkgPath)) {
     return pkgPath;
   }
-  
+
   return null;
 }
 

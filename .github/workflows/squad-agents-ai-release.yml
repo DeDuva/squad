@@ -14,8 +14,10 @@
 # secret — the username is non-sensitive.
 #
 # ## Failure recovery
-# Publishing is branch-driven: dev creates prerelease NuGet packages, main creates stable NuGet
-# packages, and workflow_dispatch remains an escape hatch. PACKAGE_VERSION is resolved once
+# Publishing is branch-driven: main creates stable NuGet packages on push. dev still creates
+# prerelease packages, but only via workflow_dispatch — dev is the trunk every PR merges into,
+# and a NuGet prerelease on every merge is not wanted. workflow_dispatch also remains the escape
+# hatch for publishing an explicit version. PACKAGE_VERSION is resolved once
 # before build/test/pack/push and the nupkgs/* artifacts are uploaded before the registry write.
 # If a run is interrupted after NuGet accepted the package but before the workflow completes,
 # rerun the same workflow/run: NuGet package versions are immutable and `--skip-duplicate`
@@ -36,7 +38,6 @@ on:
         type: string
   push:
     branches:
-      - dev
       - main
     paths:
       - 'src/Squad.Agents.AI/**'
