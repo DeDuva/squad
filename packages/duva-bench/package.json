@@ -1,0 +1,28 @@
+{
+  "name": "@deduvafork/duva-bench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Define, execute, and analyze controlled factorial experiments over coding-agent arms, recorded in ADP.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "bench": "npx tsx src/cli.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@deduvafork/squad-lab": "*",
+    "@deduvafork/squad-sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}
