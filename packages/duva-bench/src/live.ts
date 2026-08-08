@@ -21,7 +21,10 @@ import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from '@de
 import { runTrial, type TrialResult } from './runner.js';
 import { resolveArmModel, type ArmHarness, type ArmSpec } from './arms/index.js';
 import { vendorKey } from './credentials.js';
-import { loadStudyFile } from './study-file.js';
+import { readFileSync } from 'node:fs';
+
+import { loadStudyFile, resolveFrom } from './study-file.js';
+import { runStudy } from './scheduler.js';
 import { armDigest, shortDigest, studyDigest, type Arm, type DocsGrade } from './study.js';
 
 /**
@@ -129,13 +132,10 @@ function fromStudy(
   if (!study.tasks.some((t) => t.id === taskId)) {
     throw new Error(`no task '${taskId}' in ${studyPath} — have ${study.tasks.map((t) => t.id).join(', ')}`);
   }
-  if (found.topology === 'swarm') {
-    throw new Error(`arm '${armId}' is a swarm topology, which arrives in S4`);
-  }
-
   const arm: ArmSpec = {
     id: found.id,
     harness: found.harness,
+    topology: found.topology,
     provider: found.model.provider,
     ...(found.model.tier ? { tier: found.model.tier } : {}),
     ...(found.model.model ? { model: found.model.model } : {}),
@@ -163,6 +163,62 @@ function fromStudy(
       docsGrade: found.toolset.docsGrade,
     },
   };
+}
+
+/**
+ * Run a whole study: plan, fan out, resume, report.
+ *
+ * `resolveTask` reads each task's goal from disk — first line the title, the
+ * rest the body — and hands over its seed path. The seed must already be a git
+ * repository, because that is what a trial clones; the examples ship a
+ * `make-seed.mjs` that materialises one.
+ */
+export async function runStudyCommand({ argv, env }: CliIo): Promise<{ report: string; code: number }> {
+  const ep = endpoint(argv, env);
+  const specPath = required(argv, 'file');
+  const loaded = loadStudyFile(specPath);
+  if (!loaded.ok) {
+    throw new Error(
+      `study ${specPath} is not valid:\n` + loaded.errors.map((e) => `  ${e.path}: ${e.message}`).join('\n'),
+    );
+  }
+
+  const root = arg(argv, 'root') ?? mkdtempSync(join(tmpdir(), 'duva-bench-study-'));
+  const result = await runStudy({
+    study: loaded.study,
+    ep,
+    root,
+    resolveTask: (task) => {
+      const text = readFileSync(resolveFrom(specPath, task.goal), 'utf8');
+      const lines = text.split('\n');
+      return {
+        title: (lines[0] ?? '').replace(/^#\s*/, '').trim(),
+        body: lines.slice(1).join('\n').trim(),
+        seed: resolveFrom(specPath, task.seed),
+      };
+    },
+    onEvent: (event) => {
+      if (env.DUVA_BENCH_QUIET) return;
+      process.stderr.write(`  ${event.kind} ${JSON.stringify(event)}\n`);
+    },
+  });
+
+  const lines = [
+    `study    ${result.studyDigest}`,
+    `planned  ${result.planned}   skipped ${result.skipped}   ran ${result.ran}   failed ${result.failed}`,
+    `spend    $${result.spend.usd.toFixed(4)}${result.spend.unpriced > 0 ? `  (+${result.spend.unpriced} unpriced)` : ''}`,
+    result.budgetStopped ? 'budget   STOPPED — the cap was reached before every trial ran' : `budget   within cap`,
+    '',
+    // Bands, never one ordering: trials that did not run the same program are
+    // not rankable against each other, whatever their scores say.
+    `bands    ${result.bands.length}${result.bands.length > 1 ? ' — this study must not be ranked as a whole' : ''}`,
+  ];
+  for (const band of result.bands) {
+    lines.push(`  ${band.harness}/${band.topology}  arms=[${band.armIds.join(', ')}]  trials=${band.trials}`);
+  }
+  lines.push('', `root     ${root}`);
+
+  return { report: `${lines.join('\n')}\n`, code: result.failed === 0 ? 0 : 1 };
 }
 
 export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: TrialResult; report: string }> {

@@ -114,6 +114,32 @@ export async function createGoal(ep: AdpEndpoint, title: string, body: string): 
   return { issueNumber: issue.number, intentId: issue.intent_id, title: issue.title, body: issue.body };
 }
 
+/**
+ * Find an existing goal by exact title.
+ *
+ * The join a factorial study needs: every arm and every repetition of one task
+ * must hang off *one* intent, or `runs/compare` stops being a comparison and
+ * becomes a list of unrelated runs. Filing the goal again on a resumed study
+ * would mint a second intent and split the cell in half, so a scheduler looks
+ * first and files only if nothing is there.
+ */
+export async function findGoalByTitle(
+  ep: AdpEndpoint,
+  title: string,
+): Promise<Goal | undefined> {
+  const issues = await call<Array<{ number: number; title: string; body?: string; intent_id?: string }>>(
+    ep,
+    'GET',
+    `/api/v3/repos/${ep.owner}/${ep.repo}/issues?per_page=100`,
+  );
+  const hit = issues.find((issue) => issue.title === title);
+  if (!hit) return undefined;
+  if (!hit.intent_id) {
+    throw new Error(`issue #${hit.number} '${title}' has no intent_id; a run cannot be opened against it`);
+  }
+  return { issueNumber: hit.number, intentId: hit.intent_id, title: hit.title, body: hit.body ?? '' };
+}
+
 /** Read a goal back. A variant does this rather than being handed the text. */
 export async function readGoal(ep: AdpEndpoint, issueNumber: number): Promise<{ title: string; body: string }> {
   return call(ep, 'GET', `/api/v3/repos/${ep.owner}/${ep.repo}/issues/${issueNumber}`);

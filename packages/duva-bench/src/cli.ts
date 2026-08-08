@@ -35,6 +35,7 @@ commands:
   digest               print the study digest, arm digests and prereg readings
   goal                 file a goal issue, minting the intent runs hang off
   trial                run exactly one trial against an existing intent
+  study                run every remaining trial of a study, resumably
 
 options:
   --version, -v        print the package version
@@ -81,6 +82,20 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     }
     const { describeStudyFile } = await import('./study-report.js');
     return describeStudyFile(flag.slice('--file='.length), command);
+  }
+
+  if (command === 'study') {
+    try {
+      const { runStudyCommand } = await import('./live.js');
+      const { report, code } = await runStudyCommand({ argv, env: process.env });
+      return { code, stdout: report, stderr: '' };
+    } catch (error) {
+      return {
+        code: 2,
+        stdout: '',
+        stderr: `duva-bench study: ${error instanceof Error ? error.message : String(error)}\n`,
+      };
+    }
   }
 
   if (command === 'goal' || command === 'trial') {

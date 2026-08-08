@@ -12,19 +12,24 @@ import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 import type { SessionFactory } from '@deduvafork/squad-lab/conformance';
 import type { SystemPromptMode, ToolSurface } from '@deduvafork/squad-lab/harness';
 
+/** Which loop drives the model. Orthogonal to topology. */
+export type ArmHarness = 'squad-native' | 'ai-sdk';
+
 /**
- * Which loop drives the model.
+ * How many agents that loop drives, and whether anything routes between them.
  *
- * `swarm` is spec'd here and wired in S4; `openArm` rejects it until then
- * rather than silently running a single agent under a topology label, which
- * would put a wrong `topology` on an attested run.
+ * Separate from `harness` on purpose: conflating them would make "swarm" a
+ * third loop and prevent the contrast that matters — the *same* loop, run as
+ * one agent and as a routed squad, which is the only form in which the topology
+ * effect is isolated from the harness effect.
  */
-export type ArmHarness = 'squad-native' | 'ai-sdk' | 'swarm';
+export type ArmTopology = 'single' | 'swarm';
 
 export interface ArmSpec {
   /** Stable identifier, used in `external_ref` and as a run label. */
   id: string;
   harness: ArmHarness;
+  topology?: ArmTopology;
   provider: SquadProvider;
   /** Explicit model id. Falls back to the vendor's model for `tier`. */
   model?: string;
@@ -32,6 +37,9 @@ export interface ArmSpec {
   toolSurface?: ToolSurface;
   systemPrompt?: SystemPromptMode;
   maxToolRounds?: number;
+  /** Swarm topology only. Folded into `harnessDigest`, so it moves the digest. */
+  agents?: Array<{ name: string; role: string; prompt: string }>;
+  routing?: Array<{ workType: string; agents: string[]; confidence: 'high' | 'medium' | 'low'; examples: string[] }>;
 }
 
 /** An arm that has been connected and can produce sessions. */
@@ -40,6 +48,18 @@ export interface OpenArm {
   /** The model actually resolved, which is what gets recorded. */
   model: string;
   close: () => Promise<void>;
+}
+
+/**
+ * True when an arm's session emits its own `session:created`/`session:destroyed`.
+ *
+ * Lives here rather than beside the swarm so the runner can ask the question
+ * without importing the module that pulls in `SquadCoordinator`. Fan-out emits
+ * the lifecycle pair per agent; a runner that emitted its own on top would open
+ * a phantom ADP session for an agent that never ran.
+ */
+export function emitsOwnLifecycle(session: object): boolean {
+  return (session as { emitsLifecycle?: boolean }).emitsLifecycle === true;
 }
 
 export interface OpenArmContext {
