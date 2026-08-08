@@ -1,0 +1,73 @@
+# Study A's shape, at smoke size: does documentation compensate for unfamiliar
+# tools?
+#
+# Four arms over one model and one harness, so the only thing varying is what
+# the agent knows about its tools:
+#
+#   standard        the real toolset, documented          (control)
+#   twin-none       isomorphic twin, no documentation     (treatment)
+#   twin-reference  isomorphic twin, signatures + summary
+#   twin-rich       isomorphic twin, + worked examples
+#
+# The twin arms share one `twinSeed`, so they meet the *same* unfamiliar tools
+# and differ only in the doc bundle. A different seed per arm would confound
+# documentation with which nonsense names happened to be drawn.
+title: twin familiarity — does documentation buy back an unfamiliar toolset
+
+tasks:
+  - id: retry
+    goal: ../../squad-lab/examples/retry/goal.md
+    seed: ../../squad-lab/examples/retry/seed
+    grader: ../../squad-lab/examples/retry/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+  - id: semver
+    goal: ../../squad-lab/examples/semver/goal.md
+    seed: ../../squad-lab/examples/semver/seed
+    grader: ../../squad-lab/examples/semver/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+arms:
+  - id: standard
+    harness: ai-sdk
+    model: {provider: anthropic, tier: fast}
+    toolset: {name: default, docsGrade: reference}
+    topology: single
+  - id: twin-none
+    harness: ai-sdk
+    model: {provider: anthropic, tier: fast}
+    toolset: {name: default, docsGrade: none, twinSeed: study-a}
+    topology: single
+  - id: twin-reference
+    harness: ai-sdk
+    model: {provider: anthropic, tier: fast}
+    toolset: {name: default, docsGrade: reference, twinSeed: study-a}
+    topology: single
+  - id: twin-rich
+    harness: ai-sdk
+    model: {provider: anthropic, tier: fast}
+    toolset: {name: default, docsGrade: rich, twinSeed: study-a}
+    topology: single
+
+budgetUsd: 10
+concurrency: 2
+
+preRegistration:
+  # The primary metric is the one Study A names: calls to tools that are not on
+  # the arm's surface. Recorded per trial and resolved through the rename map,
+  # so a twin arm is scored on the same footing as the control.
+  primaryMetric: hallucinatedCallRate
+  secondaryMetrics:
+    - acceptance
+    - toolFailures
+    - tokensIn
+  repetitions: 5
+  exclusionRules:
+    - id: provider-quota
+      description: >-
+        Exclude any trial whose run ends in a provider quota or rate-limit
+        error. m14 lost 8 of 10 runs on one model that way, and including them
+        inflated the pooled noise floor 14x.
+    - id: unverified-run
+      description: >-
+        Exclude any trial whose ADP /verify is not ok. An unverifiable run is
+        an ERROR, never a zero, and errors count against the majority.
