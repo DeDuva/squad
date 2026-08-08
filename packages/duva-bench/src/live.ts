@@ -21,6 +21,8 @@ import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from '@de
 import { runTrial, type TrialResult } from './runner.js';
 import { resolveArmModel, type ArmHarness, type ArmSpec } from './arms/index.js';
 import { vendorKey } from './credentials.js';
+import { loadStudyFile } from './study-file.js';
+import { armDigest, shortDigest, studyDigest, type Arm } from './study.js';
 
 /**
  * The charter every S1 trial gets.
@@ -91,11 +93,75 @@ export async function mintGoal({ argv, env }: CliIo): Promise<string> {
   );
 }
 
+/**
+ * Resolve the arm from a study spec rather than from flags.
+ *
+ * This is the form S4 schedules: the arm is a cell of a digested study, so the
+ * run carries the digests that say which experiment it belongs to. Attaching
+ * them as labels rather than parsing them back out of `external_ref` matters
+ * because ADP signs labels into the run predicate, and `external_ref` is
+ * already the idempotency key — a field that must change whenever a trial is
+ * re-run cannot also be the field that identifies the study.
+ */
+function fromStudy(
+  studyPath: string,
+  armId: string,
+  taskId: string,
+  rep: number,
+): { arm: ArmSpec; labels: Record<string, string>; externalRef: string } {
+  const loaded = loadStudyFile(studyPath);
+  if (!loaded.ok) {
+    throw new Error(
+      `study ${studyPath} is not valid:\n` +
+        loaded.errors.map((e) => `  ${e.path}: ${e.message}`).join('\n'),
+    );
+  }
+  const study = loaded.study;
+  const found: Arm | undefined = study.arms.find((a) => a.id === armId);
+  if (!found) {
+    throw new Error(`no arm '${armId}' in ${studyPath} — have ${study.arms.map((a) => a.id).join(', ')}`);
+  }
+  if (!study.tasks.some((t) => t.id === taskId)) {
+    throw new Error(`no task '${taskId}' in ${studyPath} — have ${study.tasks.map((t) => t.id).join(', ')}`);
+  }
+  if (found.topology === 'swarm') {
+    throw new Error(`arm '${armId}' is a swarm topology, which arrives in S4`);
+  }
+
+  const arm: ArmSpec = {
+    id: found.id,
+    harness: found.harness,
+    provider: found.model.provider,
+    ...(found.model.tier ? { tier: found.model.tier } : {}),
+    ...(found.model.model ? { model: found.model.model } : {}),
+  };
+  const digest = studyDigest(study);
+
+  return {
+    arm,
+    labels: {
+      study: shortDigest(digest),
+      study_digest: digest,
+      arm_digest: armDigest(found),
+      task: taskId,
+      topology: found.topology,
+      toolset: `${found.toolset.name}/${found.toolset.docsGrade}`,
+    },
+    externalRef: `${shortDigest(digest)}:${found.id}:${taskId}:r${rep}`,
+  };
+}
+
 export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: TrialResult; report: string }> {
   const ep = endpoint(argv, env);
-  const arm = parseArm(required(argv, 'arm'), arg(argv, 'tier') ?? 'fast');
+  const studyPath = arg(argv, 'study');
+  const fromSpec = studyPath
+    ? fromStudy(studyPath, required(argv, 'arm'), required(argv, 'task'), Number(arg(argv, 'rep') ?? '1'))
+    : undefined;
+
+  const arm = fromSpec?.arm ?? parseArm(required(argv, 'arm'), arg(argv, 'tier') ?? 'fast');
   const issueNumber = Number(required(argv, 'issue'));
-  const externalRef = required(argv, 'external-ref');
+  const externalRef = arg(argv, 'external-ref') ?? fromSpec?.externalRef;
+  if (!externalRef) throw new Error('missing required --external-ref= (or pass --study= and --task=)');
   const outDir = arg(argv, 'out') ?? mkdtempSync(join(tmpdir(), 'duva-bench-trial-'));
   const workDir = arg(argv, 'work-dir') ?? join(outDir, 'work');
   const key = vendorKey(arm.provider, env);
@@ -124,6 +190,7 @@ export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: T
       provider: arm.provider,
       model: resolveArmModel(arm),
       ...(arm.tier ? { tier: arm.tier } : {}),
+      ...(fromSpec?.labels ?? {}),
     },
     outDir,
     ...(key ? { apiKey: key } : {}),

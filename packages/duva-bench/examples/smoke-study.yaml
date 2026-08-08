@@ -1,0 +1,63 @@
+# The smallest study that is still a study: two tasks, two arms, two reps.
+#
+# Two arms differing only in `harness` is the comparison this track exists to
+# make — the same model under squad's own backend and under the neutral loop, so
+# a difference between them is the scaffold rather than the model.
+#
+# Paths are relative to this file. `graderSha256` is filled in from the grader on
+# disk when the study is loaded; the placeholders below are never trusted.
+title: smoke — squad-native vs ai-sdk on two toy tasks
+
+tasks:
+  - id: retry
+    goal: ../../squad-lab/examples/retry/goal.md
+    seed: ../../squad-lab/examples/retry/seed
+    grader: ../../squad-lab/examples/retry/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+  - id: semver
+    goal: ../../squad-lab/examples/semver/goal.md
+    seed: ../../squad-lab/examples/semver/seed
+    grader: ../../squad-lab/examples/semver/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+arms:
+  - id: native
+    harness: squad-native
+    model:
+      provider: anthropic
+      tier: fast
+    toolset:
+      name: default
+      docsGrade: reference
+    topology: single
+  - id: neutral
+    harness: ai-sdk
+    model:
+      provider: anthropic
+      tier: fast
+    toolset:
+      name: default
+      docsGrade: reference
+    topology: single
+
+budgetUsd: 5
+concurrency: 2
+
+preRegistration:
+  # Decided before anything runs. The report prints this back unchanged, or
+  # prints the amendment alongside the reading it replaced.
+  primaryMetric: acceptance
+  secondaryMetrics:
+    - tokensIn
+    - toolFailures
+  repetitions: 2
+  exclusionRules:
+    - id: provider-quota
+      description: >-
+        Exclude any trial whose run ends in a provider quota or rate-limit
+        error. m14 lost 8 of 10 runs on one model that way, and including them
+        inflated the pooled noise floor 14x.
+    - id: unverified-run
+      description: >-
+        Exclude any trial whose ADP /verify is not ok. An unverifiable run is
+        an ERROR, never a zero, and errors count against the majority.
