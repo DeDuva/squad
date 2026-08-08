@@ -14,6 +14,14 @@ README, licence, docs site, Pages workflow, and `docs/execution-plan.md`
 describing M0–M8. There is no task set, no grader, no harness integration and no
 executed run. M8 ("Study A, for real") has not been started.
 
+**Why, recorded 2026-08-08.** That track is **deliberately paused**: its
+dependencies could not be configured from a remote session. It is not abandoned,
+and the parallel-track design has not been reversed — the two tracks are meant to
+run in parallel, and the pair is itself the experiment. Saying only that the repo
+is "at its bootstrap commit" describes the symptom and leaves a reader to infer
+the cause; a cross-project audit on 2026-08-08 inferred the wrong one and filed
+it as mission drift. See "Track status" in `PLAN.md`.
+
 So two of SG3's premises are unavailable:
 
 1. **"the same tasks and graders as the Harbor track's M8."** Those tasks and
