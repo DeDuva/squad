@@ -77,6 +77,13 @@ const SDK_SWARM_ONLY_PREFIXES = [
  * S0; asserted below). `scripts/study` is the factorial runner S4 generalizes
  * rather than consumes, so it is permitted here but has no exports entry yet —
  * S4 adds one if it turns out to import rather than transliterate.
+ *
+ * `harnesses/native` joined the map in S1, and it is the reason the squad-native
+ * arm did not need §0.9's `client/*` rule relaxed. That arm *is*
+ * `SquadClient.createSession`, so something has to import `client`; putting
+ * that import in squad-lab beside the neutral loop — which has always been a
+ * standalone factory — keeps duva-bench's side of the fence clean and leaves
+ * `src/arms/swarm.ts` the only file here that will ever name the coordinator.
  */
 const LAB_ALLOWED = [
   '@deduvafork/squad-lab/adp',
@@ -84,6 +91,7 @@ const LAB_ALLOWED = [
   '@deduvafork/squad-lab/grader',
   '@deduvafork/squad-lab/harness',
   '@deduvafork/squad-lab/harnesses/ai-sdk',
+  '@deduvafork/squad-lab/harnesses/native',
   '@deduvafork/squad-lab/isolate',
   '@deduvafork/squad-lab/pricing',
   '@deduvafork/squad-lab/summary',

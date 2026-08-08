@@ -15,3 +15,14 @@
 export { runCli, USAGE } from './cli.js';
 export type { CliResult } from './cli.js';
 export { benchVersion, packageRoot } from './version.js';
+export { runTrial, DEFAULT_TRIAL_LIMITS } from './runner.js';
+export type {
+  TrialSpec,
+  TrialResult,
+  TrialDeps,
+  TrialLimits,
+  TrialOutcome,
+  TrialPhase,
+} from './runner.js';
+export { openArm, resolveArmModel } from './arms/index.js';
+export type { ArmHarness, ArmSpec, OpenArm, OpenArmContext } from './arms/index.js';
