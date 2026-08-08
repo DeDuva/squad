@@ -71,10 +71,25 @@ probe of a single Harbor trial**, reporting exactly where it fails — not a res
    provider keys per `~/.config/squad/`). The grader subprocess env must have ADP and provider
    tokens stripped, and its cwd must be outside the graded repo.
 9. **The import boundary is law** (and S0 makes it a test): `packages/duva-bench` may import from
-   `@deduvafork/squad-sdk` **only** `runtime/event-bus`, `runtime/cost-tracker`, `adp/*`, and
-   `config/vendors`; from squad-lab only the modules named in §2. `SquadCoordinator`,
-   `coordinator/*`, and `client/*` may be imported **nowhere except** `src/arms/swarm.ts` (S4).
-   This boundary is what keeps later extraction to a standalone repo mechanical.
+   `@deduvafork/squad-sdk` **only** `runtime/event-bus`, `runtime/event-payloads`,
+   `runtime/cost-tracker`, `adp/*`, `config/vendors`, and `version`; from squad-lab only the
+   modules named in §2. `SquadCoordinator`, `coordinator/*`, and `client/*` may be imported
+   **nowhere except** `src/arms/swarm.ts` (S4). This boundary is what keeps later extraction to a
+   standalone repo mechanical.
+
+   **`version` added 2026-08-08**, resolving the item deferred from S4 to S5. Recording which SDK
+   produced a run needed the version, and the only way to read it was the root barrel — the one
+   import this rule exists to forbid, because the barrel carries the coordinator. Rather than
+   weaken the rule, squad-sdk grew `src/version.ts`: an **import-free** module exporting the
+   version and nothing else, published as `./version`, with the barrel re-exporting it so there is
+   one source of truth. Same shape as the `harnesses/native.ts` resolution for the squad-native
+   arm. A test pins the module import-free — that property is the entire justification for the
+   allowlist entry, so it is asserted rather than assumed.
+
+   It lands as an ADP **run label** (`sdk_version`), not a digest input. The SDK version is
+   provenance rather than an experimental factor, and folding it into the arm digest would orphan
+   every recorded trial the moment the SDK was bumped. Labels are set at open, immutable, and
+   inside the signed run predicate, so it is attested rather than annotated.
 
 ---
 

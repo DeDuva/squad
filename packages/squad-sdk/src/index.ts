@@ -4,10 +4,11 @@
  * CLI entry point lives in src/cli-entry.ts.
  */
 
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pkg = require('../package.json');
-export const VERSION: string = pkg.version;
+// Re-exported from './version.js' rather than read again here. That module is
+// the import-free subpath consumers use when they need the version *without*
+// this barrel, which carries the coordinator with it. Two readers of
+// package.json could drift; one cannot.
+export { VERSION } from './version.js';
 
 // Export public API
 export { resolveSquad, resolveGlobalSquadPath, resolvePersonalSquadDir, ensurePersonalSquadDir, ensureSquadPath, ensureSquadPathTriple, loadDirConfig, isConsultMode, scratchDir, scratchFile, deriveProjectKey, resolveExternalStateDir, resolveSquadHome, ensureSquadHome, resolvePresetsDir, resolveSquadState, clearResolveSquadCache } from './resolution.js';
