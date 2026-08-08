@@ -41,6 +41,7 @@ const REPO_ROOT = process.cwd();
 const BENCH_ROOT = join(REPO_ROOT, 'packages', 'duva-bench');
 const BENCH_SRC = join(BENCH_ROOT, 'src');
 const LAB_ROOT = join(REPO_ROOT, 'packages', 'squad-lab');
+const SDK_ROOT = join(REPO_ROOT, 'packages', 'squad-sdk');
 
 // ─── The allowlist ───────────────────────────────────────────────────────
 
@@ -55,6 +56,14 @@ const LAB_ROOT = join(REPO_ROOT, 'packages', 'squad-lab');
  * `adp` covers §0.9's `adp/*`: the SDK's exports map publishes the ADP barrel
  * and no deeper path, and that barrel re-exports recorder, spool, client,
  * config and assignment — all of which PLAN §2 requires.
+ *
+ * `version` was added 2026-08-08. Recording a harness digest needs the SDK
+ * version, and the only way to read it used to be the root barrel — the one
+ * import this boundary exists to forbid. Rather than weaken §0.9, the SDK grew
+ * an import-free subpath that exports the version and nothing else, the same
+ * resolution `harnesses/native.ts` got for the squad-native arm. The test below
+ * pins it import-free, because the value of this entry is entirely that the
+ * module it names cannot pull anything in behind it.
  */
 const SDK_ALLOWED = [
   '@deduvafork/squad-sdk/runtime/event-bus',
@@ -62,6 +71,7 @@ const SDK_ALLOWED = [
   '@deduvafork/squad-sdk/runtime/cost-tracker',
   '@deduvafork/squad-sdk/adp',
   '@deduvafork/squad-sdk/config/vendors',
+  '@deduvafork/squad-sdk/version',
 ];
 
 /** squad-sdk subpaths only `src/arms/swarm.ts` may import (PLAN §0.9). */
@@ -390,5 +400,55 @@ describe('squad-lab exports map', () => {
   it('does not publish the root barrel, which would reach run-variant and the coordinator', () => {
     // Not `toHaveProperty('.')` — the matcher reads a dot as a path separator.
     expect(Object.keys(exportsMap ?? {})).not.toContain('.');
+  });
+});
+
+describe("the SDK's version subpath stays import-free", () => {
+  // duva-bench is allowed to import `@deduvafork/squad-sdk/version` only
+  // because that module pulls in nothing. It exists so a harness digest can
+  // record which SDK produced a run without importing the root barrel, which
+  // carries the coordinator. One import added here would re-open the vector
+  // §0.9 exists to close, and would do it silently — the allowlist entry would
+  // still look narrow.
+  const VERSION_SRC = join(SDK_ROOT, 'src', 'version.ts');
+
+  it('imports nothing but node:module, and re-exports nothing', () => {
+    const source = readFileSync(VERSION_SRC, 'utf8');
+    const ast = ts.createSourceFile(VERSION_SRC, source, ts.ScriptTarget.ESNext, true);
+
+    const specifiers: string[] = [];
+    ast.forEachChild((node) => {
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier)
+      ) {
+        specifiers.push(node.moduleSpecifier.text);
+      }
+    });
+
+    // `module` is the one allowance: reading package.json needs createRequire,
+    // and it is a node builtin that reaches no squad code.
+    expect(specifiers.filter((s) => s !== 'module' && s !== 'node:module')).toEqual([]);
+  });
+
+  it('is published as a subpath, and the source the build compiles is there', () => {
+    // Deliberately structural rather than a dynamic import. squad-sdk's exports
+    // point at `dist/`, and these tests run without a build — which is exactly
+    // how a CI job that assumed otherwise failed on 2026-08-08. Asserting the
+    // mapping and the source file keeps this test meaningful in an unbuilt tree.
+    const manifest = JSON.parse(readFileSync(join(SDK_ROOT, 'package.json'), 'utf8')) as {
+      exports?: Record<string, { import?: string; types?: string }>;
+    };
+    const entry = manifest.exports?.['./version'];
+    expect(entry?.import, 'squad-sdk must publish ./version').toBe('./dist/version.js');
+    expect(existsSync(VERSION_SRC), 'src/version.ts is what that entry compiles from').toBe(true);
+  });
+
+  it('is the single source of the version — the barrel re-exports it', () => {
+    // Two readers of package.json could drift; the barrel must defer to this
+    // module rather than read the version a second time.
+    const barrel = readFileSync(join(SDK_ROOT, 'src', 'index.ts'), 'utf8');
+    expect(barrel).toContain("export { VERSION } from './version.js'");
   });
 });

@@ -16,6 +16,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
+// The import-free subpath, not the root barrel: the barrel carries the
+// coordinator, which PLAN §0.9 forbids reaching from here.
+import { VERSION as SDK_VERSION } from '@deduvafork/squad-sdk/version';
 import { createGoal, ensureRepo, findGoalByTitle, gitRemote, whoami, type AdpEndpoint } from '@deduvafork/squad-lab/adp';
 
 import { runTrial, type TrialResult } from './runner.js';
@@ -164,6 +167,13 @@ function fromStudy(
       // already, and a label a reader can scan tells them which condition a
       // run was in without resolving anything.
       twinned: found.toolset.twinSeed === undefined ? 'no' : 'yes',
+      // Which SDK produced this run. A label rather than a digest input,
+      // deliberately: the SDK version is provenance, not an experimental
+      // factor, and folding it into the arm digest would orphan every recorded
+      // trial the moment the SDK was bumped. Labels are set at open, immutable,
+      // and inside ADP's signed run predicate — so this is attested rather than
+      // annotated, which is the whole reason to record it.
+      sdk_version: SDK_VERSION,
     },
     externalRef: `${shortDigest(digest)}:${found.id}:${taskId}:r${rep}`,
     toolset: {
