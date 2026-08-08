@@ -70,8 +70,11 @@ describe('bump-build.mjs', () => {
     execSync(`node ${join(workspace.dir, 'scripts', 'bump-build.mjs')}`, execOpts);
     for (const p of workspace.paths) {
       // Old 4-part format (1.0.0.3) is parsed as base=1.0.0, build=3
-      // New format uses valid semver prerelease tag
-      expect(readVersion(p)).toBe('1.0.0-build.4');
+      // New format uses valid semver prerelease tag, and specifically the
+      // "preview" tag — the CI Prerelease Version Guard rejects every tag
+      // except preview/insider, so a "-build" tag here would generate a
+      // version that cannot be merged.
+      expect(readVersion(p)).toBe('1.0.0-preview.4');
     }
   });
 
@@ -79,7 +82,24 @@ describe('bump-build.mjs', () => {
     workspace = makeTempWorkspace('1.0.0');
     execSync(`node ${join(workspace.dir, 'scripts', 'bump-build.mjs')}`, execOpts);
     for (const p of workspace.paths) {
-      expect(readVersion(p)).toBe('1.0.0-build.1');
+      expect(readVersion(p)).toBe('1.0.0-preview.1');
+    }
+  });
+
+  it('only ever emits versions the CI version guard accepts', () => {
+    // Regression guard for the -build.N bug: a bare X.Y.Z used to bump to
+    // X.Y.Z-build.1, which the guard rejects, and because -build then parses
+    // as the prerelease tag every later bump preserved it, so the tree could
+    // never recover on its own.
+    const GUARD = /^\d+\.\d+\.\d+(-(preview|insider)(\.\d+)?)?$/;
+    for (const start of ['1.0.0', '1.0.0.3', '1.0.0-preview', '1.0.0-preview.2', '1.0.0-insider.5']) {
+      workspace = makeTempWorkspace(start);
+      execSync(`node ${join(workspace.dir, 'scripts', 'bump-build.mjs')}`, execOpts);
+      const bumped = readVersion(workspace.paths[0]!);
+      expect(bumped, `${start} bumped to unmergeable ${bumped}`).toMatch(GUARD);
+      // afterEach only removes the last workspace this test assigned, so each
+      // iteration cleans up its own temp dir.
+      rmSync(workspace.dir, { recursive: true, force: true });
     }
   });
 
