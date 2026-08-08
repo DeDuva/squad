@@ -22,7 +22,7 @@ import { runTrial, type TrialResult } from './runner.js';
 import { resolveArmModel, type ArmHarness, type ArmSpec } from './arms/index.js';
 import { vendorKey } from './credentials.js';
 import { loadStudyFile } from './study-file.js';
-import { armDigest, shortDigest, studyDigest, type Arm } from './study.js';
+import { armDigest, shortDigest, studyDigest, type Arm, type DocsGrade } from './study.js';
 
 /**
  * The charter every S1 trial gets.
@@ -108,7 +108,12 @@ function fromStudy(
   armId: string,
   taskId: string,
   rep: number,
-): { arm: ArmSpec; labels: Record<string, string>; externalRef: string } {
+): {
+  arm: ArmSpec;
+  labels: Record<string, string>;
+  externalRef: string;
+  toolset: { twinSeed?: string; docsGrade: DocsGrade };
+} {
   const loaded = loadStudyFile(studyPath);
   if (!loaded.ok) {
     throw new Error(
@@ -146,8 +151,17 @@ function fromStudy(
       task: taskId,
       topology: found.topology,
       toolset: `${found.toolset.name}/${found.toolset.docsGrade}`,
+      docs_grade: found.toolset.docsGrade,
+      // `twinned` rather than the seed itself: the seed is in the arm digest
+      // already, and a label a reader can scan tells them which condition a
+      // run was in without resolving anything.
+      twinned: found.toolset.twinSeed === undefined ? 'no' : 'yes',
     },
     externalRef: `${shortDigest(digest)}:${found.id}:${taskId}:r${rep}`,
+    toolset: {
+      ...(found.toolset.twinSeed !== undefined ? { twinSeed: found.toolset.twinSeed } : {}),
+      docsGrade: found.toolset.docsGrade,
+    },
   };
 }
 
@@ -193,6 +207,7 @@ export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: T
       ...(fromSpec?.labels ?? {}),
     },
     outDir,
+    ...(fromSpec ? { toolset: fromSpec.toolset } : {}),
     ...(key ? { apiKey: key } : {}),
     ...(arg(argv, 'deadline-ms') ? { limits: { deadlineMs: Number(arg(argv, 'deadline-ms')) } } : {}),
     onPhase: (phase, detail) => {

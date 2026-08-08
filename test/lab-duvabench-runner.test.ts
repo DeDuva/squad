@@ -28,6 +28,8 @@ import { DirectResponseHandler } from '../packages/squad-sdk/src/coordinator/dir
 import { EventBus, type SquadEvent } from '../packages/squad-sdk/src/runtime/event-bus.js';
 import { AdpRunRecorder } from '../packages/squad-sdk/src/adp/recorder.js';
 import { runTrial, type TrialDeps, type TrialSpec } from '../packages/duva-bench/src/runner.js';
+import { generateTwin } from '../packages/duva-bench/src/twins.js';
+import { defaultTools } from '../packages/squad-lab/src/tools/default.js';
 import type { Workspace } from '../packages/squad-lab/src/isolate.js';
 
 // ─── The hazard, as a fact about this branch ─────────────────────────────
@@ -70,6 +72,8 @@ interface Harness {
     prompts: string[];
     flushes: number;
     finished: Array<{ finalGitSha?: string | null; reason?: string }>;
+    charters: string[];
+    toolNames: string[][];
   };
   cleanup: () => void;
 }
@@ -82,7 +86,14 @@ function harness(overrides: {
 } = {}): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'duvabench-trial-'));
   const events: SquadEvent[] = [];
-  const calls: Harness['calls'] = { createSession: 0, prompts: [], flushes: 0, finished: [] };
+  const calls: Harness['calls'] = {
+    createSession: 0,
+    prompts: [],
+    flushes: 0,
+    finished: [],
+    charters: [],
+    toolNames: [],
+  };
 
   const workspace: Workspace = { workDir: dir, branch: 'trial', remote: 'http://adp.invalid/x.git' };
 
@@ -104,6 +115,8 @@ function harness(overrides: {
       close: async () => {},
       createSession: async (config) => {
         calls.createSession += 1;
+        calls.charters.push(String(config.systemMessage?.content ?? ''));
+        calls.toolNames.push((config.tools ?? []).map((t) => t.name));
         return {
           sessionId: 'squad-session-1',
           sendAndWait: async (opts: { prompt: string }) => {
@@ -392,6 +405,89 @@ describe('session:destroyed flushes the session chain', () => {
       expect(appended.every((a) => a.sessionId === 'adp-session-1')).toBe(true);
     } finally {
       rmSync(spool, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── The toolset the agent actually meets ────────────────────────────────
+
+describe('runTrial toolsets', () => {
+  it('gives the agent the standard tools and a reference bundle by default', async () => {
+    const h = harness();
+    try {
+      const result = await runTrial(h.spec);
+      expect(h.calls.toolNames[0]).toEqual(defaultTools('/tmp/x').map((t) => t.name));
+      expect(result.docsGrade).toBe('reference');
+      // The charter carries the docs — that is the injection channel, and
+      // `harnessDigest` folds the charter, so being told more is visibly a
+      // different harness.
+      expect(h.calls.charters[0]).toContain(h.spec.agent.prompt);
+      expect(h.calls.charters[0]).toContain('Tools available to you');
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('hands over twin names, and no original name survives into the charter', async () => {
+    const h = harness({ spec: { toolset: { twinSeed: 'study-a', docsGrade: 'rich' } } });
+    try {
+      const result = await runTrial(h.spec);
+      const { renameMap } = generateTwin(defaultTools('/tmp/x'), 'study-a');
+
+      expect(h.calls.toolNames[0]).toEqual(Object.values(renameMap.tools));
+      for (const original of Object.keys(renameMap.tools)) {
+        // A charter mentioning `write_file` would hand back exactly the
+        // familiarity the twin exists to remove.
+        expect(h.calls.charters[0]).not.toContain(original);
+      }
+      expect(result.docsGrade).toBe('rich');
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('says nothing at all at grade none', async () => {
+    const h = harness({ spec: { toolset: { twinSeed: 'study-a', docsGrade: 'none' } } });
+    try {
+      await runTrial(h.spec);
+      expect(h.calls.charters[0]).toBe(h.spec.agent.prompt);
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('persists the rename map, without which the trajectory cannot be read', async () => {
+    const h = harness({ spec: { toolset: { twinSeed: 'study-a', docsGrade: 'none' } } });
+    try {
+      await runTrial(h.spec);
+      const onDisk = JSON.parse(readFileSync(join(h.spec.outDir, 'rename-map.json'), 'utf8'));
+      expect(onDisk.seed).toBe('study-a');
+      expect(Object.keys(onDisk.tools).sort()).toEqual(defaultTools('/tmp/x').map((t) => t.name).sort());
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('writes no rename map for an untwinned arm', async () => {
+    const h = harness();
+    try {
+      await runTrial(h.spec);
+      expect(existsSync(join(h.spec.outDir, 'rename-map.json'))).toBe(false);
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('gives the two docs grades different digests on the run', async () => {
+    const none = harness({ spec: { toolset: { docsGrade: 'none' } } });
+    const rich = harness({ spec: { toolset: { docsGrade: 'rich' } } });
+    try {
+      const a = await runTrial(none.spec);
+      const b = await runTrial(rich.spec);
+      expect(a.toolDocsDigest).not.toBe(b.toolDocsDigest);
+    } finally {
+      none.cleanup();
+      rich.cleanup();
     }
   });
 });

@@ -48,6 +48,8 @@ import { defaultTools, instrument, type LabTool } from '@deduvafork/squad-lab/to
 import { readGoal, verifyRun, type AdpEndpoint } from '@deduvafork/squad-lab/adp';
 
 import { openArm, resolveArmModel, type ArmSpec, type OpenArm } from './arms/index.js';
+import { buildToolset } from './twins.js';
+import type { DocsGrade } from './study.js';
 
 export type TrialPhase =
   | 'preparing'
@@ -95,6 +97,15 @@ export interface TrialSpec {
   labels?: Record<string, string>;
   /** Defaults to squad-lab's path-jailed toolset over the clone. */
   tools?: LabTool[];
+  /**
+   * Which toolset the agent sees, and how much it is told about it.
+   *
+   * `twinSeed` present means the agent meets an isomorphic twin under names it
+   * has never seen — Study A's treatment. Absent is the control. `docsGrade`
+   * decides what the charter says about those tools, and is the only channel
+   * carrying documentation, so the two can be varied independently.
+   */
+  toolset?: { twinSeed?: string; docsGrade: DocsGrade };
   /** Where bus/tool logs and `trial.json` are written. */
   outDir: string;
   limits?: Partial<TrialLimits>;
@@ -143,6 +154,10 @@ export interface TrialResult {
   timeToQuiescenceMs: number;
   testPassed: boolean | null;
   cost: Record<string, unknown>;
+  /** Which documentation grade the charter carried. */
+  docsGrade?: DocsGrade;
+  /** Digest of that bundle, matching the run's `tool_docs_digest` label. */
+  toolDocsDigest?: string;
   error?: string;
 }
 
@@ -247,7 +262,25 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
     });
     result.model = arm.model;
 
-    const tools = (spec.tools ?? defaultTools(workspace.workDir)).map((t) => instrument(t, toolLog));
+    // The toolset the agent actually meets — standard or twinned — plus the
+    // documentation bundle that goes into its charter. Built before the brief
+    // is read so the rename map is on disk even if the turn never starts.
+    const built = buildToolset(
+      spec.tools ?? defaultTools(workspace.workDir),
+      spec.toolset ?? { docsGrade: 'reference' },
+    );
+    const tools = built.tools.map((t) => instrument(t, toolLog));
+    result.docsGrade = built.docs.grade;
+    result.toolDocsDigest = built.docs.digest;
+    if (built.renameMap) {
+      // Persisted because S5 resolves recorded tool names against it to compute
+      // the hallucinated-call rate. A twin whose map was lost is a trajectory
+      // nobody can read.
+      writeFileSync(
+        join(spec.outDir, 'rename-map.json'),
+        `${JSON.stringify(built.renameMap, null, 2)}\n`,
+      );
+    }
 
     // The brief comes from the issue the intent was minted from. A trial with
     // the task hardcoded would be scored against a goal its run does not claim.
@@ -260,7 +293,12 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
       clientName: `squad-agent-${spec.agent.name}`,
       workingDirectory: workspace.workDir,
       tools,
-      systemMessage: { mode: 'replace', content: spec.agent.prompt },
+      // Documentation rides in the charter, which `harnessDigest` already folds
+      // — so an arm that was told more is visibly a different harness.
+      systemMessage: {
+        mode: 'replace',
+        content: built.docs.text ? `${spec.agent.prompt}\n\n${built.docs.text}` : spec.agent.prompt,
+      },
       ...(spec.arm.maxToolRounds !== undefined ? { maxToolRounds: spec.arm.maxToolRounds } : {}),
     });
     sessionId = session.sessionId;

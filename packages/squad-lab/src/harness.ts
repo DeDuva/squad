@@ -81,6 +81,19 @@ export interface HarnessSpec {
   harnessImpl: HarnessImpl;
   /** Pinned so an SDK upgrade shows up as a different harness, which it is. */
   sdkVersion: string;
+  /**
+   * Digest of the tool documentation the charter carries, when there is any.
+   *
+   * Tool *names* already move the digest, so a semantic twin is visible without
+   * this. What is not otherwise visible is how much the agent was told about
+   * those tools: two arms with identical twin names and different doc grades
+   * are the central contrast of Study A, and without this field they would
+   * share a harness digest and read as one cell.
+   *
+   * Optional, and absent means absent: `canonicalJson` drops `undefined`, so
+   * every digest computed before this field existed is unchanged by it.
+   */
+  toolDocsDigest?: string;
 }
 
 export const DEFAULT_TOOL_SURFACE: ToolSurface = 'registered';
@@ -121,6 +134,7 @@ export function harnessDigest(spec: HarnessSpec): string {
     maxToolRounds: spec.maxToolRounds,
     harnessImpl: spec.harnessImpl,
     sdkVersion: spec.sdkVersion,
+    toolDocsDigest: spec.toolDocsDigest,
   };
   return createHash('sha256').update(canonicalJson(canonical), 'utf8').digest('hex');
 }

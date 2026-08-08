@@ -45,5 +45,7 @@ export {
 } from './study.js';
 export type { DocsGrade, HarnessRef, Topology, ParseResult, PreRegistrationReading } from './study.js';
 export { loadStudyFile, graderSha256, resolveFrom } from './study-file.js';
+export { generateTwin, buildToolset, docsBundle, invertToolNames } from './twins.js';
+export type { RenameMap, Twin, DocsBundle, BuiltToolset } from './twins.js';
 export { openArm, resolveArmModel } from './arms/index.js';
 export type { ArmHarness, ArmSpec, OpenArm, OpenArmContext } from './arms/index.js';
