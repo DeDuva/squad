@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Knock-knock jokes — simplest multi-agent Squad SDK sample",
+  "description": "Knock-knock jokes \u2014 simplest multi-agent Squad SDK sample",
   "scripts": {
-    "start": "npx tsx index.ts"
+    "start": "npx tsx index.ts",
+    "build": "tsc --noEmit"
   },
   "dependencies": {
     "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"

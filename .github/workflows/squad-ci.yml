@@ -542,7 +542,7 @@ jobs:
             echo "Skipping (skip-samples-ci label)"
           fi
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
-      - name: Check for SDK source changes
+      - name: Check for SDK source or sample changes
         if: steps.gate.outputs.skip != 'true'
         id: sdk
         run: |
@@ -562,10 +562,14 @@ jobs:
               fi
             fi
           fi
-          SDK_CHANGED=$(git diff --name-only "$BASE"..."$HEAD" | grep -E '^packages/squad-sdk/src/' || true)
+          # Samples are rebuilt when the SDK they consume changes, and also when
+          # a sample itself changes. Without the second case a sample-only PR
+          # never compiles the sample it edits, which is how two samples came to
+          # ship code that could not compile at all.
+          SDK_CHANGED=$(git diff --name-only "$BASE"..."$HEAD" | grep -E '^(packages/squad-sdk/src/|samples/)' || true)
           if [ -z "$SDK_CHANGED" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No SDK source changes — samples build not applicable"
+            echo "No SDK source or sample changes — samples build not applicable"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi

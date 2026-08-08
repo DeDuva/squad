@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Rock Paper Scissors — multi-agent strategy arena using Squad SDK",
+  "description": "Rock Paper Scissors \u2014 multi-agent strategy arena using Squad SDK",
   "scripts": {
-    "start": "npx tsx index.ts"
+    "start": "npx tsx index.ts",
+    "build": "tsc --noEmit"
   },
   "dependencies": {
     "@bradygaster/squad-sdk": "file:../../packages/squad-sdk"
