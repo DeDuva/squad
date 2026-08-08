@@ -47,7 +47,7 @@ import {
 import { defaultTools, instrument, type LabTool } from '@deduvafork/squad-lab/tools/default';
 import { readGoal, verifyRun, type AdpEndpoint } from '@deduvafork/squad-lab/adp';
 
-import { openArm, resolveArmModel, type ArmSpec, type OpenArm } from './arms/index.js';
+import { openArm, resolveArmModel, emitsOwnLifecycle, type ArmSpec, type OpenArm } from './arms/index.js';
 import { buildToolset } from './twins.js';
 import type { DocsGrade } from './study.js';
 
@@ -133,6 +133,8 @@ export interface TrialResult {
   externalRef: string;
   armId: string;
   harness: string;
+  /** `single` or `swarm`. Carried so a summary can band rather than blend. */
+  topology: string;
   provider: string;
   model: string;
   runId?: string;
@@ -189,6 +191,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
     externalRef: spec.externalRef,
     armId: spec.arm.id,
     harness: spec.arm.harness,
+    topology: spec.arm.topology ?? 'single',
     provider: spec.arm.provider,
     model: resolveArmModel(spec.arm),
     finalSha: null,
@@ -306,9 +309,16 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
     // What fan-out used to emit around the factory. `session:created` gives the
     // recorder the squad-session-id → ADP-session mapping up front; the
     // terminal event below is what flushes the chain.
-    await emitLifecycle(bus, 'session:created', sessionId, spec.agent.name, {
-      agentName: spec.agent.name,
-    });
+    //
+    // A swarm arm declines both: it *is* fan-out, which emits the pair per
+    // agent, and a second pair here would open an ADP session for an agent that
+    // never ran and leave it in the trajectory as a silent extra participant.
+    const ownLifecycle = emitsOwnLifecycle(session);
+    if (!ownLifecycle) {
+      await emitLifecycle(bus, 'session:created', sessionId, spec.agent.name, {
+        agentName: spec.agent.name,
+      });
+    }
 
     phase('running', { model: arm.model, provider: spec.arm.provider });
     const quiescenceStart = Date.now();
@@ -336,9 +346,11 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
     result.timeToQuiescenceMs = Date.now() - quiescenceStart;
     phase('quiesced', { timeToQuiescenceMs: result.timeToQuiescenceMs });
 
-    await emitLifecycle(bus, 'session:destroyed', sessionId, spec.agent.name, {
-      reason: result.outcome === 'timeout' ? 'deadline' : 'turn complete',
-    });
+    if (!ownLifecycle) {
+      await emitLifecycle(bus, 'session:destroyed', sessionId, spec.agent.name, {
+        reason: result.outcome === 'timeout' ? 'deadline' : 'turn complete',
+      });
+    }
 
     // The only correct barrier between "the bus is quiet" and "ADP holds it":
     // it awaits the handler chain and the durable spool, so nothing downstream
