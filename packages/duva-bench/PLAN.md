@@ -128,8 +128,13 @@ If a needed module isn't exported from squad-lab's `package.json`, add the expor
 do not copy the file.
 
 **Statistics bridge:** paired stats come from **adp-replay's Python library** so both tracks use
-identical stats code. Use `~/dev/adp-replay/.venv/bin/python` (no pip, no installs — the venv
-already has what's needed; PyYAML via system `python3` if ever required). duva-bench exports
+identical stats code. **Updated 2026-08-08:** it is installed as a dependency, pinned by commit in
+`packages/duva-bench/requirements-stats.txt` and built by `scripts/setup-stats.sh` into a venv
+inside the package. It used to point at `~/dev/adp-replay/.venv` — a sibling working copy — on the
+belief that nothing could be installed here; that belief was false (the *system* Python cannot
+build a venv, which is not the same thing), and the cost was that no CI could run the statistics
+and no published number was reproducible off one laptop. Every result now reports `stats_version`,
+the resolved commit. duva-bench exports
 `outcomes.json`; a small `tools/paired_stats.py` (added to adp-replay or vendored here — prefer a
 PR to adp-replay adding an `analyze` CLI) calls `adp_replay.stats.paired`
 (`mcnemar_exact`, `bootstrap_ci_over_tasks`, `paired_difference_ci_over_tasks`, `icc`) and adds
