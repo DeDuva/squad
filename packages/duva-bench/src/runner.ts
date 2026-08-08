@@ -28,8 +28,8 @@
  * however much was still buffered.
  */
 
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 import { EventBus, type SquadEvent } from '@deduvafork/squad-sdk/runtime/event-bus';
 import { CostTracker } from '@deduvafork/squad-sdk/runtime/cost-tracker';
@@ -236,6 +236,18 @@ export async function runTrial(spec: TrialSpec): Promise<TrialResult> {
   let sessionId: string | undefined;
 
   try {
+    // A resumed study meets its own leftovers. The killed run's trial
+    // directories are still on disk, and `git clone` refuses a destination that
+    // is not empty — so every retried trial would fail on a stale directory
+    // rather than on anything real.
+    //
+    // Bounded on purpose: only a work directory *inside this trial's own
+    // outDir* is removed. The runner created that path, so it is the runner's
+    // to clear; anything else is somebody's checkout and is left alone.
+    const workDir = resolve(spec.workspace.workDir);
+    const inOutDir = !relative(resolve(spec.outDir), workDir).startsWith('..');
+    if (inOutDir && existsSync(workDir)) rmSync(workDir, { recursive: true, force: true });
+
     const workspace = deps.prepareWorkspace({
       ...spec.workspace,
       adp: {

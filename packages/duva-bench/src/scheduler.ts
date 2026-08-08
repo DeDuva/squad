@@ -149,11 +149,19 @@ export async function ensureTaskIntent(
  * would bake an unusable run into the study permanently, since nothing would
  * ever run that cell again. So the check is closed *and* verified, and anything
  * else is replanned.
+ *
+ * Verified is not enough either, and the pilot study is what proved it. Grading
+ * happens *after* the run closes, so a trial can close, verify, and then die
+ * before it is scored. Resumption saw a closed verified run, called the cell
+ * done, and left it permanently unscored — 18 of 24 trials in the first pilot
+ * had no eval and no way to ever get one. When the study grades, a run without
+ * an eval is not a completed trial.
  */
 export async function completedRefs(
   ep: AdpEndpoint,
   intentIds: string[],
   deps: { compareRuns: typeof compareRuns; verifyRun: typeof verifyRun } = { compareRuns, verifyRun },
+  options: { requireEval?: boolean } = {},
 ): Promise<Set<string>> {
   const done = new Set<string>();
 
@@ -161,6 +169,10 @@ export async function completedRefs(
     const { runs } = await deps.compareRuns(ep, intentId);
     for (const run of runs) {
       if (run.status !== 'closed' || !run.externalRef) continue;
+      if (options.requireEval) {
+        const evals = run.evals ?? (run.eval ? [run.eval] : []);
+        if (evals.length === 0) continue;
+      }
       try {
         const verdict = await deps.verifyRun(ep, run.runId);
         if (verdict.ok === true) done.add(run.externalRef);
@@ -253,6 +265,16 @@ export interface TrialLaunch {
 
 export interface RunStudyOptions {
   study: Study;
+  /**
+   * The spec file the study was read from.
+   *
+   * Passed to each child so it resolves the study's *relative* paths against
+   * the spec's own directory. Handing the child a resolved copy written into
+   * the run root instead resolves them against the root — which is silently
+   * correct for a spec written with absolute paths and silently wrong for one
+   * written the portable way. The first study with relative paths found this.
+   */
+  specPath?: string;
   ep: AdpEndpoint & { tokenEnv: string };
   /** Where progress, per-trial output and the manifest are written. */
   root: string;
@@ -362,7 +384,15 @@ export async function runStudy(options: RunStudyOptions): Promise<StudyReport> {
     emit({ at: new Date().toISOString(), kind: 'intent', taskId: task.id, intentId: intent.intentId, created: intent.created });
   }
 
-  const done = await deps.completedRefs(ep, [...intents.values()].map((i) => i.intentId));
+  // A study whose tasks all carry a grader expects every trial to be scored, so
+  // an unscored run is unfinished work rather than a completed cell.
+  const grades = study.tasks.every((t) => Boolean(t.grader));
+  const done = await deps.completedRefs(
+    ep,
+    [...intents.values()].map((i) => i.intentId),
+    undefined,
+    { requireEval: grades },
+  );
   const remaining: PlannedTrial[] = [];
   let skipped = 0;
   for (const trial of planned) {
@@ -421,7 +451,7 @@ export async function runStudy(options: RunStudyOptions): Promise<StudyReport> {
             `--token-env=${ep.tokenEnv}`,
             `--issue=${intent.issueNumber}`,
             `--intent=${intent.intentId}`,
-            `--study=${options.root}/study.json`,
+            `--study=${options.specPath ?? join(options.root, 'study.json')}`,
             `--arm=${trial.armId}`,
             `--task=${trial.taskId}`,
             `--rep=${trial.rep}`,
@@ -457,8 +487,9 @@ export async function runStudy(options: RunStudyOptions): Promise<StudyReport> {
     }
   };
 
-  // The study spec travels to each child as a file, so the child re-derives the
-  // digest itself rather than trusting one passed on a command line.
+  // A resolved copy of the spec, for the record rather than for the children:
+  // it is what a reader needs to see what actually ran, while the children are
+  // given the original path so relative references still mean what they said.
   writeFileSync(join(root, 'study.json'), `${JSON.stringify(study, null, 2)}\n`);
 
   const width = Math.max(1, Math.min(study.concurrency, remaining.length || 1));

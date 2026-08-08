@@ -1,0 +1,1840 @@
+{
+  "study": {
+    "title": "tool familiarity (pilot v2) — does documentation buy back an unfamiliar toolset",
+    "digest": "445a362ab923994113407b9fc9911e3a03cd7112c5d3ecbe85d3c239bc06bff3",
+    "short": "445a362ab923",
+    "arms": [
+      {
+        "id": "standard",
+        "digest": "ea95d2fd47e62623a07ce333cd8356eaf25bb07ad861eacbd6c9104d795b023d",
+        "harness": "ai-sdk",
+        "topology": "single",
+        "model": {
+          "provider": "anthropic",
+          "tier": "fast"
+        },
+        "toolset": {
+          "name": "default",
+          "docsGrade": "reference"
+        }
+      },
+      {
+        "id": "twin-none",
+        "digest": "c41e4ef629e2995c4aeab9e2578cec3513c5cc354a16ff8463b577aa2b31a64d",
+        "harness": "ai-sdk",
+        "topology": "single",
+        "model": {
+          "provider": "anthropic",
+          "tier": "fast"
+        },
+        "toolset": {
+          "name": "default",
+          "docsGrade": "none",
+          "twinSeed": "study-a"
+        }
+      },
+      {
+        "id": "twin-reference",
+        "digest": "240fd639d1a0a675fcc095f441ebfcf624e1e2cf7c37da84d857d637269335da",
+        "harness": "ai-sdk",
+        "topology": "single",
+        "model": {
+          "provider": "anthropic",
+          "tier": "fast"
+        },
+        "toolset": {
+          "name": "default",
+          "docsGrade": "reference",
+          "twinSeed": "study-a"
+        }
+      },
+      {
+        "id": "twin-rich",
+        "digest": "7314f8f1f3cf24442d616420acd755021439ca9f8eb51c270f63490897aa71c5",
+        "harness": "ai-sdk",
+        "topology": "single",
+        "model": {
+          "provider": "anthropic",
+          "tier": "fast"
+        },
+        "toolset": {
+          "name": "default",
+          "docsGrade": "rich",
+          "twinSeed": "study-a"
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "retry",
+        "graderSha256": "1459d4d1d79bfe87a2ff47ba779620808cf65f716d4443a133b2967d6365d616"
+      },
+      {
+        "id": "semver",
+        "graderSha256": "e07ddcb0b557f411f12d6712abfb5608381b89ecc62ba739b22c6b27273a78c8"
+      }
+    ]
+  },
+  "preRegistration": {
+    "registered": {
+      "primaryMetric": "hallucinatedCallRate",
+      "secondaryMetrics": [
+        "acceptance",
+        "toolFailures",
+        "steps"
+      ],
+      "repetitions": 3,
+      "exclusionRules": [
+        {
+          "id": "unverified-run",
+          "description": "Exclude any trial whose ADP /verify is not ok. An unverifiable run is an ERROR, never a zero, and errors count against the majority."
+        },
+        {
+          "id": "provider-quota",
+          "description": "Exclude any trial whose run ends in a provider quota or rate-limit error. m14 lost 8 of 10 runs on one model that way, and including them inflated the pooled noise floor 14x."
+        }
+      ],
+      "amendments": []
+    },
+    "current": {
+      "primaryMetric": "hallucinatedCallRate",
+      "secondaryMetrics": [
+        "acceptance",
+        "toolFailures",
+        "steps"
+      ],
+      "repetitions": 3,
+      "exclusionRules": [
+        {
+          "id": "unverified-run",
+          "description": "Exclude any trial whose ADP /verify is not ok. An unverifiable run is an ERROR, never a zero, and errors count against the majority."
+        },
+        {
+          "id": "provider-quota",
+          "description": "Exclude any trial whose run ends in a provider quota or rate-limit error. m14 lost 8 of 10 runs on one model that way, and including them inflated the pooled noise floor 14x."
+        }
+      ],
+      "amendments": []
+    },
+    "registeredDigest": "3e78fd959b938c20180f0321052aa1188b9dc1074d91667c15e0b6c984d5b952",
+    "currentDigest": "3e78fd959b938c20180f0321052aa1188b9dc1074d91667c15e0b6c984d5b952",
+    "amended": false
+  },
+  "collectedAt": "2026-08-08T15:39:57.049Z",
+  "counts": {
+    "trials": 24,
+    "included": 24,
+    "errors": 0,
+    "missing": 0
+  },
+  "exclusions": {},
+  "noiseFloors": [
+    {
+      "axis": "acceptance",
+      "sd": 0.02158222648384546,
+      "cells": 8
+    },
+    {
+      "axis": "api-shape",
+      "sd": 0,
+      "cells": 8
+    },
+    {
+      "axis": "edge-cases",
+      "sd": 0.029593974611960012,
+      "cells": 8
+    },
+    {
+      "axis": "self-tests",
+      "sd": 0.3535533905932738,
+      "cells": 8
+    }
+  ],
+  "cells": [
+    {
+      "armId": "standard",
+      "taskId": "retry",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.061111111111111116,
+        "sd": 0.053575837561071975,
+        "min": 0,
+        "max": 0.1
+      },
+      "steps": {
+        "n": 3,
+        "mean": 10,
+        "sd": 2.6457513110645907,
+        "min": 7,
+        "max": 12
+      }
+    },
+    {
+      "armId": "standard",
+      "taskId": "semver",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9815,
+          "sd": 0.018500000000000016,
+          "min": 0.963,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9885,
+          "sd": 0.019918584287042074,
+          "min": 0.9655,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.19698703279938978,
+        "sd": 0.060921625391741216,
+        "min": 0.13043478260869565,
+        "max": 0.25
+      },
+      "steps": {
+        "n": 3,
+        "mean": 20,
+        "sd": 3.605551275463989,
+        "min": 17,
+        "max": 24
+      }
+    },
+    {
+      "armId": "twin-none",
+      "taskId": "retry",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9499999999999998,
+          "sd": 1.3597399555105182e-16,
+          "min": 0.95,
+          "max": 0.95
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9167,
+          "sd": 0,
+          "min": 0.9167,
+          "max": 0.9167
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 0.6666666666666666,
+          "sd": 0.5773502691896258,
+          "min": 0,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.425,
+        "sd": 0.15612494995995996,
+        "min": 0.3,
+        "max": 0.6
+      },
+      "steps": {
+        "n": 3,
+        "mean": 8.666666666666666,
+        "sd": 2.5166114784235836,
+        "min": 6,
+        "max": 11
+      }
+    },
+    {
+      "armId": "twin-none",
+      "taskId": "semver",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9753,
+          "sd": 0.028313777564994744,
+          "min": 0.9444,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9655,
+          "sd": 0.034499999999999975,
+          "min": 0.931,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 0.6666666666666666,
+          "sd": 0.5773502691896258,
+          "min": 0,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.41071428571428575,
+        "sd": 0.07783748113465488,
+        "min": 0.35714285714285715,
+        "max": 0.5
+      },
+      "steps": {
+        "n": 3,
+        "mean": 10.333333333333334,
+        "sd": 4.163331998932265,
+        "min": 7,
+        "max": 15
+      }
+    },
+    {
+      "armId": "twin-reference",
+      "taskId": "retry",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9833333333333334,
+          "sd": 0.028867513459481315,
+          "min": 0.95,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9722333333333334,
+          "sd": 0.04809327742349585,
+          "min": 0.9167,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.06060606060606061,
+        "sd": 0.10497277621629561,
+        "min": 0,
+        "max": 0.18181818181818182
+      },
+      "steps": {
+        "n": 3,
+        "mean": 8.666666666666666,
+        "sd": 2.8867513459481287,
+        "min": 7,
+        "max": 12
+      }
+    },
+    {
+      "armId": "twin-reference",
+      "taskId": "semver",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9753,
+          "sd": 0.028313777564994744,
+          "min": 0.9444,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9885,
+          "sd": 0.019918584287042074,
+          "min": 0.9655,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 0.3333333333333333,
+          "sd": 0.5773502691896258,
+          "min": 0,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.19653052261747916,
+        "sd": 0.015170597671862868,
+        "min": 0.18181818181818182,
+        "max": 0.21212121212121213
+      },
+      "steps": {
+        "n": 3,
+        "mean": 31,
+        "sd": 17.69180601295413,
+        "min": 12,
+        "max": 47
+      }
+    },
+    {
+      "armId": "twin-rich",
+      "taskId": "retry",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9666666666666667,
+          "sd": 0.028867513459481315,
+          "min": 0.95,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9444666666666667,
+          "sd": 0.04809327742349585,
+          "min": 0.9167,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "steps": {
+        "n": 3,
+        "mean": 7,
+        "sd": 0,
+        "min": 7,
+        "max": 7
+      }
+    },
+    {
+      "armId": "twin-rich",
+      "taskId": "semver",
+      "n": 3,
+      "axes": {
+        "acceptance": {
+          "n": 3,
+          "mean": 0.9938333333333333,
+          "sd": 0.010680979980008054,
+          "min": 0.9815,
+          "max": 1
+        },
+        "api-shape": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        },
+        "edge-cases": {
+          "n": 3,
+          "mean": 0.9885,
+          "sd": 0.019918584287042074,
+          "min": 0.9655,
+          "max": 1
+        },
+        "self-tests": {
+          "n": 3,
+          "mean": 1,
+          "sd": 0,
+          "min": 1,
+          "max": 1
+        }
+      },
+      "hallucinatedCallRate": {
+        "n": 3,
+        "mean": 0,
+        "sd": 0,
+        "min": 0,
+        "max": 0
+      },
+      "toolErrorRate": {
+        "n": 3,
+        "mean": 0.1638176638176638,
+        "sd": 0.09129042717955621,
+        "min": 0.1111111111111111,
+        "max": 0.2692307692307692
+      },
+      "steps": {
+        "n": 3,
+        "mean": 15.333333333333334,
+        "sd": 9.237604307034013,
+        "min": 10,
+        "max": 26
+      }
+    }
+  ],
+  "statistics": {
+    "acceptance": {
+      "arms": [
+        {
+          "arm": "standard",
+          "ci": [
+            0.3333333333333333,
+            1
+          ],
+          "icc": 0.5,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.6666666666666666
+        },
+        {
+          "arm": "twin-none",
+          "ci": [
+            0,
+            0.3333333333333333
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.16666666666666666
+        },
+        {
+          "arm": "twin-reference",
+          "ci": [
+            0.3333333333333333,
+            0.6666666666666666
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.5
+        },
+        {
+          "arm": "twin-rich",
+          "ci": [
+            0.3333333333333333,
+            0.6666666666666666
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.5
+        }
+      ],
+      "axis": "acceptance",
+      "baseline": "standard",
+      "confidence": 0.95,
+      "pairs": [
+        {
+          "arm": "twin-none",
+          "baseline": "standard",
+          "ci": [
+            -1,
+            0
+          ],
+          "difference": -0.5,
+          "discordant": {
+            "arm_only": 1,
+            "baseline_only": 4
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 1,
+          "p_value": 0.375,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-reference",
+          "baseline": "standard",
+          "ci": [
+            -0.33333333333333337,
+            0
+          ],
+          "difference": -0.16666666666666663,
+          "discordant": {
+            "arm_only": 1,
+            "baseline_only": 2
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 2,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-rich",
+          "baseline": "standard",
+          "ci": [
+            -0.6666666666666667,
+            0.3333333333333333
+          ],
+          "difference": -0.16666666666666663,
+          "discordant": {
+            "arm_only": 1,
+            "baseline_only": 2
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 3,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        }
+      ],
+      "resamples": 10000,
+      "seed": 0
+    },
+    "api-shape": {
+      "arms": [
+        {
+          "arm": "standard",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        },
+        {
+          "arm": "twin-none",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        },
+        {
+          "arm": "twin-reference",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        },
+        {
+          "arm": "twin-rich",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        }
+      ],
+      "axis": "api-shape",
+      "baseline": "standard",
+      "confidence": 0.95,
+      "pairs": [
+        {
+          "arm": "twin-none",
+          "baseline": "standard",
+          "ci": [
+            0,
+            0
+          ],
+          "difference": 0,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 0
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 1,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-reference",
+          "baseline": "standard",
+          "ci": [
+            0,
+            0
+          ],
+          "difference": 0,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 0
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 2,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-rich",
+          "baseline": "standard",
+          "ci": [
+            0,
+            0
+          ],
+          "difference": 0,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 0
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 3,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        }
+      ],
+      "resamples": 10000,
+      "seed": 0
+    },
+    "edge-cases": {
+      "arms": [
+        {
+          "arm": "standard",
+          "ci": [
+            0.6666666666666666,
+            1
+          ],
+          "icc": 5.5511151231257815e-17,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.8333333333333334
+        },
+        {
+          "arm": "twin-none",
+          "ci": [
+            0,
+            0.3333333333333333
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.16666666666666666
+        },
+        {
+          "arm": "twin-reference",
+          "ci": [
+            0.6666666666666666,
+            0.6666666666666666
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.6666666666666666
+        },
+        {
+          "arm": "twin-rich",
+          "ci": [
+            0.3333333333333333,
+            0.6666666666666666
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.5
+        }
+      ],
+      "axis": "edge-cases",
+      "baseline": "standard",
+      "confidence": 0.95,
+      "pairs": [
+        {
+          "arm": "twin-none",
+          "baseline": "standard",
+          "ci": [
+            -1,
+            -0.3333333333333333
+          ],
+          "difference": -0.6666666666666667,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 4
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 1,
+          "p_value": 0.125,
+          "p_value_holm": 0.375,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-reference",
+          "baseline": "standard",
+          "ci": [
+            -0.33333333333333337,
+            0
+          ],
+          "difference": -0.16666666666666674,
+          "discordant": {
+            "arm_only": 1,
+            "baseline_only": 2
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 3,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-rich",
+          "baseline": "standard",
+          "ci": [
+            -0.6666666666666667,
+            0
+          ],
+          "difference": -0.33333333333333337,
+          "discordant": {
+            "arm_only": 1,
+            "baseline_only": 3
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 2,
+          "p_value": 0.625,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        }
+      ],
+      "resamples": 10000,
+      "seed": 0
+    },
+    "self-tests": {
+      "arms": [
+        {
+          "arm": "standard",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        },
+        {
+          "arm": "twin-none",
+          "ci": [
+            0.6666666666666666,
+            0.6666666666666666
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.6666666666666666
+        },
+        {
+          "arm": "twin-reference",
+          "ci": [
+            0.3333333333333333,
+            1
+          ],
+          "icc": 0.5,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 0.6666666666666666
+        },
+        {
+          "arm": "twin-rich",
+          "ci": [
+            1,
+            1
+          ],
+          "icc": 0,
+          "n_tasks": 2,
+          "n_trials": 6,
+          "rate": 1
+        }
+      ],
+      "axis": "self-tests",
+      "baseline": "standard",
+      "confidence": 0.95,
+      "pairs": [
+        {
+          "arm": "twin-none",
+          "baseline": "standard",
+          "ci": [
+            -0.33333333333333337,
+            -0.33333333333333337
+          ],
+          "difference": -0.33333333333333337,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 2
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 1,
+          "p_value": 0.5,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-reference",
+          "baseline": "standard",
+          "ci": [
+            -0.6666666666666667,
+            0
+          ],
+          "difference": -0.33333333333333337,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 2
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 2,
+          "p_value": 0.5,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        },
+        {
+          "arm": "twin-rich",
+          "baseline": "standard",
+          "ci": [
+            0,
+            0
+          ],
+          "difference": 0,
+          "discordant": {
+            "arm_only": 0,
+            "baseline_only": 0
+          },
+          "dropped_tasks": 0,
+          "holm_rank": 3,
+          "p_value": 1,
+          "p_value_holm": 1,
+          "shared_tasks": 2
+        }
+      ],
+      "resamples": 10000,
+      "seed": 0
+    }
+  },
+  "costLedger": {
+    "totalMicroUsd": 8029949,
+    "pricedTrials": 24,
+    "unpricedTrials": 0
+  },
+  "trials": [
+    {
+      "externalRef": "445a362ab923:standard:retry:r1",
+      "runId": "402d6030-77b5-4bde-ac61-d0fd003abdc4",
+      "armId": "standard",
+      "taskId": "retry",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 28819,
+      "tokensOut": 4978,
+      "costMicroUsd": 53709,
+      "durationMs": 42893,
+      "toolCalls": 6,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "7f7bcf69b306120bb13822a3fa280680e33067a8bc46b7e9021c9a1ebf15061c"
+    },
+    {
+      "externalRef": "445a362ab923:standard:retry:r2",
+      "runId": "fec2fc4d-0fec-4369-890c-add353898def",
+      "armId": "standard",
+      "taskId": "retry",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 66212,
+      "tokensOut": 8267,
+      "costMicroUsd": 107547,
+      "durationMs": 72203,
+      "toolCalls": 10,
+      "toolFailures": 1,
+      "steps": 11,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "e6f84db74459c3eda7b7a1b2bc0906c03cbee88fb2550deebe7ad7327f7ac3c1"
+    },
+    {
+      "externalRef": "445a362ab923:standard:retry:r3",
+      "runId": "e0d0b38c-856e-4c5f-8f3d-d944e813bfbd",
+      "armId": "standard",
+      "taskId": "retry",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 107504,
+      "tokensOut": 12625,
+      "costMicroUsd": 170629,
+      "durationMs": 170888,
+      "toolCalls": 12,
+      "toolFailures": 1,
+      "steps": 12,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "788c557fa19ea66d949cd56abfe0918b8272ce88587d32ab80205df9f6f1ccd9"
+    },
+    {
+      "externalRef": "445a362ab923:standard:semver:r1",
+      "runId": "fdad84bd-5924-4bce-b28d-33d05b3f5982",
+      "armId": "standard",
+      "taskId": "semver",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9815,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 441666,
+      "tokensOut": 29136,
+      "costMicroUsd": 587346,
+      "durationMs": 167925,
+      "toolCalls": 16,
+      "toolFailures": 4,
+      "steps": 17,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "c470dc46d8a27ce297b90f9d5131baccf248486cc3c14ad5b23b4d3663b8771d"
+    },
+    {
+      "externalRef": "445a362ab923:standard:semver:r2",
+      "runId": "4549449b-831f-4a54-8ebb-b23ac4db0355",
+      "armId": "standard",
+      "taskId": "semver",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 462408,
+      "tokensOut": 28011,
+      "costMicroUsd": 602463,
+      "durationMs": 163032,
+      "toolCalls": 19,
+      "toolFailures": 4,
+      "steps": 19,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "6e7ef9ed4433473d9c73b5bc7ac3176587c3ad29fe3d16008ee6807d87814fc7"
+    },
+    {
+      "externalRef": "445a362ab923:standard:semver:r3",
+      "runId": "c641829e-d113-4d7c-9f8f-fb618f6dc256",
+      "armId": "standard",
+      "taskId": "semver",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.963,
+        "api-shape": 1,
+        "edge-cases": 0.9655,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 473210,
+      "tokensOut": 22040,
+      "costMicroUsd": 583410,
+      "durationMs": 143630,
+      "toolCalls": 23,
+      "toolFailures": 3,
+      "steps": 24,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "16c452ebb683c39b15004b5f80b7c6b514fc8f8b5681bf7f79505865d6edc10a"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:retry:r1",
+      "runId": "c37d9e37-faa0-4cdf-81fb-e44c495664b3",
+      "armId": "twin-none",
+      "taskId": "retry",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 53623,
+      "tokensOut": 9228,
+      "costMicroUsd": 99763,
+      "durationMs": 62566,
+      "toolCalls": 8,
+      "toolFailures": 3,
+      "steps": 9,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "6beb476bc671dc5dd6a416210bb7f830046afa43696d18c828d6ea2d425bb6c2"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:retry:r2",
+      "runId": "c0434dbe-3e66-4676-a148-834a5e7f3413",
+      "armId": "twin-none",
+      "taskId": "retry",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 62694,
+      "tokensOut": 8883,
+      "costMicroUsd": 107109,
+      "durationMs": 54988,
+      "toolCalls": 10,
+      "toolFailures": 3,
+      "steps": 11,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "5393fb3833b936637ec3443f1dbc571075be0b02382f5efe3ca92722edaf981b"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:retry:r3",
+      "runId": "8953f0c3-b2c6-4614-a270-909194e81b59",
+      "armId": "twin-none",
+      "taskId": "retry",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 0
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": false
+      },
+      "tokensIn": 13610,
+      "tokensOut": 4625,
+      "costMicroUsd": 36735,
+      "durationMs": 30933,
+      "toolCalls": 5,
+      "toolFailures": 3,
+      "steps": 6,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "cf8e179d33f2dfc7d7fe0efd07f18f85fe302d9371c00755e921414fd45d857b"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:semver:r1",
+      "runId": "5f7a5b0c-89ab-4b2b-9028-d23ee525d94a",
+      "armId": "twin-none",
+      "taskId": "semver",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 166769,
+      "tokensOut": 16078,
+      "costMicroUsd": 247159,
+      "durationMs": 93488,
+      "toolCalls": 14,
+      "toolFailures": 5,
+      "steps": 15,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "082525ef1e030240d923b667f15669f5b20c752c05e6fb5599f79a8e9eb60230"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:semver:r2",
+      "runId": "9da89ce4-8373-40a7-9706-cad5f6b9b80d",
+      "armId": "twin-none",
+      "taskId": "semver",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9444,
+        "api-shape": 1,
+        "edge-cases": 0.931,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 110211,
+      "tokensOut": 12735,
+      "costMicroUsd": 173886,
+      "durationMs": 72063,
+      "toolCalls": 8,
+      "toolFailures": 3,
+      "steps": 9,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "a6170f9f3b2e27367d0196c86fe4576c9db3eec4c3bbf02a38ad97027bb6dec5"
+    },
+    {
+      "externalRef": "445a362ab923:twin-none:semver:r3",
+      "runId": "51a8b0fa-aa0c-4294-b298-e584b53fd08c",
+      "armId": "twin-none",
+      "taskId": "semver",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9815,
+        "api-shape": 1,
+        "edge-cases": 0.9655,
+        "self-tests": 0
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": false
+      },
+      "tokensIn": 41316,
+      "tokensOut": 10087,
+      "costMicroUsd": 91751,
+      "durationMs": 57948,
+      "toolCalls": 6,
+      "toolFailures": 3,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "171a879927bc17d1d2ad541cf694c0c42747c980ec67c5c1bf89c13fd0433feb"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:retry:r1",
+      "runId": "5deb7cbb-96b7-4428-968b-cdca106cd8e5",
+      "armId": "twin-reference",
+      "taskId": "retry",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 88482,
+      "tokensOut": 8806,
+      "costMicroUsd": 132512,
+      "durationMs": 70570,
+      "toolCalls": 11,
+      "toolFailures": 2,
+      "steps": 12,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "a831ae006a930f4bb96ccc0503786fcc0708503a979274b6b824e82a3a0cdbaf"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:retry:r2",
+      "runId": "9f64313c-3dba-4a3a-9c39-e15cfa83503d",
+      "armId": "twin-reference",
+      "taskId": "retry",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 27443,
+      "tokensOut": 4932,
+      "costMicroUsd": 52103,
+      "durationMs": 36031,
+      "toolCalls": 6,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "3f4e99b16eaac2e64d22f42eec99dcb7879edd4ca0a1e3e5964cb927d2a9066f"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:retry:r3",
+      "runId": "9fa04339-064c-4837-9be8-1dfb00432b91",
+      "armId": "twin-reference",
+      "taskId": "retry",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 24747,
+      "tokensOut": 3905,
+      "costMicroUsd": 44272,
+      "durationMs": 30070,
+      "toolCalls": 7,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "958cde75404406f032d61ec6164bb33c0379fafab98c02f9786b5e018102d171"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:semver:r1",
+      "runId": "1539860c-6fc4-484d-b979-0184b4af8dfc",
+      "armId": "twin-reference",
+      "taskId": "semver",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9444,
+        "api-shape": 1,
+        "edge-cases": 0.9655,
+        "self-tests": 0
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": false
+      },
+      "tokensIn": 1740179,
+      "tokensOut": 44968,
+      "costMicroUsd": 1965019,
+      "durationMs": 290816,
+      "toolCalls": 46,
+      "toolFailures": 9,
+      "steps": 47,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "33d870895f96f9a416f8b05f4c5599d7622c611b81b8e0db8766974e40ced21a"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:semver:r2",
+      "runId": "4b04dcac-c84b-451d-aa68-6e02b10b3967",
+      "armId": "twin-reference",
+      "taskId": "semver",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9815,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 147608,
+      "tokensOut": 15902,
+      "costMicroUsd": 227118,
+      "durationMs": 95912,
+      "toolCalls": 11,
+      "toolFailures": 2,
+      "steps": 12,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "75081cb934f88bfeb9599f7cd15e71e1111d10b1643211d5cfee7117ccf8ace3"
+    },
+    {
+      "externalRef": "445a362ab923:twin-reference:semver:r3",
+      "runId": "10ec54ce-b1de-405d-8caf-954a5da8518a",
+      "armId": "twin-reference",
+      "taskId": "semver",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 0
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": false
+      },
+      "tokensIn": 1224415,
+      "tokensOut": 48436,
+      "costMicroUsd": 1466595,
+      "durationMs": 300701,
+      "toolCalls": 33,
+      "toolFailures": 7,
+      "steps": 34,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "0e42be8c4fd89b9d50af9474781b85d6456b421e91cf1cb1ce48ced1d94c049e"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:retry:r1",
+      "runId": "0b6189f4-4163-46fa-8d84-2316d490a9ed",
+      "armId": "twin-rich",
+      "taskId": "retry",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 26558,
+      "tokensOut": 4158,
+      "costMicroUsd": 47348,
+      "durationMs": 36460,
+      "toolCalls": 7,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "1dd55fdb8620f8385807ab6a7915d4933d184666a337aa21026e1997db1f367f"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:retry:r2",
+      "runId": "2cbef2f9-40d9-451d-a613-6054d1276e86",
+      "armId": "twin-rich",
+      "taskId": "retry",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 25696,
+      "tokensOut": 3893,
+      "costMicroUsd": 45161,
+      "durationMs": 32506,
+      "toolCalls": 7,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "7201a2112a0cb57c90d3f8952b6f10fbd564a5885a3e505d6ce9fc4471bcbca4"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:retry:r3",
+      "runId": "1af93087-44c8-44ba-afee-3ee6fc70be51",
+      "armId": "twin-rich",
+      "taskId": "retry",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.95,
+        "api-shape": 1,
+        "edge-cases": 0.9167,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 28674,
+      "tokensOut": 4677,
+      "costMicroUsd": 52059,
+      "durationMs": 47954,
+      "toolCalls": 7,
+      "toolFailures": 0,
+      "steps": 7,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "07561f1a032e08815388eb410c957004dab838e2e1ec45a9257d55d069c7b91b"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:semver:r1",
+      "runId": "86e7005c-723a-4711-8d1f-9014efbbeca2",
+      "armId": "twin-rich",
+      "taskId": "semver",
+      "rep": 1,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 0.9815,
+        "api-shape": 1,
+        "edge-cases": 0.9655,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": false,
+        "api-shape": true,
+        "edge-cases": false,
+        "self-tests": true
+      },
+      "tokensIn": 103244,
+      "tokensOut": 12240,
+      "costMicroUsd": 164444,
+      "durationMs": 69505,
+      "toolCalls": 9,
+      "toolFailures": 1,
+      "steps": 10,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "dd5c9dafdf4c1b92f4edae0e2890953cc6e5b919e5f02a7973ee859083338ce9"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:semver:r2",
+      "runId": "54cf6945-187b-4ba8-b9e7-a69c0f0b0d2a",
+      "armId": "twin-rich",
+      "taskId": "semver",
+      "rep": 2,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 653190,
+      "tokensOut": 31392,
+      "costMicroUsd": 810150,
+      "durationMs": 191831,
+      "toolCalls": 26,
+      "toolFailures": 7,
+      "steps": 26,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "3bc387e942aaf26777fd4b36dc733b7b099b487a02a0aa3883014d17ed3b7269"
+    },
+    {
+      "externalRef": "445a362ab923:twin-rich:semver:r3",
+      "runId": "08b97fd5-8792-4e01-9284-e674f2996b60",
+      "armId": "twin-rich",
+      "taskId": "semver",
+      "rep": 3,
+      "status": "closed",
+      "verified": true,
+      "verdict": "ok",
+      "axes": {
+        "acceptance": 1,
+        "api-shape": 1,
+        "edge-cases": 1,
+        "self-tests": 1
+      },
+      "axesPassed": {
+        "acceptance": true,
+        "api-shape": true,
+        "edge-cases": true,
+        "self-tests": true
+      },
+      "tokensIn": 102026,
+      "tokensOut": 11927,
+      "costMicroUsd": 161661,
+      "durationMs": 71374,
+      "toolCalls": 9,
+      "toolFailures": 1,
+      "steps": 10,
+      "hallucinatedCalls": 0,
+      "hallucinatedCallRate": 0,
+      "hallucinatedNames": [],
+      "trajectoryDigest": "f1e87cddb2e3c6fa93644fd551ba30e95ea12f7d70aa9ff50d3c628a8b5b116c"
+    }
+  ]
+}

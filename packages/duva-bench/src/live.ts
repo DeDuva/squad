@@ -196,6 +196,7 @@ export async function runStudyCommand({ argv, env }: CliIo): Promise<{ report: s
   const root = arg(argv, 'root') ?? mkdtempSync(join(tmpdir(), 'duva-bench-study-'));
   const result = await runStudy({
     study: loaded.study,
+    specPath,
     ep,
     root,
     resolveTask: (task) => {

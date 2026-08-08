@@ -213,6 +213,37 @@ describe('completedRefs', () => {
     expect([...done]).toEqual(['ref-closed-verified']);
   });
 
+  it('replans a verified run that was never graded, when the study grades', async () => {
+    // The pilot study proved this the expensive way. Grading happens after the
+    // run closes, so a trial can close, verify, and die before it is scored;
+    // resumption then saw a closed verified run, called the cell done, and left
+    // it permanently unscored. 18 of 24 trials were lost that way.
+    const ungraded = [{ runId: 'r1', externalRef: 'ref-closed-verified', status: 'closed', evals: [] }];
+    const stub = {
+      compareRuns: async () => ({ intent_id: 'i', runs: ungraded }) as never,
+      verifyRun: async () => ({ ok: true }) as never,
+    };
+    expect([...(await completedRefs(EP, ['i'], stub as never, { requireEval: true }))]).toEqual([]);
+    // And it still counts as done for a study with no grader at all.
+    expect([...(await completedRefs(EP, ['i'], stub as never))]).toEqual(['ref-closed-verified']);
+  });
+
+  it('accepts a verified run that carries an eval', async () => {
+    const graded = [
+      {
+        runId: 'r1',
+        externalRef: 'ref-graded',
+        status: 'closed',
+        evals: [{ name: 'acceptance', score: 1, passed: true, specDigest: 'd', gateStatus: 'pass' }],
+      },
+    ];
+    const stub = {
+      compareRuns: async () => ({ intent_id: 'i', runs: graded }) as never,
+      verifyRun: async () => ({ ok: true }) as never,
+    };
+    expect([...(await completedRefs(EP, ['i'], stub as never, { requireEval: true }))]).toEqual(['ref-graded']);
+  });
+
   it('replans a run it could not confirm rather than assuming it good', async () => {
     // Re-running a trial costs cents; keeping an unverifiable one costs the
     // study its evidence.
