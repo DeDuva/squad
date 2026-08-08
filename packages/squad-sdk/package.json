@@ -1,7 +1,7 @@
 {
   "name": "@deduvafork/squad-sdk",
   "version": "0.12.0-preview",
-  "description": "Squad SDK \u2014 Programmable multi-agent runtime",
+  "description": "Squad SDK — Programmable multi-agent runtime",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -248,25 +248,24 @@
   "engines": {
     "node": ">=22.5.0"
   },
-  "dependencies": {},
   "optionalDependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.219.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.219.0",
-    "@opentelemetry/resources": "^2.8.0",
-    "@opentelemetry/sdk-metrics": "^2.8.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
-    "@opentelemetry/sdk-trace-base": "^2.8.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@opentelemetry/sdk-trace-node": "^2.8.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "sql.js": "^1.14.1",
-    "ws": "^8.21.0"
+    "ws": "^8.21.2"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.1.2",
     "@types/sql.js": "^1.4.10",
     "@types/ws": "^8.5.13",
-    "typedoc": "~0.28.19",
+    "typedoc": "~0.28.20",
     "typedoc-plugin-markdown": "~4.12.0",
     "typescript": "^6.0.3"
   },
@@ -287,7 +286,7 @@
     "directory": "packages/squad-sdk"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.220",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.222",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
