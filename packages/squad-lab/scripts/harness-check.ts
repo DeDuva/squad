@@ -18,7 +18,6 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { EventBus, type SquadEvent } from '@deduvafork/squad-sdk/runtime/event-bus';
-import { SquadClient } from '@deduvafork/squad-sdk/client';
 import { VENDORS, type SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
 
 import {
@@ -31,6 +30,7 @@ import {
 } from '../src/conformance.js';
 import { compareProfiles, formatProfiles, probeWireParity, type WireProfile } from '../src/parity.js';
 import { createAiSdkHarness, type AiSdkProvider } from '../src/harnesses/ai-sdk.js';
+import { createNativeHarness } from '../src/harnesses/native.js';
 
 function vendorKey(provider: SquadProvider): string | undefined {
   const fromEnv = process.env[VENDORS[provider].apiKeyEnv];
@@ -82,34 +82,32 @@ async function contextFor(provider: SquadProvider): Promise<{ ctx: ConformanceCo
     seen.push(e);
   });
 
+  // The shared factory, not a copy of it. This script used to rebuild the
+  // native arm inline, and the copy had drifted: it always replaced the system
+  // message and always filtered tools, so it certified a configuration no
+  // variant necessarily ran. Certifying `createNativeHarness` means the arm
+  // that passes here is the arm duva-bench executes.
   const key = provider === 'gemini' ? geminiKey() : undefined;
-  const client = new SquadClient({
+  const native = await createNativeHarness({
+    bus,
     provider,
-    ...(provider === 'gemini' && key ? { geminiApiKey: key } : {}),
-    eventBus: bus,
-  } as never);
-  await client.connect();
+    model: VENDORS[provider].models.fast,
+    ...(key ? { apiKey: key } : {}),
+  });
 
   const ctx: ConformanceContext = {
     events: () => [...seen],
     reset: () => {
       seen.length = 0;
     },
-    createSession: async (config) =>
-      (await (client as unknown as { createSession: (c: unknown) => Promise<unknown> }).createSession({
-        model: VENDORS[provider].models.fast,
-        clientName: `squad-agent-${config.agentName ?? 'Prober'}`,
-        agentName: config.agentName,
-        tools: config.tools,
-        // The comparable configuration, which is what is being certified.
-        availableTools: (config.tools ?? []).map((t) => `mcp__squad__${t.name}`),
-        builtinTools: false,
-        systemMessage: { mode: 'replace', content: config.systemMessage?.content ?? '' },
-        maxToolRounds: config.maxToolRounds,
-      })) as never,
+    createSession: (config) =>
+      native.createSession({
+        ...config,
+        agentName: config.agentName ?? 'Prober',
+      }),
   };
 
-  return { ctx, close: async () => void (await (client as unknown as { disconnect?: () => Promise<void> }).disconnect?.()) };
+  return { ctx, close: native.close };
 }
 
 async function main(): Promise<void> {

@@ -24,11 +24,11 @@ const manifestVersion = (
 ).version;
 
 describe('duva-bench cli', () => {
-  it('reports the version the manifest actually declares', () => {
+  it('reports the version the manifest actually declares', async () => {
     expect(benchVersion()).toBe(manifestVersion);
 
     for (const argv of [['--version'], ['-v'], ['version']]) {
-      expect(runCli(argv)).toEqual({ code: 0, stdout: `${manifestVersion}\n`, stderr: '' });
+      expect(await runCli(argv)).toEqual({ code: 0, stdout: `${manifestVersion}\n`, stderr: '' });
     }
   });
 
@@ -36,14 +36,19 @@ describe('duva-bench cli', () => {
     expect(packageRoot().endsWith(join('packages', 'duva-bench'))).toBe(true);
   });
 
-  it('prints usage for --help and for no arguments', () => {
+  it('prints usage for --help and for no arguments', async () => {
     for (const argv of [['--help'], ['-h'], []]) {
-      expect(runCli(argv)).toEqual({ code: 0, stdout: USAGE, stderr: '' });
+      expect(await runCli(argv)).toEqual({ code: 0, stdout: USAGE, stderr: '' });
     }
   });
 
-  it('fails an unknown command with a usage exit code, not a crash', () => {
-    const result = runCli(['bogus']);
+  it('answers --help even when a real command is also named', async () => {
+    // The async dispatcher must not reach a model to print usage.
+    expect(await runCli(['harness-check', '--help'])).toEqual({ code: 0, stdout: USAGE, stderr: '' });
+  });
+
+  it('fails an unknown command with a usage exit code, not a crash', async () => {
+    const result = await runCli(['bogus']);
     expect(result.code).toBe(2);
     expect(result.stdout).toBe('');
     expect(result.stderr).toContain("unknown command 'bogus'");

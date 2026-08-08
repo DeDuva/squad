@@ -12,6 +12,7 @@
     "./grader": "./src/grader.ts",
     "./harness": "./src/harness.ts",
     "./harnesses/ai-sdk": "./src/harnesses/ai-sdk.ts",
+    "./harnesses/native": "./src/harnesses/native.ts",
     "./isolate": "./src/isolate.ts",
     "./pricing": "./src/pricing.ts",
     "./summary": "./src/summary.ts",

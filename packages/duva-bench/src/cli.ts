@@ -29,18 +29,28 @@ usage: duva-bench <command> [options]
 
 commands:
   version              print the package version
+  harness-check        certify each arm against the 8-clause contract
+                       (costs a few model calls per arm; no ADP)
+  goal                 file a goal issue, minting the intent runs hang off
+  trial                run exactly one trial against an existing intent
 
 options:
   --version, -v        print the package version
   --help, -h           print this message
+  --provider=<name>    harness-check: providers to certify (comma-separated,
+                       default anthropic,gemini)
 `;
 
 /**
  * Run one command. Pure with respect to the process: no writes, no exits.
  *
+ * Async because everything after `version` reaches a model or ADP, and a
+ * dispatcher that had to grow a second, parallel async path would be the kind
+ * of split where one half quietly stops handling `--help`.
+ *
  * @param argv Arguments after the node binary and script path.
  */
-export function runCli(argv: string[]): CliResult {
+export async function runCli(argv: string[]): Promise<CliResult> {
   const ok = (stdout: string): CliResult => ({ code: 0, stdout, stderr: '' });
 
   if (argv.includes('--help') || argv.includes('-h')) return ok(USAGE);
@@ -49,6 +59,38 @@ export function runCli(argv: string[]): CliResult {
   const command = argv[0];
   if (command === undefined) return ok(USAGE);
   if (command === 'version') return ok(`${benchVersion()}\n`);
+
+  if (command === 'harness-check') {
+    const flag = argv.find((a) => a.startsWith('--provider='));
+    const providers = (flag ? flag.slice('--provider='.length).split(',') : ['anthropic', 'gemini'])
+      .map((p) => p.trim())
+      .filter(Boolean) as Array<'anthropic' | 'gemini'>;
+
+    const { runHarnessCheck } = await import('./harness-check.js');
+    const result = await runHarnessCheck(providers, process.cwd());
+    return { code: result.failed === 0 ? 0 : 1, stdout: result.output, stderr: '' };
+  }
+
+  if (command === 'goal' || command === 'trial') {
+    const io = { argv, env: process.env };
+    try {
+      if (command === 'goal') {
+        const { mintGoal } = await import('./live.js');
+        return ok(await mintGoal(io));
+      }
+      const { runTrialCommand } = await import('./live.js');
+      const { result, report } = await runTrialCommand(io);
+      // A trial that ran but did not verify is a failure of the gate, not of
+      // the command — reported as a non-zero exit so a scheduler notices.
+      return { code: result.verified === true ? 0 : 1, stdout: report, stderr: '' };
+    } catch (error) {
+      return {
+        code: 2,
+        stdout: '',
+        stderr: `duva-bench ${command}: ${error instanceof Error ? error.message : String(error)}\n`,
+      };
+    }
+  }
 
   return {
     code: 2,
@@ -69,8 +111,14 @@ function invokedDirectly(): boolean {
 }
 
 if (invokedDirectly()) {
-  const result = runCli(process.argv.slice(2));
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
-  process.exit(result.code);
+  runCli(process.argv.slice(2))
+    .then((result) => {
+      if (result.stdout) process.stdout.write(result.stdout);
+      if (result.stderr) process.stderr.write(result.stderr);
+      process.exit(result.code);
+    })
+    .catch((error: unknown) => {
+      process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+      process.exit(1);
+    });
 }
