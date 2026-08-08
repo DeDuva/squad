@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -488,6 +488,59 @@ describe('runTrial toolsets', () => {
     } finally {
       none.cleanup();
       rich.cleanup();
+    }
+  });
+});
+
+// ─── Resuming into your own leftovers ────────────────────────────────────
+
+describe('a resumed trial', () => {
+  it('clears a stale work directory that a killed run left behind', async () => {
+    // The bug this encodes: `git clone` refuses a destination that is not
+    // empty, so after a study is killed every retried trial fails on a stale
+    // directory rather than on anything real. Resumption is the whole point of
+    // the scheduler, and it met its own leftovers on the first real study.
+    const h = harness();
+    try {
+      const workDir = join(h.spec.outDir, 'work');
+      mkdirSync(workDir, { recursive: true });
+      writeFileSync(join(workDir, 'leftover.txt'), 'from the run that died\n');
+      h.spec.workspace = { ...h.spec.workspace, workDir };
+
+      let sawEmpty = false;
+      h.spec.deps = {
+        ...h.spec.deps,
+        prepareWorkspace: (workspaceSpec) => {
+          sawEmpty = !existsSync(workspaceSpec.workDir);
+          return { workDir: workspaceSpec.workDir, branch: 'trial', remote: 'http://adp.invalid/x.git' };
+        },
+      };
+
+      await runTrial(h.spec);
+      expect(sawEmpty).toBe(true);
+    } finally {
+      h.cleanup();
+    }
+  });
+
+  it('never deletes a work directory outside the trial it owns', async () => {
+    // Bounded on purpose. The runner created the path under its own outDir, so
+    // it is the runner's to clear; anything else is somebody's checkout.
+    const h = harness();
+    const outside = mkdtempSync(join(tmpdir(), 'duvabench-not-ours-'));
+    try {
+      writeFileSync(join(outside, 'precious.txt'), 'do not delete\n');
+      h.spec.workspace = { ...h.spec.workspace, workDir: outside };
+      h.spec.deps = {
+        ...h.spec.deps,
+        prepareWorkspace: () => ({ workDir: outside, branch: 'trial', remote: 'http://adp.invalid/x.git' }),
+      };
+
+      await runTrial(h.spec);
+      expect(existsSync(join(outside, 'precious.txt'))).toBe(true);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+      h.cleanup();
     }
   });
 });
