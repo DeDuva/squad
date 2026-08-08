@@ -14,7 +14,33 @@ layer — which makes the pair itself an experiment (see §6).
 **Repo:** `~/dev/duva_squad/squad` (fork of upstream squad, github.com/DeDuva/squad).
 **Base branch: `dev`** — the default branch as of 2026-08-07; `origin/dev` ==
 `origin/replatform-0.11` (`99f60910`), so all prior lab work (PRs #74–#89) is on it.
-Milestone reports for prior work: `~/dev/duva_squad/reports/m0…m14`.
+Milestone reports for prior work: **`github.com/DeDuva/duva-lab-tpm`** (private), `reports/m0…m14`
+— moved there 2026-08-08 from an untracked directory that had no remote.
+
+---
+
+## Track status — 2026-08-08
+
+**Both tracks are meant to run in parallel. That is the design, not a schedule slip.** The pair is
+itself the experiment: bespoke infrastructure (this track) against in-distribution infrastructure
+(Harbor), on the same tasks, graders and statistics. Neither track is the "real" one.
+
+| Track | State |
+|---|---|
+| **squad** (this plan) | S0–S7 executed and merged; gates SG1 and SG2 passed. S7 ran a live 24-trial pilot, $8.03, every run verified. |
+| **Harbor** (`github.com/DeDuva/duva-bench`) | **Paused, deliberately.** Still at its bootstrap commit — README, licence, docs site, execution plan. No tasks, graders or runs. |
+
+**Why Harbor is paused:** its dependencies could not be configured from a remote session. That is
+an environment constraint, and the pause is a decision — **not neglect, and not a reversal of the
+substrate decision.** It is written down here because a bootstrap-only repository is otherwise
+indistinguishable from an abandoned one: a cross-project audit on 2026-08-08 read it as exactly
+that, which is the evidence that leaving it unrecorded was itself the defect.
+
+**What would resume it.** A later probe found `terminal-bench` installs cleanly on this machine
+and Docker runs and pulls images, so the dependency picture may be better than when the pause was
+taken. But Harbor also wraps real agent CLIs and only `claude` is present locally (`codex` and
+`aider` are absent), so the obstacle may have been elsewhere. The next step is **one timeboxed
+probe of a single Harbor trial**, reporting exactly where it fails — not a restart.
 
 ---
 
@@ -266,11 +292,29 @@ harnesses, 5 reps, labels including `platform: squad`; pre-registration identica
 track's (primary metric: hallucinated-call rate; metaprogramming recorded, not forbidden);
 executed run; report committed with a written summary.
 
-**Done when (GATE SG3 — hard stop):** the report prints the pre-registration unchanged or with
-explicit amendments; every included run verifies; the write-up states the noise floor before any
-contrast; and a **cross-track memo** compares the familiarity effect squad-track vs.
-Harbor-track on the shared cells — same direction and comparable magnitude, or a stated
-hypothesis for the divergence.
+**Done when — GATE SG3, split 2026-08-08 into two gates.**
+
+SG3 originally bundled this track's own completion with a cross-track comparison. That made a hard
+gate depend on a precondition outside this track's control: the Harbor track is deliberately paused
+(see "Track status" above), so no shared cells exist and none can be made here. A gate that cannot
+be passed by doing good work is one that gets quietly ignored, and quietly ignoring a gate is how
+pre-registration discipline dies. So the two questions are now two gates.
+
+**SG3a — this track's own result. A hard stop, and passable on this track's evidence alone.**
+The report prints the pre-registration unchanged or with explicit amendments; every included run
+verifies; runs that do not verify are excluded and *counted*, never scored 0; and the write-up
+states the noise floor before any contrast.
+
+**SG3b — the cross-track memo. Deferred, with a stated precondition.**
+Compares the familiarity effect squad-track vs. Harbor-track on the shared cells — same direction
+and comparable magnitude, or a stated hypothesis for the divergence.
+
+> **Precondition: the Harbor track reaching M8 with a shared task set.** Until then this gate is
+> *deferred*, not failed and not waived. `studies/a-tool-familiarity-pilot/CROSS-TRACK.md` already
+> registers the expected result in advance, so the memo cannot be fitted to the answer whenever the
+> data does arrive. **Do not** substitute this track's own example tasks and present the result as
+> a cross-track comparison; the pilot records that substitution explicitly rather than papering
+> over it.
 
 ---
 
