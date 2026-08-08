@@ -16,15 +16,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { SquadProvider } from '@deduvafork/squad-sdk/config/vendors';
-import { createGoal, ensureRepo, gitRemote, whoami, type AdpEndpoint } from '@deduvafork/squad-lab/adp';
+import { createGoal, ensureRepo, findGoalByTitle, gitRemote, whoami, type AdpEndpoint } from '@deduvafork/squad-lab/adp';
 
 import { runTrial, type TrialResult } from './runner.js';
 import { resolveArmModel, type ArmHarness, type ArmSpec } from './arms/index.js';
 import { vendorKey } from './credentials.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
-import { loadStudyFile, resolveFrom } from './study-file.js';
-import { runStudy } from './scheduler.js';
+import { graderSha256, loadStudyFile, resolveFrom } from './study-file.js';
+import { assertSeparateIdentities, gradeVariant } from '@deduvafork/squad-lab/grader';
+
+import { runStudy, intentTitle } from './scheduler.js';
+import { collectOutcomes, includedTrials, noiseFloors, observationsOf } from './analysis.js';
+import { buildReport, renderHtml } from './report.js';
+import { pairedStats, StatsBridgeUnavailable, type ArmOutcomes, type StatsResult } from './stats-bridge.js';
 import { armDigest, shortDigest, studyDigest, type Arm, type DocsGrade } from './study.js';
 
 /**
@@ -116,6 +121,8 @@ function fromStudy(
   labels: Record<string, string>;
   externalRef: string;
   toolset: { twinSeed?: string; docsGrade: DocsGrade };
+  grader?: string;
+  primaryAxis?: string;
 } {
   const loaded = loadStudyFile(studyPath);
   if (!loaded.ok) {
@@ -129,7 +136,8 @@ function fromStudy(
   if (!found) {
     throw new Error(`no arm '${armId}' in ${studyPath} — have ${study.arms.map((a) => a.id).join(', ')}`);
   }
-  if (!study.tasks.some((t) => t.id === taskId)) {
+  const task = study.tasks.find((t) => t.id === taskId);
+  if (!task) {
     throw new Error(`no task '${taskId}' in ${studyPath} — have ${study.tasks.map((t) => t.id).join(', ')}`);
   }
   const arm: ArmSpec = {
@@ -162,6 +170,8 @@ function fromStudy(
       ...(found.toolset.twinSeed !== undefined ? { twinSeed: found.toolset.twinSeed } : {}),
       docsGrade: found.toolset.docsGrade,
     },
+    grader: resolveFrom(studyPath, task.grader),
+    primaryAxis: study.preRegistration.primaryMetric,
   };
 }
 
@@ -221,6 +231,107 @@ export async function runStudyCommand({ argv, env }: CliIo): Promise<{ report: s
   return { report: `${lines.join('\n')}\n`, code: result.failed === 0 ? 0 : 1 };
 }
 
+/**
+ * Read a finished study back out of ADP and write the report.
+ *
+ * Separate from `study` on purpose: a report is a read, and it must be possible
+ * to produce one on a machine that never ran the study, from nothing but the
+ * spec and the run record. If reporting needed local state it would be
+ * impossible to check somebody else's result.
+ */
+export async function runReportCommand({ argv, env }: CliIo): Promise<{ report: string; code: number }> {
+  const ep = endpoint(argv, env);
+  const specPath = required(argv, 'file');
+  const loaded = loadStudyFile(specPath);
+  if (!loaded.ok) {
+    throw new Error(
+      `study ${specPath} is not valid:\n` + loaded.errors.map((e) => `  ${e.path}: ${e.message}`).join('\n'),
+    );
+  }
+  const study = loaded.study;
+  const digest = studyDigest(study);
+
+  // The intents are found the same way the scheduler files them, so a report
+  // never has to be told where a study went.
+  const intents = new Map<string, string>();
+  for (const task of study.tasks) {
+    const goal = await findGoalByTitle(ep, intentTitle(digest, task.id));
+    if (goal) intents.set(task.id, goal.intentId);
+  }
+  if (intents.size === 0) throw new Error(`no intents found for study ${shortDigest(digest)} — has it run?`);
+
+  const outcomes = await collectOutcomes(ep, study, intents);
+  const axes = [...new Set(includedTrials(outcomes).flatMap((t) => Object.keys(t.axes)))].sort();
+  const floors = noiseFloors(observationsOf(outcomes, study), axes);
+
+  // Statistics per axis, over the grader's own pass/fail. A missing bridge is
+  // reported rather than silently producing a study that "found nothing".
+  const stats: Record<string, StatsResult> = {};
+  let statsUnavailable: string | undefined;
+  const baseline = arg(argv, 'baseline') ?? study.arms[0]?.id;
+  for (const axis of axes) {
+    const arms: ArmOutcomes = {};
+    for (const trial of includedTrials(outcomes)) {
+      const passed = trial.axesPassed[axis];
+      if (passed === null || passed === undefined) continue;
+      arms[trial.armId] ??= {};
+      arms[trial.armId]![trial.taskId] ??= [];
+      arms[trial.armId]![trial.taskId]!.push(passed);
+    }
+    if (Object.keys(arms).length < 1) continue;
+    try {
+      stats[axis] = await pairedStats({
+        axis,
+        arms,
+        ...(baseline ? { baseline } : {}),
+        seed: Number(arg(argv, 'seed') ?? '0'),
+      });
+    } catch (error) {
+      if (error instanceof StatsBridgeUnavailable) {
+        statsUnavailable = error.message;
+        break;
+      }
+      throw error;
+    }
+  }
+
+  const report = buildReport({
+    study,
+    outcomes,
+    noiseFloors: floors,
+    stats,
+    ...(statsUnavailable ? { statsUnavailable } : {}),
+  });
+
+  const outDir = arg(argv, 'out') ?? mkdtempSync(join(tmpdir(), 'duva-bench-report-'));
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, 'outcomes.json'), `${JSON.stringify(outcomes, null, 2)}\n`);
+  writeFileSync(join(outDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(join(outDir, 'report.html'), renderHtml(report));
+
+  const errors = report.counts.errors;
+  const lines = [
+    `study    ${report.study.title}`,
+    `digest   ${report.study.digest}`,
+    `trials   ${report.counts.trials} recorded, ${report.counts.included} included` +
+      (errors > 0 ? `, ${errors} ERROR (excluded)` : '') +
+      (report.counts.missing > 0 ? `, ${report.counts.missing} missing` : ''),
+    // The floor before any contrast, always.
+    floors.length > 0
+      ? `noise    ${floors.map((f) => `${f.axis} sd=${f.sd.toFixed(3)} (${f.cells} cells)`).join('  ')}`
+      : 'noise    not measurable — no cell has repeated trials',
+    `cost     $${(report.costLedger.totalMicroUsd / 1e6).toFixed(4)}` +
+      (report.costLedger.unpricedTrials > 0 ? `  (+${report.costLedger.unpricedTrials} unpriced)` : ''),
+    statsUnavailable ? `stats    UNAVAILABLE — ${statsUnavailable}` : `stats    ${Object.keys(stats).length} axis/axes`,
+    '',
+    `report   ${join(outDir, 'report.html')}`,
+    `json     ${join(outDir, 'report.json')}`,
+    `outcomes ${join(outDir, 'outcomes.json')}`,
+  ];
+
+  return { report: `${lines.join('\n')}\n`, code: 0 };
+}
+
 export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: TrialResult; report: string }> {
   const ep = endpoint(argv, env);
   const studyPath = arg(argv, 'study');
@@ -271,6 +382,29 @@ export async function runTrialCommand({ argv, env }: CliIo): Promise<{ result: T
       process.stderr.write(`  ${phase}${detail ? ` ${JSON.stringify(detail)}` : ''}\n`);
     },
   });
+
+  // Grading is a separate identity by design: `separately_authorized` compares
+  // identity, not token, so a run scored by the principal that produced it
+  // proves nothing. A study that cannot score refuses here rather than
+  // producing unscored trials nobody notices until the report.
+  const graderPath = arg(argv, 'grader') ?? fromSpec?.grader;
+  const evalTokenEnv = arg(argv, 'eval-token-env') ?? 'SQUAD_LAB_EVAL_TOKEN';
+  const evalToken = env[evalTokenEnv];
+
+  if (graderPath && evalToken && result.runId) {
+    const evalEndpoint = { ...ep, token: evalToken };
+    await assertSeparateIdentities(ep, evalEndpoint);
+    await gradeVariant({
+      graderPath,
+      graderSha256: graderSha256(graderPath),
+      ...(fromSpec?.primaryAxis ? { primaryAxis: fromSpec.primaryAxis } : {}),
+      workRepo: workDir,
+      runId: result.runId,
+      outDir,
+      ...(result.finalSha ? { gitSha: result.finalSha } : {}),
+      evalEndpoint,
+    });
+  }
 
   return { result, report: `${JSON.stringify(result, null, 2)}\n` };
 }

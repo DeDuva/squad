@@ -36,6 +36,7 @@ commands:
   goal                 file a goal issue, minting the intent runs hang off
   trial                run exactly one trial against an existing intent
   study                run every remaining trial of a study, resumably
+  report               read a finished study back out of ADP and render it
 
 options:
   --version, -v        print the package version
@@ -82,6 +83,20 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     }
     const { describeStudyFile } = await import('./study-report.js');
     return describeStudyFile(flag.slice('--file='.length), command);
+  }
+
+  if (command === 'report') {
+    try {
+      const { runReportCommand } = await import('./live.js');
+      const { report, code } = await runReportCommand({ argv, env: process.env });
+      return { code, stdout: report, stderr: '' };
+    } catch (error) {
+      return {
+        code: 2,
+        stdout: '',
+        stderr: `duva-bench report: ${error instanceof Error ? error.message : String(error)}\n`,
+      };
+    }
   }
 
   if (command === 'study') {
