@@ -37,6 +37,7 @@ commands:
   trial                run exactly one trial against an existing intent
   study                run every remaining trial of a study, resumably
   report               read a finished study back out of ADP and render it
+  serve                three views over a study: define, monitor, analyze
 
 options:
   --version, -v        print the package version
@@ -83,6 +84,29 @@ export async function runCli(argv: string[]): Promise<CliResult> {
     }
     const { describeStudyFile } = await import('./study-report.js');
     return describeStudyFile(flag.slice('--file='.length), command);
+  }
+
+  if (command === 'serve') {
+    const { startBenchServer } = await import('./server.js');
+    const flag = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+    const tokenEnv = flag('token-env') ?? 'SQUAD_LAB_ADP_TOKEN';
+    const token = process.env[tokenEnv];
+    if (!token) return { code: 2, stdout: '', stderr: `duva-bench serve: no ADP token in ${tokenEnv}\n` };
+
+    const started = await startBenchServer({
+      adp: {
+        baseUrl: flag('adp-url') ?? 'http://127.0.0.1:8793',
+        owner: flag('owner') ?? 'duvabench',
+        repo: flag('repo') ?? 'bench',
+        token,
+      },
+      root: flag('root') ?? process.cwd(),
+      specs: (flag('specs') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      port: Number(flag('port') ?? '7318'),
+    });
+    // Never resolves: the process is the server.
+    await new Promise(() => {});
+    return { code: 0, stdout: `${started.url}\n`, stderr: '' };
   }
 
   if (command === 'report') {
