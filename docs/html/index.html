@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why the Squad fork exists — one team, any model, every run on the record</title>
+<meta name="description" content="A fork of bradygaster/squad that decouples a human-led AI agent team from GitHub Copilot: one typed provider seam over Anthropic and Gemini, an air-gap-friendly single-file install, and every run recorded to ADP as evidence a third party can verify. The discovery process that produced squad-lab and duva-bench, told with the receipts.">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0e10;--panel:#16181b;--panel2:#1d2024;--panel3:#131518;--line:#2a2e33;--fg:#e9e7e2;--sub:#b9bcc1;--dim:#8b9098;--cyan:#4fd1d9;--amber:#e0a458;--red:#e4695e;--green:#57d9a3;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
+html,body{margin:0;padding:0;background:var(--bg);}
+body{-webkit-font-smoothing:antialiased;}
+*{box-sizing:border-box;}
+a{color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(79,209,217,.35);}
+a:hover{color:#7fe3e9;border-bottom-color:#7fe3e9;}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--line);border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--fg);cursor:pointer;}
+.wrap{max-width:1120px;margin:0 auto;padding:110px 40px 0}
+.kick{font:500 12px/1 var(--mono);letter-spacing:.18em;margin-bottom:20px}
+.t{font:600 40px/1.15 var(--sans);letter-spacing:-.015em;margin:0 0 24px;color:var(--fg)}
+.b{color:var(--sub);margin:0 0 18px;max-width:68ch;text-wrap:pretty;font:400 17px/1.65 var(--sans)}
+.b strong{color:var(--fg);font-weight:500}
+.fig{border:1px solid var(--line);background:var(--panel);border-radius:4px;overflow:hidden;margin-top:44px}
+.fighead{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+.figlab{font:500 12px var(--mono);letter-spacing:.12em;color:var(--dim)}
+.figcap{padding:16px 20px;border-top:1px solid var(--line);background:var(--panel3);font:400 14px/1.5 var(--mono);color:var(--dim)}
+.btn{font:500 12px var(--mono);letter-spacing:.08em;color:#0d0e10;background:var(--cyan);border:none;border-radius:3px;padding:7px 14px;cursor:pointer}
+.tbtn{font:500 12px var(--mono);letter-spacing:.08em;border:1px solid var(--line);border-radius:3px;padding:7px 14px;cursor:pointer}
+.ctrl{display:flex;align-items:center;gap:14px}
+.counter{font:400 12px var(--mono);color:var(--dim);width:46px}
+.mono{font-family:var(--mono)}
+.stat{background:var(--panel2);padding:18px}
+.statk{font:400 11px var(--mono);letter-spacing:.1em;color:var(--dim);margin-bottom:8px}
+.statv{font:500 26px var(--mono);color:var(--fg)}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px 20px;flex:1;min-width:210px}
+.chipv{font:500 30px var(--mono);letter-spacing:-.02em;margin-bottom:8px}
+.chipk{font:400 13px/1.5 var(--sans);color:var(--dim)}
+.acc{border:1px solid var(--line);background:var(--panel);border-radius:4px;margin-top:14px;overflow:hidden}
+.accbtn{width:100%;display:flex;align-items:baseline;gap:16px;padding:20px 22px;background:transparent;border:none;cursor:pointer;text-align:left}
+.accbtn:hover{background:#191c1f}
+.accarrow{font:400 14px var(--mono);color:var(--cyan);width:14px;flex-shrink:0}
+.acct{font:500 18px var(--sans);color:var(--fg);letter-spacing:-.01em}
+.accs{font:400 14px var(--sans);color:var(--dim);margin-left:auto;text-align:right;max-width:38ch}
+.accbody{padding:0 22px 24px}
+.conline{font:400 13px/1.7 var(--mono)}
+.argcard{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:26px 24px}
+.argk{font:500 12px var(--mono);letter-spacing:.12em;color:var(--cyan);margin-bottom:14px}
+.argb{font:400 15px/1.65 var(--sans);color:var(--sub);margin:0}
+.argb strong{color:var(--fg);font-weight:500}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:36px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:36px}
+.rulecard{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:20px 22px}
+.rulek{font:500 13px var(--mono);color:var(--amber);margin-bottom:8px}
+.ruleb{font:400 14px/1.6 var(--sans);color:var(--sub)}
+.ref{border-bottom:none;font:500 11px var(--mono);color:var(--dim);vertical-align:super;margin-left:1px}
+.ref:hover{color:var(--cyan);border-bottom:none}
+.refs{margin:18px 0 0;padding-left:22px;font:400 13px/1.8 var(--mono);color:var(--dim)}
+.refs li{margin-bottom:6px}
+table.tbl{border-collapse:collapse;width:100%;font:400 14px/1.55 var(--sans)}
+.tbl th{font:500 11px var(--mono);letter-spacing:.1em;color:var(--dim);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.tbl td{padding:12px 14px;border-bottom:1px solid var(--line);color:var(--sub);vertical-align:top}
+.tbl td:first-child{color:var(--fg);font-weight:500;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+.hero-stage{position:relative;height:300px;border:1px solid var(--line);border-radius:4px;background:linear-gradient(180deg,#101215 0%,#0e1013 100%);overflow:hidden;margin-top:60px}
+.hlab{position:absolute;font:500 11px var(--mono);letter-spacing:.12em;color:var(--dim)}
+.dot{position:absolute;width:9px;height:9px;border-radius:50%;left:-2%;top:var(--y0);background:var(--c);opacity:0;animation:flow var(--t,8s) linear infinite;animation-delay:var(--d)}
+@keyframes flow{
+0%{left:-2%;top:var(--y0);opacity:0;border-radius:50%;background:var(--c);box-shadow:none}
+6%{opacity:.95}
+50%{left:54%;top:var(--y0);background:var(--c);border-radius:50%}
+58%{left:62%;top:var(--y1);background:#57d9a3;border-radius:2px;box-shadow:0 0 10px rgba(87,217,163,.55)}
+93%{opacity:.95}
+100%{left:102%;top:var(--y1);background:#57d9a3;border-radius:2px;opacity:0}
+}
+.gate{position:absolute;left:58%;top:16%;height:68%;width:3px;background:var(--cyan);border-radius:2px;animation:gpulse 2.4s ease-in-out infinite}
+@keyframes gpulse{0%,100%{box-shadow:0 0 6px rgba(79,209,217,.35)}50%{box-shadow:0 0 20px rgba(79,209,217,.9)}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none;opacity:0}.gate{animation:none}}
+@media (max-width:860px){.grid2,.grid3{grid-template-columns:1fr}.hero-stage{height:240px}.accs{display:none}}
+</style>
+</helmet>
+<div style="background:var(--bg);color:var(--fg);font:400 17px/1.65 var(--sans);min-height:100vh;padding-bottom:140px">
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<header class="wrap" style="padding-top:100px">
+<div class="kick" style="color:var(--cyan)">SQUAD · DEDUVA — VENDOR-NEUTRAL, HUMAN-LED AGENT TEAMS</div>
+<h1 style="font:600 64px/1.05 var(--sans);letter-spacing:-.02em;margin:0 0 28px;max-width:16ch">One team. Any model.<br>Every run on the record.</h1>
+<p style="font-size:21px;line-height:1.55;color:var(--sub);margin:0;max-width:64ch;text-wrap:pretty">Squad — <a href="https://github.com/bradygaster/squad">upstream, by Brady Gaster and contributors</a><a class="ref" href="#ref-1">1</a> — gives you a human-led team of AI agents that lives in your repository as files: charters, routing, decisions, memory. This fork keeps the team and removes the landlord. The GitHub Copilot runtime it shipped on is gone, replaced by a <em style="font-style:normal;color:var(--cyan)">typed provider seam</em> that drives the same team with Anthropic or Gemini models, installs from a single bundled file, and can record every run to an <a href="https://deduva.github.io/adp/">ADP</a> server as evidence a third party can verify.</p>
+<p style="font-size:21px;line-height:1.55;color:var(--sub);margin:18px 0 0;max-width:64ch;text-wrap:pretty">It began as an exploration — what do multi-agent coding tools look like when no model vendor and no harness is load-bearing? The answer turned out to be an instrument. Once any model can drive the same team, differences become measurable; the first honest measurement showed <em style="font-style:normal;color:var(--amber)">the harness, not the model</em>, moving the numbers — and that discovery became <span class="mono" style="font-size:17px;color:var(--fg)">squad-lab</span>, whose discipline became <span class="mono" style="font-size:17px;color:var(--fg)">duva-bench</span>.</p>
+
+<div class="hero-stage">
+<span class="hlab" style="left:24px;top:18px;color:var(--amber)">MODELS — ANTHROPIC · GEMINI, ONE SEAM</span>
+<span class="hlab" style="left:47%;top:18px;color:var(--cyan)">ONE TEAM — CHARTERS · ROUTING · MEMORY, AS FILES</span>
+<span class="hlab" style="right:24px;bottom:14px;color:var(--green)">ADP — EVERY RUN ATTESTED, /verify ON DEMAND</span>
+<div class="gate"></div>
+<div class="dot" style="--y0:28%;--y1:38%;--c:#4fd1d9;--d:0s"></div>
+<div class="dot" style="--y0:46%;--y1:46%;--c:#e0a458;--d:1.3s"></div>
+<div class="dot" style="--y0:62%;--y1:54%;--c:#4fd1d9;--d:2.5s"></div>
+<div class="dot" style="--y0:36%;--y1:42%;--c:#e0a458;--d:3.7s"></div>
+<div class="dot" style="--y0:70%;--y1:58%;--c:#4fd1d9;--d:4.9s"></div>
+<div class="dot" style="--y0:24%;--y1:36%;--c:#e0a458;--d:6.1s"></div>
+<div class="dot" style="--y0:54%;--y1:50%;--c:#4fd1d9;--d:7.2s"></div>
+</div>
+
+<div style="display:flex;gap:14px;margin-top:28px;flex-wrap:wrap">
+<div class="chip"><div class="chipv" style="color:var(--fg)">2</div><div class="chipk">model vendors behind one typed seam — registering a third without a backend is a compile error, not a runtime surprise</div></div>
+<div class="chip"><div class="chipv" style="color:var(--cyan)">6,880</div><div class="chipk">tests passing after the Copilot seam was cut — the decoupling replay ended at 156 failures worked to zero<a class="ref" href="#ref-8">8</a></div></div>
+<div class="chip"><div class="chipv" style="color:var(--amber)">108×</div><div class="chipk">input-token gap between two arms with the same delivered outcome — 630,107 vs 5,799 — traced to the tool surface, not the model<a class="ref" href="#ref-9">9</a></div></div>
+<div class="chip"><div class="chipv" style="color:var(--green)">24/24</div><div class="chipk">trials in the first pre-registered pilot that closed and passed ADP <span class="mono" style="font-size:12px">/verify</span> — total spend $8.03<a class="ref" href="#ref-11">11</a></div></div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:28px;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);font:400 13px var(--mono);color:var(--dim)">
+<span>Fork by Dov Zimring, with lots of help from Claude</span>
+<a href="https://github.com/DeDuva/squad">github.com/DeDuva/squad</a>
+<a href="https://github.com/bradygaster/squad">upstream: bradygaster/squad</a>
+<a href="https://github.com/DeDuva/squad/blob/dev/LICENSE">MIT — © Brady Gaster and contributors</a>
+</div>
+</header>
+
+<!-- ══════════════════════ 01 THE FORK ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--amber)">01 · THE FORK</div>
+<h2 class="t" style="max-width:28ch">A team worth keeping, a platform worth questioning</h2>
+<p class="b">Upstream Squad's design is the reason this fork exists at all: the team is <strong>state on disk, not a chat session</strong>. Each member has its own charter and history under <span class="mono" style="font-size:15px;color:var(--fg)">.squad/</span>; a coordinator routes work and — by explicit architectural rule — never does domain work itself; decisions land in a log; everything is inspectable in git. That is a genuinely good substrate for multi-agent engineering, and the fork changes none of it.</p>
+<p class="b">What upstream coupled it to was one platform: the README's badge reads <em style="font-style:normal;color:var(--fg)">Platform: GitHub Copilot</em>, and the quick start is <span class="mono" style="font-size:15px;color:var(--fg)">copilot --agent squad --yolo</span><a class="ref" href="#ref-1">1</a>. The fork's founding question was whether the team abstraction survives with the platform removed — model-agnostic, harness-agnostic, runnable where a vendor login or an open network is not on offer. It does, and the proof is mechanical: the whole decoupling is seven ordered commits you can step through below.</p>
+<div class="grid2">
+<div class="argcard"><div class="argk">KEPT — UPSTREAM'S ARCHITECTURE, INTACT</div><p class="argb">Team-as-files state under <span class="mono" style="font-size:13px">.squad/</span> · a coordinator that routes and never implements · per-agent charters, histories, shared decisions · ceremonies and the Ralph watch loop · the CLI surface · the test suite, grown rather than forked away.</p></div>
+<div class="argcard"><div class="argk" style="color:var(--amber)">REPLACED — THE PLATFORM COUPLING</div><p class="argb">The <span class="mono" style="font-size:13px">@github/copilot-sdk</span> transport → a typed backend seam (Anthropic · Gemini) · platform-provided execution → path-jailed workstation tools of Squad's own · server-side session resume → stateless backends · a 20-model catalog → an alias-only vendor registry · the <span class="mono" style="font-size:13px">@bradygaster/*</span> npm scope → <span class="mono" style="font-size:13px">@deduvafork/*</span>.</p></div>
+</div>
+<p class="b" style="margin-top:28px;color:var(--dim);font-size:15px">Two honesty notes. Parts of the docs tree still carry upstream's Copilot-branded text — the fork does not pretend otherwise, and upstream-sync is deliberately out of scope for the current milestone line. And attribution runs the right direction: the license is upstream's MIT, copyright Brady Gaster and contributors, and this page exists partly to say so.</p>
+</section>
+
+<!-- ══════════════════════ 02 THE DECOUPLING ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--cyan)">02 · THE DECOUPLING</div>
+<h2 class="t" style="max-width:26ch">Seven commits to remove a platform</h2>
+<p class="b">The fork was not drifted away from upstream — it was <strong>rebased onto v0.11.0 as an ordered seven-step replay</strong>, each step a commit that builds and tests, so the surgery is reviewable line by line. Play it through: what leaves, what replaces it, and what the test suite says at the end.</p>
+
+<figure class="fig">
+<div class="fighead">
+<span class="figlab">FIG 01 · THE REPLAY — UPSTREAM v0.11.0 → VENDOR-NEUTRAL, IN SEVEN STEPS</span>
+<div class="ctrl">
+<button class="btn" onClick="{{ dcPlay }}">{{ dcPlayLabel }}</button>
+<input type="range" min="0" max="7" step="1" value="{{ dcStep }}" onChange="{{ dcSet }}" style="width:150px">
+<span class="counter">{{ dcCounter }}</span>
+</div>
+</div>
+<div style="padding:34px 28px;display:grid;grid-template-columns:1.05fr 1fr;gap:28px;align-items:start">
+<div>
+<div style="font:500 11px var(--mono);letter-spacing:.12em;color:var(--dim);margin-bottom:14px">MODULES</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ dcRows }}" as="row" hint-placeholder-count="9">
+<div style="border:1px solid var(--line);background:var(--panel2);border-radius:3px;padding:9px 12px;font:400 13px var(--mono);color:{{ row.color }};opacity:{{ row.op }};text-decoration:{{ row.strike }};transition:opacity .4s ease,color .4s ease">{{ row.text }}</div>
+</sc-for>
+</div>
+</div>
+<div style="border:1px solid var(--line);background:var(--panel2);border-radius:3px;padding:18px;min-height:220px">
+<div style="font:500 11px var(--mono);letter-spacing:.12em;color:var(--dim);margin-bottom:14px">{{ dcConTitle }}</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ dcCon }}" as="row" hint-placeholder-count="3">
+<div class="conline" style="color:{{ row.color }}">{{ row.text }}</div>
+</sc-for>
+</div>
+</div>
+</div>
+<figcaption class="figcap">{{ dcCaption }}</figcaption>
+</figure>
+
+<p class="b" style="margin-top:36px">One step after the replay matters as much as the seven: the new workstation tools were wired into <strong>agent sessions only, never into the coordinator</strong> — "squad's own architecture is explicit that the coordinator routes work and never does domain work itself." Respecting the forked architecture more strictly than convenience suggested is what later made the fork usable as an instrument.</p>
+</section>
+
+<!-- ══════════════════════ 03 ANY VENDOR, NO NETWORK ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--amber)">03 · ANY VENDOR, NO NETWORK</div>
+<h2 class="t" style="max-width:28ch">Neutrality as code, not configuration</h2>
+<p class="b">Vendor neutrality fails quietly when it lives in documentation. Here it lives in types and tests: one registry module is <strong>the single source of truth</strong> for what a vendor is<a class="ref" href="#ref-10">10</a>, the backend loader map is typed over the provider union so registering a vendor without a backend is a <strong>compile error</strong>, and switching the default is one edit to <span class="mono" style="font-size:15px;color:var(--fg)">DEFAULT_PROVIDER</span>. Anthropic is the default today (premium / standard / fast tiers mapping to <span class="mono" style="font-size:15px;color:var(--fg)">claude-opus-5 · claude-sonnet-5 · claude-haiku-4-5</span>); Gemini sits behind the same seam.</p>
+
+<figure class="fig" style="margin-top:36px">
+<div class="fighead"><span class="figlab">FIG 02 · resolveProvider() — FIRST SIGNAL WINS</span></div>
+<div style="padding:28px;overflow-x:auto"><pre class="mono" style="margin:0;font:400 13px/1.9 var(--mono);color:var(--sub)">1  explicit <span style="color:var(--fg)">provider</span> passed in code            — the caller decided
+2  explicit <span style="color:var(--fg)">geminiApiKey</span> option               — back-compat, still a decision
+3  <span style="color:var(--fg)">.squad/config.json</span> persisted preference     — the project decided
+4  <span style="color:var(--fg)">SQUAD_PROVIDER</span> environment variable        — the machine decided
+5  <span style="color:var(--cyan)">DEFAULT_PROVIDER = 'anthropic'</span>              — nobody decided; the registry answers
+
+<span style="color:var(--dim)">a merely-exported GEMINI_API_KEY deliberately does not count:
+a key in the environment is a capability, not a choice.</span></pre></div>
+<figcaption class="figcap">packages/squad-sdk/src/adapter/backend-factory.ts — precedence is explicit and tested, and the one tempting shortcut (inferring intent from an ambient key) is refused by design.</figcaption>
+</figure>
+
+<div class="grid3">
+<div class="argcard"><div class="argk">ALIASES, NEVER PINS</div><p class="argb">The registry stores vendor aliases, never dated model pins — enforced by a registry-wide test, with a <strong>per-vendor pattern</strong> for what a pin looks like, because vendors disagree on what a version string is. Pinning happens where it belongs: in an experiment's arm spec, not in the product's defaults.</p></div>
+<div class="argcard"><div class="argk">NO CROSS-VENDOR FALLBACK</div><p class="argb">Fallback chains stay on one vendor by rule: a session is bound to one backend, so "falling back" from Claude to Gemini would fail at the transport while looking like resilience in the config. A failure mode was deleted by making it <strong>unrepresentable</strong>.</p></div>
+<div class="argcard"><div class="argk">AIR-GAP-FRIENDLY BY CONSTRUCTION</div><p class="argb">One esbuild file, an SDK with <strong>zero runtime dependencies</strong>, OpenTelemetry as optional dependencies that degrade to no-ops, an offline runtime path. The only network the team needs is the model endpoint itself. The bundling bug this bought — <span class="mono" style="font-size:13px">import.meta.url</span> collapsing to the bundle path — was found, fixed, and changeset-documented.</p></div>
+</div>
+</section>
+
+<!-- ══════════════════════ 04 THE RECORD ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--cyan)">04 · THE RECORD</div>
+<h2 class="t" style="max-width:28ch">Every run becomes evidence, or recording costs nothing</h2>
+<p class="b">The fork is a working consumer of <a href="https://deduva.github.io/adp/">ADP</a><a class="ref" href="#ref-5">5</a> on both of its planes at once. On the native plane, one assignment is one ADP run, each agent is a session, and every message, model call, tool execution and handoff crossing Squad's event bus is appended to a hash-chained trajectory. On the compatibility plane, Squad's unmodified <span class="mono" style="font-size:15px;color:var(--fg)">gh</span>-CLI adapter works against an ADP server as if it were GitHub — which is ADP's whole compatibility claim, and exercising it surfaced two real <span class="mono" style="font-size:15px;color:var(--fg)">gh</span>-usage bugs in Squad itself.</p>
+<p class="b">Recording is opt-in and honest about its own failure modes. Configuration names the token's environment variable and never writes the token; absent configuration, recording is off — <strong>and off must cost nothing</strong>. When it is on, three guarantees hold, and the one that makes trajectories evidence rather than logs is stepped through below.</p>
+<div class="grid3">
+<div class="argcard"><div class="argk">NEVER BREAK THE THING YOU RECORD</div><p class="argb">Every recorder error routes to an <span class="mono" style="font-size:13px">onError</span> hook and is swallowed. A telemetry layer that can fail the run it observes is an instrument contaminating its own measurement.</p></div>
+<div class="argcard"><div class="argk">ATTESTED LABELS, NOT PARSED STRINGS</div><p class="argb">Vendor, model, tier and <span class="mono" style="font-size:13px">sdk_version</span> are set when the run opens, immutable, and folded into the run's <strong>signed predicate</strong> — a cross-vendor comparison reads an attested field, never a filename convention.</p></div>
+<div class="argcard"><div class="argk">A RUN CANNOT SCORE ITSELF</div><p class="argb">Runner and grader hold <strong>separate cryptographic identities</strong>; ADP marks each score <span class="mono" style="font-size:13px">separately_authorized</span> by comparing them, and grader processes run with ADP tokens stripped from the environment.</p></div>
+</div>
+
+<figure class="fig">
+<div class="fighead">
+<span class="figlab">FIG 03 · DROPS ARE DETECTABLE — producer_seq, THE SPOOL, AND A SIGKILL</span>
+<div class="ctrl">
+<button class="btn" onClick="{{ drPlay }}">{{ drPlayLabel }}</button>
+<input type="range" min="0" max="3" step="1" value="{{ drStep }}" onChange="{{ drSet }}" style="width:150px">
+<span class="counter">{{ drCounter }}</span>
+</div>
+</div>
+<div style="padding:34px 28px;display:flex;flex-direction:column;gap:24px">
+<div>
+<div style="font:500 11px var(--mono);letter-spacing:.12em;color:var(--dim);margin-bottom:14px">EVENTS — ONE RUN, producer_seq 1…8</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ drChips }}" as="c" hint-placeholder-count="8">
+<div style="min-width:44px;text-align:center;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};border-radius:3px;padding:8px 10px;font:500 13px var(--mono);opacity:{{ c.op }};transition:background .4s ease,border-color .4s ease,color .4s ease">{{ c.label }}</div>
+</sc-for>
+</div>
+</div>
+<div style="border:1px solid var(--line);background:var(--panel2);border-radius:3px;padding:18px;min-height:96px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ drCon }}" as="row" hint-placeholder-count="2">
+<div class="conline" style="color:{{ row.color }}">{{ row.text }}</div>
+</sc-for>
+</div>
+</div>
+</div>
+<figcaption class="figcap">{{ drCaption }}</figcaption>
+</figure>
+</section>
+
+<!-- ══════════════════════ 05 THE LAB ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--amber)">05 · THE LAB</div>
+<h2 class="t" style="max-width:30ch">The comparison that wasn't one — and what it forced</h2>
+<p class="b"><span class="mono" style="font-size:15px;color:var(--fg)">squad-lab</span> exists to run one goal across several providers and compare the results <strong>as evidence rather than as impressions</strong>. Its core framing is deliberately thin: an A/B test is one ADP intent and N ADP runs. The lab stores no scores, no token counts, no comparison table — only forward pointers, live process state, and the raw event log. Everything quotable lives in the attested record.</p>
+<p class="b">Its founding incident is the reason this whole line of work exists. An early three-model comparison produced a result that looked like a dramatic vendor gap — until the token accounting was read closely.</p>
+
+<figure class="fig">
+<div class="fighead">
+<span class="figlab">FIG 04 · SAME TASK, SAME OUTCOME — WHAT MOVED THE NUMBER</span>
+<div style="display:flex;gap:8px">
+<button class="tbtn" onClick="{{ hzShowRep }}" style="background:{{ hzRepBg }};color:{{ hzRepFg }}">as first read</button>
+<button class="tbtn" onClick="{{ hzShowMea }}" style="background:{{ hzMeaBg }};color:{{ hzMeaFg }}">as measured</button>
+</div>
+</div>
+<div style="padding:34px 28px;display:flex;flex-direction:column;gap:26px">
+<div>
+<div style="display:flex;justify-content:space-between;font:400 13px var(--mono);color:var(--sub);margin-bottom:10px"><span style="color:var(--amber)">{{ hzALabel }}</span><span>630,107 input tokens</span></div>
+<div style="height:22px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;background:rgba(224,164,88,.55);width:100%"></div></div>
+</div>
+<div>
+<div style="display:flex;justify-content:space-between;font:400 13px var(--mono);color:var(--sub);margin-bottom:10px"><span style="color:var(--cyan)">{{ hzBLabel }}</span><span>5,799 input tokens</span></div>
+<div style="height:22px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;background:rgba(79,209,217,.55);width:1%"></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px">
+<div class="stat"><div class="statk">TOKEN RATIO, SAME OUTCOME</div><div class="statv" style="color:var(--amber)">108×</div></div>
+<div class="stat"><div class="statk">SECOND CONFOUND — TOOL-ROUND CAP</div><div class="statv">10 <span style="font-size:15px;color:var(--dim)">silent</span> vs 105</div></div>
+<div class="stat"><div class="statk">THE VERDICT</div><div class="statv" style="font-size:18px;line-height:1.4;color:{{ hzVerdictColor }}">{{ hzVerdict }}</div></div>
+</div>
+</div>
+<figcaption class="figcap">{{ hzCaption }}</figcaption>
+</figure>
+
+<p class="b" style="margin-top:36px">One backend ships its own <span class="mono" style="font-size:15px;color:var(--fg)">Read / Write / Edit / Bash</span> alongside Squad's registered tools; the other exposes only what Squad registers. And one backend silently caps sequential tool rounds at ten while the other ran to 105 tool calls — with the only trace a <span class="mono" style="font-size:15px;color:var(--fg)">session:error</span> nobody reads<a class="ref" href="#ref-9">9</a>. "That is not a model difference; it is two different programs." Every mechanism squad-lab added afterwards is that sentence, made structural:</p>
+<div class="grid2">
+<div class="argcard"><div class="argk">harnessDigest() — "SAME HARNESS," CHECKABLE</div><p class="argb">A content digest over tool surface, system-prompt mode, harness implementation, charters, routing and limits — <strong>excluding the model by design</strong>. Results refuse to rank across mismatched digests, so the founding incident is now a banded warning instead of a publishable number.</p></div>
+<div class="argcard"><div class="argk">AN 8-CLAUSE CONFORMANCE CONTRACT</div><p class="argb">Every harness implementation passes <span class="mono" style="font-size:13px">harness-check</span>: completes a tool-using turn, stable ids, reports token usage and every tool call, quiescence on <span class="mono" style="font-size:13px">sendAndWait</span>, a throwing tool fails the call not the turn, <span class="mono" style="font-size:13px">abort()</span> works — and <strong>honours the tool-round budget</strong>, the clause the founding comparison broke silently. Budget exhaustion is a reported milestone, never a buried error.</p></div>
+<div class="argcard"><div class="argk">ONE NEUTRAL LOOP</div><p class="argb">A second harness implementation runs every provider through <strong>one loop, one prompt, one tool schema, one stop condition</strong> (via the Vercel AI SDK), inheriting provider quirks knowingly — e.g. Gemini's <span class="mono" style="font-size:13px">thought_signature</span> must be echoed back or degradation "looks exactly like a weaker model." The parity commit is its own done-condition: run the same model under both harnesses, and find no difference.</p></div>
+<div class="argcard"><div class="argk">JOINABLE COUNTS, JAILED RUNS</div><p class="argb">One vendor reaches Squad's tools through MCP as <span class="mono" style="font-size:13px">mcp__squad__write_file</span>, another as <span class="mono" style="font-size:13px">write_file</span> — a prefix taxonomy makes counts joinable, and registered vs. built-in calls are reported separately, never folded. Every variant runs in a fresh clone with path-jailed tools.</p></div>
+</div>
+
+<p class="b" style="margin-top:36px">And a set of reporting rules, each bought with a documented failure, that later graduated wholesale into duva-bench:</p>
+<div class="grid3">
+<div class="rulecard"><div class="rulek">Rank per axis, never blended</div><div class="ruleb">One column per grader axis, ranked independently — no mean, no weighted score, no "overall." A composite is an editorial, not a measurement.</div></div>
+<div class="rulecard"><div class="rulek">Unscored ≠ zero</div><div class="ruleb">A grader that exits non-zero leaves the run unscored. The fifth recurrence of one failure — "unknown" rendered as a number that means "free" — is why an unpriced model renders <span class="mono" style="font-size:12px">unpriced</span>, never $0.00.</div></div>
+<div class="rulecard"><div class="rulek">Graders are validated twice</div><div class="ruleb">Against a correct reference (must score 1.00) and a naive solution (must score lower, losing most on edge-cases). A grader that can't tell those apart doesn't measure anything.</div></div>
+<div class="rulecard"><div class="rulek">The grader's hash is in the spec</div><div class="ruleb">Editing a grader mid-experiment moves the spec digest, and the summary declares the columns incomparable rather than quietly mixing rubrics.</div></div>
+<div class="rulecard"><div class="rulek">Saturated tasks stay as controls</div><div class="ruleb">Two of six example tasks score near-perfect everywhere; they are kept and labelled as controls rather than deleted to flatter the instrument's sensitivity.</div></div>
+<div class="rulecard"><div class="rulek">Five repeats buy a noise floor, not a p-value</div><div class="ruleb">The variance study computes pooled within-cell sd and contrasts in sd units — and explicitly declines to quote confidence intervals off five repeats.</div></div>
+</div>
+</section>
+
+<!-- ══════════════════════ 06 THE STATISTICS ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--cyan)">06 · THE STATISTICS</div>
+<h2 class="t" style="max-width:30ch">Commitments made before the data — and a pilot that kept them</h2>
+<p class="b">The lab's rules keep a comparison honest; statistics decide when a difference is real. The machinery is not bespoke: it is <a href="https://deduva.github.io/adp-replay/">adp-replay</a>'s paired-statistics library<a class="ref" href="#ref-6">6</a>, <strong>pinned by commit</strong> in <span class="mono" style="font-size:15px;color:var(--fg)">requirements-stats.txt</span> — "two tracks whose numbers are meant to differ only by their data cannot float their statistics independently." Each practice below is enforced by code that fails, not by a paragraph asking people to be careful. Expand any of them.</p>
+
+<div class="acc">
+<button class="accbtn" onClick="{{ s1Tog }}"><span class="accarrow">{{ s1Arrow }}</span><span class="acct">The analysis is registered before the first trial runs</span><span class="accs">zod-validated, content-addressed, amendable only in the open</span></button>
+<sc-if value="{{ s1Open }}" hint-placeholder-val="{{ false }}">
+<div class="accbody">
+<p class="b">A study spec — tasks, arms, repetitions, primary metric, exclusion rules — is validated, canonically serialized, and digested <strong>before execution</strong>. The digest is over the normalized value, not file bytes: reordering keys or switching YAML for JSON changes nothing; changing a model, toolset, docs grade, repetition count or grader changes everything. A task's identity includes its grader's sha256, because two studies that ran "the same task" under graders differing by a line are not comparable.</p>
+<p class="b">Amendments are permitted — "research that could never be amended would just be research that lies later" — but never invisibly: every amendment records the value it replaced, the pre-amendment reading stays computable, and reports print both. The pilot's report prints <span class="mono" style="font-size:15px;color:var(--fg)">registeredDigest = currentDigest</span>: registered and executed are the same object, provably.</p>
+</div>
+</sc-if>
+</div>
+
+<div class="acc">
+<button class="accbtn" onClick="{{ s2Tog }}"><span class="accarrow">{{ s2Arrow }}</span><span class="acct">The noise floor is reported before any contrast</span><span class="accs">a difference smaller than the pooled spread is not a finding</span></button>
+<sc-if value="{{ s2Open }}" hint-placeholder-val="{{ false }}">
+<div class="accbody">
+<p class="b">Before any two arms are compared, the report states the pooled within-cell standard deviation per axis — how much the instrument wobbles when <em style="font-style:normal;color:var(--fg)">nothing</em> varies. The pre-registered reading rule: a difference smaller than the pooled spread is not a finding, whatever its sign. The pilot's floors, verbatim from its report:</p>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;margin-top:20px">
+<div class="stat"><div class="statk">ACCEPTANCE</div><div class="statv" style="font-size:20px">0.0216</div></div>
+<div class="stat"><div class="statk">API-SHAPE</div><div class="statv" style="font-size:20px">0.0000</div></div>
+<div class="stat"><div class="statk">EDGE-CASES</div><div class="statv" style="font-size:20px">0.0296</div></div>
+<div class="stat"><div class="statk">SELF-TESTS</div><div class="statv" style="font-size:20px;color:var(--red)">0.3536</div></div>
+</div>
+<p class="b" style="margin-top:20px">The fourth number is the discipline working: <span class="mono" style="font-size:15px;color:var(--fg)">self-tests</span> has a floor an order of magnitude above the others, so the axis was declared unreadable at this scale and excluded from interpretation — printed, not hidden.</p>
+</div>
+</sc-if>
+</div>
+
+<div class="acc">
+<button class="accbtn" onClick="{{ s3Tog }}"><span class="accarrow">{{ s3Arrow }}</span><span class="acct">Paired over tasks; resampled over tasks, never trials</span><span class="accs">exact McNemar · bootstrap 10,000 @ 95%, seed 0 · Holm · ICC</span></button>
+<sc-if value="{{ s3Open }}" hint-placeholder-val="{{ false }}">
+<div class="accbody">
+<p class="b">Arms see the same tasks, so tests are paired: an exact McNemar over repetitions paired positionally within each task — the only pairing the design supports. Confidence intervals bootstrap over <strong>tasks, never trials</strong> (10,000 resamples, 95%, seed 0 — deterministic by construction): repetitions of one task are three looks at the same question, and resampling them as independent manufactures certainty the experiment never collected. A task only one arm ran is dropped, not imputed, and <span class="mono" style="font-size:15px;color:var(--fg)">dropped_tasks</span> is reported.</p>
+<p class="b">Families of comparisons get <strong>Holm–Bonferroni</strong> correction with enforced monotonicity — "an uncorrected family of comparisons is how a study reports an effect it did not have" — and ICC is printed beside every rate, because near zero it means the tasks are not discriminating and no number of them will settle anything. All of it binary-outcome by design: the grader's own <span class="mono" style="font-size:15px;color:var(--fg)">passed</span> boolean, never a threshold invented over a score the grader didn't declare.</p>
+</div>
+</sc-if>
+</div>
+
+<div class="acc">
+<button class="accbtn" onClick="{{ s4Tog }}"><span class="accarrow">{{ s4Arrow }}</span><span class="acct">Nulls never masquerade as measurements</span><span class="accs">unscored ≠ 0 · /verify fails ⇒ ERROR · exclusions pre-registered</span></button>
+<sc-if value="{{ s4Open }}" hint-placeholder-val="{{ false }}">
+<div class="accbody">
+<p class="b">A run whose ADP <span class="mono" style="font-size:15px;color:var(--fg)">/verify</span> is not <span class="mono" style="font-size:15px;color:var(--fg)">ok</span> renders <span class="mono" style="font-size:15px;color:var(--fg)">ERROR</span> — never pass, never fail, never zero — and repetition verdicts fold errors in <em style="font-style:normal;color:var(--fg)">against</em> the majority, so a flaky arm cannot launder failures into a smaller n. Outcomes are re-read from ADP alone, deliberately ignoring what the scheduler observed locally: the local knowledge and the attested record are exactly the two things that must agree.</p>
+<p class="b">Exclusion rules are decided in advance, and there are exactly two: unverified runs, and provider quota exhaustion — pre-registered after an earlier milestone lost 8 of 10 runs on one model to rate limits, and including them <strong>inflated the pooled noise floor 14×</strong>. Exclusion counts are printed whether or not any fired; the pilot printed zero.</p>
+</div>
+</sc-if>
+</div>
+
+<div class="acc">
+<button class="accbtn" onClick="{{ s5Tog }}"><span class="accarrow">{{ s5Arrow }}</span><span class="acct">The statistics travel with the answer</span><span class="accs">pinned by commit · stats_version on every result · CI-proven</span></button>
+<sc-if value="{{ s5Open }}" hint-placeholder-val="{{ false }}">
+<div class="accbody">
+<p class="b">Until 2026-08-08, the analysis imported whatever adp-replay checkout happened to sit on one laptop — "the statistics behind a published number were whatever happened to be checked out," and no CI could run the path at all. The fix is structural: a project venv built from a one-line requirements file pinning adp-replay <strong>by commit</strong>, a <span class="mono" style="font-size:15px;color:var(--fg)">stats_version</span> field resolved from pip's own install metadata and stamped on every result — falling back to <span class="mono" style="font-size:15px;color:var(--fg)">unknown</span>, never to a guess — and a CI job that builds the venv and asserts real statistics through it.</p>
+<p class="b">Deliberately <em style="font-style:normal;color:var(--fg)">not</em> folded into the study digest: re-analysing the same experiment does not make it a different experiment. "The pin travels with the answer instead of with the question."</p>
+</div>
+</sc-if>
+</div>
+
+<p class="b" style="margin-top:44px">The instrument these statistics serve is the <strong>semantic twin</strong>: a toolset whose names are isomorphic renames of the real one — the twin calls the original handler, so equivalence is by construction and property-tested. Twin names are length- and structure-matched (a systematically longer name would vary token count alongside familiarity), pronounceable non-words re-rolled against a common-word list, drawn from one seeded stream shared by every arm — a different seed per arm would confound documentation with which nonsense names were drawn — and stripped of informative descriptions, so <strong>documentation is the only varying channel</strong>. Then the whole apparatus was pointed at a real question, at deliberately small scale:</p>
+
+<figure class="fig">
+<div class="fighead">
+<span class="figlab">FIG 05 · STUDY A AT PILOT SCALE — 24 TRIALS · $8.03 · EVERY RUN VERIFIED</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="tbtn" onClick="{{ piSelStd }}" style="background:{{ piStdBg }};color:{{ piStdFg }}">standard</button>
+<button class="tbtn" onClick="{{ piSelNone }}" style="background:{{ piNoneBg }};color:{{ piNoneFg }}">twin-none</button>
+<button class="tbtn" onClick="{{ piSelRef }}" style="background:{{ piRefBg }};color:{{ piRefFg }}">twin-reference</button>
+<button class="tbtn" onClick="{{ piSelRich }}" style="background:{{ piRichBg }};color:{{ piRichFg }}">twin-rich</button>
+</div>
+</div>
+<div style="padding:34px 28px;display:flex;flex-direction:column;gap:22px">
+<div style="border:1px solid rgba(87,217,163,.35);background:rgba(87,217,163,.05);border-radius:3px;padding:14px 16px;font:400 13px/1.6 var(--mono);color:var(--sub)"><span style="color:var(--green)">pre-registered primary metric</span> · hallucinated-call rate: <span style="color:var(--fg)">0.0000 on all 24 trials, in every arm, with zero variance</span> — not one invented tool name, even with four nonsense-named, undocumented tools</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px">
+<div class="stat"><div class="statk">ACCEPTANCE — {{ piArmName }}</div><div class="statv">{{ piRate }}</div><div style="font:400 12px var(--mono);color:var(--dim);margin-top:6px">CI {{ piCI }} · ICC {{ piICC }}</div></div>
+<div class="stat"><div class="statk">Δ VS STANDARD</div><div class="statv" style="color:{{ piDeltaColor }}">{{ piDelta }}</div><div style="font:400 12px var(--mono);color:var(--dim);margin-top:6px">{{ piP }}</div></div>
+<div class="stat"><div class="statk">PROCESS — MEAN STEPS · TOOL FAILURES</div><div class="statv">{{ piSteps }} · {{ piFails }}</div><div style="font:400 12px var(--mono);color:var(--dim);margin-top:6px">6 trials per arm · 2 tasks × 3 reps</div></div>
+</div>
+</div>
+<figcaption class="figcap">{{ piCaption }}</figcaption>
+</figure>
+
+<p class="b" style="margin-top:36px">The pilot's most useful output is the metric that did not move. With a four-tool surface presented as a schema on every call, the model has no occasion to invent a name — a floor effect. <strong>Pre-registering that metric was a reasonable bet, and it was wrong</strong>; finding out cost $8.03 and an hour instead of being discovered inside the full study, and the remedy is re-registration, not a mid-flight amendment. The scale reduction is itself pre-registered — "it cannot support a claim about familiarity, and the write-up must not make one." Direction matched the hypothesis everywhere; nothing survives Holm correction; the write-up says exactly that<a class="ref" href="#ref-11">11</a>.</p>
+</section>
+
+<!-- ══════════════════════ 07 THE STACK ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--green)">07 · THE STACK</div>
+<h2 class="t" style="max-width:26ch">Boring where it should be boring</h2>
+<p class="b">One npm-workspaces monorepo, ESM throughout, Node ≥ 22.5, TypeScript 6, MIT. The choices worth defending are the refusals: a zero-dependency SDK, a no-build benchmark package, and statistics that live in the language their library was written in.</p>
+<div class="tblwrap" style="margin-top:36px"><table class="tbl">
+<tr><th>COMPONENT</th><th>STACK</th><th>THE TELL</th></tr>
+<tr><td>squad-sdk</td><td>TypeScript, ESM-only, ~57 subpath exports</td><td><strong style="color:var(--fg);font-weight:500">Zero runtime dependencies.</strong> OpenTelemetry ships as optional dependencies so telemetry degrades to no-ops behind an air gap; <span class="mono" style="font-size:13px">ws</span> and <span class="mono" style="font-size:13px">sql.js</span> likewise optional.</td></tr>
+<tr><td>squad-cli</td><td>tsc → esbuild single file; Ink 7 + React 19 terminal UI; MCP SDK; Claude Agent SDK + direct Gemini REST backends</td><td>Ships as one bundled <span class="mono" style="font-size:13px">dist/squad.js</span> — the air-gap install story is a file copy.</td></tr>
+<tr><td>squad-lab</td><td>Fastify 5 + SSE; React SPA via Vite; Vercel AI SDK (anthropic · google)</td><td>The SPA is a client of the same API the CLI drives; SSE resumes via <span class="mono" style="font-size:13px">Last-Event-ID</span>, and a kill/restart mid-study loses no frames — by test.</td></tr>
+<tr><td>duva-bench</td><td>TypeScript via tsx — no build step; Fastify; zod; yaml</td><td><strong style="color:var(--fg);font-weight:500">No bundler and no React by design</strong>: the package is built to be lifted into a standalone repo, so its web views are one no-build page and the browser never holds an ADP token.</td></tr>
+<tr><td>statistics</td><td>Python 3.12 venv; adp-replay pinned by commit</td><td>A TS↔Python bridge spawns the venv interpreter — a subprocess rather than a port, "because the library is Python." <span class="mono" style="font-size:13px">stats_version</span> stamped on every result.</td></tr>
+<tr><td>tests &amp; CI</td><td>Vitest (292 test files) · Playwright · 20 workflows</td><td>Five live checks that spend nothing — <span class="mono" style="font-size:13px">grade-check · stream-check · ui-check · harness-check · pricing-check</span> — plus a CI job that builds the stats venv and asserts real numbers through it.</td></tr>
+<tr><td>.NET preview</td><td>C#, net8.0–net10.0</td><td>Upstream lineage: exposes the Squad CLI as a Microsoft Agent Framework <span class="mono" style="font-size:13px">AIAgent</span> in DI.</td></tr>
+</table></div>
+
+<div style="border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:28px;margin-top:36px">
+<div style="font:500 12px var(--mono);letter-spacing:.12em;color:var(--green);margin-bottom:14px">THE FORK TODAY, STATED PLAINLY</div>
+<p class="b" style="max-width:74ch">Working end to end at v0.12.0-preview: the full upstream team model driven by Anthropic (default) or Gemini behind one typed seam; path-jailed local execution; a single-file install; opt-in ADP recording with attested labels and drop detection; 6,880 tests passing. Not yet: a local-model backend — both vendors are hosted APIs today, so "air-gapped" means no registry, no telemetry export and no network beyond the model endpoint you point it at; parts of the docs tree still carry upstream branding; and the packages are consumed from source rather than a public registry.</p>
+</div>
+</section>
+
+<!-- ══════════════════════ 08 WHERE IT LEADS ══════════════════════ -->
+<section class="wrap">
+<div class="kick" style="color:var(--green)">08 · WHERE IT LEADS</div>
+<h2 class="t" style="max-width:30ch">Graduating the science out of the fork</h2>
+<p class="b">duva-bench was built inside this fork with its exit visa stamped from day one: an <strong>import boundary enforced by a test</strong> that walks every import statement. The benchmark may consume only the fork's verified-separable modules — the event bus, the ADP client, the vendor registry — and <span class="mono" style="font-size:15px;color:var(--fg)">SquadCoordinator</span> is importable nowhere except the one arm that measures it. The rule was bought honestly: the coordinator turned out to answer benchmark-shaped messages itself — patterns like <span class="mono" style="font-size:15px;color:var(--fg)">/^config\b/i</span> matching ordinary task titles — producing empty trajectories that closed and looked normal. The trial runner removes it <strong>by construction rather than by vigilance</strong>.</p>
+<p class="b">The independent repo — <a href="https://github.com/DeDuva/duva-bench">github.com/DeDuva/duva-bench</a>, Apache-2.0 — is not a relocation but a <strong>second track of the same experiment</strong>, built on open standards: <a href="https://harbor-framework-harbor.mintlify.app/introduction">Harbor</a>, the container-per-trial harness behind Terminal-Bench 2.0<a class="ref" href="#ref-3">3</a>, executing real agent CLIs; and ADP recording, so results verify identically on both tracks. Two tracks share tasks, graders, statistics and the attested record, and differ in exactly one layer — bespoke in-process execution here, mature in-distribution execution there. That is the fork's founding hypothesis applied to itself, and the cross-track prediction is registered in advance: same direction, larger magnitude on this track, because a one-turn arm that reaches for a missing tool has no second turn in which to recover. Whichever track wins, the loser's run is still evidence.</p>
+
+<p class="b" style="margin-top:36px">This page is the origin story; three projects carry the work forward. Each one stands alone, and each one is built to be checked rather than believed:</p>
+<div class="grid3">
+<div class="argcard">
+<div class="argk"><a href="https://deduva.github.io/duva-bench/">DUVA-BENCH →</a></div>
+<p class="argb"><strong>Leaderboards got crowded. Answers didn't.</strong> Controlled factorial experiments over coding-agent arms — model × harness × toolset × task substrate — executed in Harbor containers, recorded as verifiable ADP trajectories, analyzed with pre-registered statistics. The question the fork surfaced, asked properly.</p>
+<div style="margin-top:14px;font:400 13px var(--mono)"><a href="https://github.com/DeDuva/duva-bench">github.com/DeDuva/duva-bench</a></div>
+</div>
+<div class="argcard">
+<div class="argk"><a href="https://deduva.github.io/adp/">ADP →</a></div>
+<p class="argb"><strong>Code got cheap. Trust didn't.</strong> An open protocol for making machine-written software trustworthy at machine speed: every change one signed record — intent → diff → evidence → provenance — admitted through a gate that tests the state that actually ships. The record layer everything on this page stands on.</p>
+<div style="margin-top:14px;font:400 13px var(--mono)"><a href="https://github.com/DeDuva/adp">github.com/DeDuva/adp</a></div>
+</div>
+<div class="argcard">
+<div class="argk"><a href="https://deduva.github.io/adp-replay/">ADP-REPLAY →</a></div>
+<p class="argb"><strong>Everyone has a number. Nobody can check one.</strong> Record an agent trajectory once, replay it under substituted models, and produce evidence-gated verdicts — fidelity and overhead gates, exact McNemar, task-level bootstrap. ADP's first consumer, and the statistics library this fork pins by commit.</p>
+<div style="margin-top:14px;font:400 13px var(--mono)"><a href="https://github.com/DeDuva/adp-replay">github.com/DeDuva/adp-replay</a></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════════════════ FOOTER / REFERENCES ══════════════════════ -->
+<footer class="wrap" style="padding-top:96px">
+<div style="border-top:1px solid var(--line);padding-top:24px;display:flex;gap:32px;flex-wrap:wrap;font:400 13px var(--mono);color:var(--dim)">
+<a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/PLAN.md">packages/duva-bench/PLAN.md</a>
+<a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-lab/README.md">packages/squad-lab/README.md</a>
+<a href="https://github.com/DeDuva/squad/tree/dev/packages/duva-bench/studies/a-tool-familiarity-pilot">the pilot study, with its pre-registration and findings</a>
+<span>MIT — © 2026 Brady Gaster and contributors (upstream)</span>
+</div>
+<div style="margin-top:28px;font:500 12px var(--mono);letter-spacing:.12em;color:var(--dim)">REFERENCES</div>
+<ol class="refs">
+<li id="ref-1">Upstream Squad — human-led AI agent teams via GitHub Copilot, by Brady Gaster and contributors — <a href="https://github.com/bradygaster/squad">github.com/bradygaster/squad</a></li>
+<li id="ref-2">Upstream's SWE-bench Lite result (198/300 on v0.9.6) — <a href="https://github.com/bradygaster/squad">upstream docs, blog post 033</a>; runner at <a href="https://github.com/tamirdresher/squad-swe-bench">tamirdresher/squad-swe-bench</a></li>
+<li id="ref-3">Terminal-Bench 2.0 (ICLR 2026) — <a href="https://openreview.net/pdf/417ac3236de7dbf3fc3414c51754dd239271663e.pdf">openreview.net</a></li>
+<li id="ref-4">Harbor — container-per-trial agent execution framework — <a href="https://harbor-framework-harbor.mintlify.app/introduction">framework documentation</a></li>
+<li id="ref-5">ADP — Agent Development-State Protocol — <a href="https://github.com/DeDuva/adp">github.com/DeDuva/adp</a> · <a href="https://deduva.github.io/adp/">why it exists</a></li>
+<li id="ref-6">adp-replay — record/replay instrument and the pinned statistics library — <a href="https://github.com/DeDuva/adp-replay">github.com/DeDuva/adp-replay</a> · <a href="https://deduva.github.io/adp-replay/">why it exists</a></li>
+<li id="ref-7">duva-bench, the independent Harbor track — <a href="https://github.com/DeDuva/duva-bench">github.com/DeDuva/duva-bench</a> · <a href="https://deduva.github.io/duva-bench/">why it exists</a></li>
+<li id="ref-8">The decoupling replay — seven ordered commits onto upstream v0.11.0, ending "replay: test suite reconciliation onto v0.11.0" (156 failures → 6,880 passing) — <a href="https://github.com/DeDuva/squad/commits/dev">commit history</a></li>
+<li id="ref-9">The harness-confound incidents, documented in source — <a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-lab/src/harness.ts">squad-lab/src/harness.ts</a> (630,107 vs 5,799 input tokens) and <a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-lab/src/conformance.ts">squad-lab/src/conformance.ts</a> (the silent ten-round cap vs 105 tool calls)</li>
+<li id="ref-10">The vendor registry — aliases never pins, no cross-vendor fallback — <a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-sdk/src/config/vendors.ts">squad-sdk/src/config/vendors.ts</a></li>
+<li id="ref-11">The pilot: pre-registration, findings, and machine-readable report (24 trials, $8.03, statistics with resamples/seed in the JSON) — <a href="https://github.com/DeDuva/squad/tree/dev/packages/duva-bench/studies/a-tool-familiarity-pilot">studies/a-tool-familiarity-pilot</a></li>
+<li id="ref-12">The statistics pin — <a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/requirements-stats.txt">requirements-stats.txt</a> and <a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/tools/paired_stats.py">tools/paired_stats.py</a></li>
+</ol>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;stepMs&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1500,&quot;min&quot;:500,&quot;max&quot;:3000,&quot;step&quot;:100,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;}}">
+class Component extends DCLogic {
+  state = {
+    steps: { dc: 0, dr: 0 },
+    playing: {},
+    expand: {},
+    hz: "rep",
+    arm: "standard"
+  };
+  timers = {};
+
+  componentWillUnmount() { Object.keys(this.timers).forEach(k => clearInterval(this.timers[k])); }
+
+  stepMs() { return this.props.stepMs ?? 1500; }
+
+  set(k, v) { this.setState(s => ({ steps: { ...s.steps, [k]: v } })); }
+  mark(k, v) { this.setState(s => ({ playing: { ...s.playing, [k]: v } })); }
+  stop(k) { clearInterval(this.timers[k]); delete this.timers[k]; this.mark(k, false); }
+  toggle(k) { this.setState(s => ({ expand: { ...s.expand, [k]: !s.expand[k] } })); }
+
+  play(k, max) {
+    if (this.timers[k]) return this.stop(k);
+    this.set(k, 0);
+    this.mark(k, true);
+    this.timers[k] = setInterval(() => {
+      const cur = this.state.steps[k];
+      if (cur >= max) return this.stop(k);
+      this.set(k, cur + 1);
+    }, this.stepMs());
+  }
+
+  label(k) { return this.state.playing[k] ? "PAUSE" : "PLAY"; }
+  handler(k) { return e => { if (this.timers[k]) this.stop(k); this.set(k, Number(e.target.value)); }; }
+
+  renderVals() {
+    const st = this.state.steps;
+    const ex = {};
+    ["s1","s2","s3","s4","s5"].forEach(k => {
+      const open = !!this.state.expand[k];
+      ex[k + "Open"] = open;
+      ex[k + "Tog"] = () => this.toggle(k);
+      ex[k + "Arrow"] = open ? "▾" : "▸";
+    });
+
+    const FG = "#e9e7e2", SUB = "#b9bcc1", DIM = "#8b9098";
+    const CYAN = "#4fd1d9", AMBER = "#e0a458", RED = "#e4695e", GREEN = "#57d9a3";
+
+    // ── FIG 01 · the decoupling replay ──
+    const d = st.dc;
+    const row = (text, color, op, strike) => ({ text: text, color: color, op: String(op), strike: strike || "none" });
+    const dcRows = [
+      d >= 1 ? row("adapter/client.ts — Copilot transport (−870)", DIM, 0.45, "line-through")
+             : row("adapter/client.ts — Copilot transport", FG, 1),
+      d >= 1 ? row("adapter/gemini-client.ts — REST · SSE · tool loop (+567)", CYAN, 1)
+             : row("adapter/gemini-client.ts — not yet", DIM, 0.2),
+      d >= 2 ? row("tools/workstation.ts — bash · read · write · list · find (+801)", CYAN, 1)
+             : row("local execution — borrowed from the platform", DIM, d >= 1 ? 0.5 : 0.35),
+      d >= 3 ? row("cli auth — key checked live, stored chmod 0600", CYAN, 1)
+             : row("auth — platform login", DIM, 0.35),
+      d >= 4 ? row("config/models.ts — vendor aliases only (−209)", AMBER, 1)
+             : row("config/models.ts — 20 pinned models", FG, d >= 1 ? 0.6 : 1),
+      d >= 5 ? row("shell — revived on the new transport", CYAN, 1)
+             : row("shell — sessions via Copilot", DIM, 0.35),
+      d >= 6 ? row("@github/copilot-sdk · vscode-jsonrpc · bridge — deleted", RED, 0.6, "line-through")
+             : row("@github/copilot-sdk · vscode-jsonrpc · bridge", FG, 1),
+      d >= 6 ? row("dist/squad.js — one esbuild file, @deduvafork/* scope", CYAN, 1)
+             : row("dist/squad.js — not yet", DIM, 0.2),
+      d >= 7 ? row("test suite — 156 failures → 0 · 6,880 passing", GREEN, 1)
+             : row("test suite — 156 failures against the new seam", d >= 1 ? AMBER : DIM, d >= 1 ? 0.9 : 0.35)
+    ];
+    const dcConsoles = [
+      [{ text: "upstream v0.11.0 — promote dev → main (2026-06-29)", color: FG },
+       { text: "platform badge: GitHub Copilot · quick start: copilot --agent squad", color: DIM }],
+      [{ text: "− adapter/client.ts  (@github/copilot-sdk transport)", color: RED },
+       { text: "+ adapter/gemini-client.ts  (direct REST, SSE streaming, tool-call loop)", color: CYAN },
+       { text: "resumeSession dropped — a stateless backend has nothing to resume", color: DIM }],
+      [{ text: "+ tools/workstation.ts", color: CYAN },
+       { text: "workstation_bash · read_file · write_file · list_dir · find_files", color: SUB },
+       { text: "rootDir-confined · symlink-safe · sensitive env stripped", color: DIM }],
+      [{ text: "+ squad auth setup --provider=…", color: CYAN },
+       { text: "key validated against the live models endpoint before it is stored", color: SUB },
+       { text: "~/.config/squad/…  · chmod 0600", color: DIM }],
+      [{ text: "config/models.ts: 20 pinned models → vendor aliases", color: AMBER },
+       { text: "pins return later as a registry rule, not a hardcoded list", color: DIM }],
+      [{ text: "shell revived: new SquadClient() on the provider seam", color: CYAN },
+       { text: "Copilot throttling copy → provider rate-limit copy", color: DIM }],
+      [{ text: "− @github/copilot-sdk · − vscode-jsonrpc · − copilot bridge", color: RED },
+       { text: "− the Module._resolveFilename import patcher", color: RED },
+       { text: "@bradygaster/* → @deduvafork/*  · + dist/squad.js (esbuild, one file)", color: CYAN }],
+      [{ text: "~136 test files renamed · 3 Copilot suites deleted", color: AMBER },
+       { text: "they tested code that no longer exists here — upstream keeps theirs", color: DIM },
+       { text: "156 failures → 0 · 6,880 tests passing", color: GREEN }]
+    ];
+    const dcCaptions = [
+      "step 0 — the starting point: upstream v0.11.0, June 2026. A capable team, wired to exactly one platform.",
+      "step 1 — the transport. The Copilot client goes; a direct provider backend arrives. The team above this seam does not change.",
+      "step 2 — execution. Squad had no local execution of its own — it borrowed the platform's. Workstation tools add Squad's own, jailed to the project root.",
+      "step 3 — auth. A provider key, validated before it is stored, on disk with owner-only permissions. No platform login anywhere.",
+      "step 4 — the catalog. Twenty pinned models collapse to vendor aliases; version pinning becomes a registry rule with a test, not a list to maintain.",
+      "step 5 — the shell comes back up on the new transport, and the last platform-specific error copy goes.",
+      "step 6 — the cut. The Copilot SDK and its bridge are deleted outright, the workspace is renamed, and esbuild emits one self-contained file — the air-gap install is a file copy.",
+      "step 7 — reconciliation. Suites that tested deleted code are deleted with it; 156 failures are worked to zero. 6,880 tests pass on the decoupled tree."
+    ];
+
+    // ── FIG 03 · drop detection ──
+    const r = st.dr;
+    const drChips = [];
+    for (let i = 1; i <= 8; i++) {
+      let bg = "#22262b", bd = "#2f353b", fg = SUB, op = 1;
+      const spooled = i >= 6;
+      if (r === 0) {
+        if (!spooled) { bg = "rgba(79,209,217,.16)"; bd = "rgba(79,209,217,.5)"; fg = CYAN; }
+        else { bg = "rgba(224,164,88,.10)"; bd = "rgba(224,164,88,.45)"; fg = AMBER; }
+      } else if (r === 1) {
+        if (!spooled) { bg = "rgba(79,209,217,.16)"; bd = "rgba(79,209,217,.5)"; fg = CYAN; }
+        else { bg = "#1a1d20"; bd = "rgba(228,105,94,.55)"; fg = RED; }
+      } else if (r === 2) {
+        bg = "rgba(79,209,217,.16)"; bd = "rgba(79,209,217,.5)"; fg = CYAN;
+        if (spooled) { bg = "rgba(79,209,217,.28)"; }
+      } else {
+        bg = "rgba(87,217,163,.14)"; bd = "rgba(87,217,163,.55)"; fg = GREEN;
+      }
+      drChips.push({ label: "seq " + i, bg: bg, bd: bd, fg: fg, op: String(op) });
+    }
+    const drConsoles = [
+      [{ text: "POST /events batch [1–5] → accepted · hash chain advances", color: CYAN },
+       { text: "spool: [6,7,8] on disk awaiting async flush — a tool call never blocks on an ADP write", color: AMBER }],
+      [{ text: "SIGKILL — the harness dies mid-run", color: RED },
+       { text: "ADP holds a contiguous chain through seq 5 · the unflushed tail sits in the disk spool", color: SUB }],
+      [{ text: "restart: ADP names its high-water sequence = 5", color: SUB },
+       { text: "spool replays [6–8] · client_event_id dedups before anything is hash-chained", color: CYAN }],
+      [{ text: "chain contiguous [1–8] — a batch that skips a number is rejected outright", color: GREEN },
+       { text: "GET /verify → ok · a drop cannot pass silently; it either heals or the run reads ERROR", color: GREEN }]
+    ];
+    const drCaptions = [
+      "step 0 — a run in flight. Events append through a local disk spool and flush to ADP asynchronously in batches, each carrying client_event_id and a contiguous producer_seq.",
+      "step 1 — the harness dies mid-run. Nothing depends on a clean shutdown: ADP's chain is intact up to the last accepted batch, and the tail is on disk.",
+      "step 2 — on restart, the spool replays from the sequence ADP names. Retries are idempotent — duplicates are dropped by id before they can enter the chain.",
+      "step 3 — the guarantee: producer_seq must be contiguous, so a dropped event is structurally detectable rather than silently absent. The run verifies, or it renders ERROR — never a quiet gap."
+    ];
+
+    // ── FIG 04 · harness confound toggle ──
+    const isRep = this.state.hz === "rep";
+
+    // ── FIG 05 · pilot arm selector ──
+    const arm = this.state.arm;
+    const armBtn = (key) => ({
+      bg: arm === key ? "#e9e7e2" : "transparent",
+      fg: arm === key ? "#0d0e10" : "#8b9098"
+    });
+    const PILOT = {
+      "standard": { name: "STANDARD", rate: "0.667", ci: "0.333–1.000", icc: "0.5", delta: "baseline", deltaColor: FG, p: "the arm every twin is paired against",
+        steps: "15.0", fails: "2.17",
+        cap: "standard — the in-distribution baseline: Squad's real tools under their real names, reference docs. Acceptance 0.667; ICC 0.5 means half the variance sits between the two tasks — two tasks is not a corpus, and the report says so." },
+      "twin-none": { name: "TWIN-NONE", rate: "0.167", ci: "0.000–0.333", icc: "0", delta: "−0.500", deltaColor: RED, p: "p 0.375 · Holm 1.000 · CI −1.000–0.000",
+        steps: "9.5", fails: "3.33",
+        cap: "twin-none — four nonsense-named tools, descriptions stripped, no docs. The largest drop in the study, and the process metrics say how: fewest steps, most tool failures — the agent gave up earlier rather than exploring harder. Suggestive, unsupported; nothing survives correction." },
+      "twin-reference": { name: "TWIN-REFERENCE", rate: "0.500", ci: "0.333–0.667", icc: "0", delta: "−0.167", deltaColor: AMBER, p: "p 1.000 · Holm 1.000 · CI −0.333–0.000",
+        steps: "19.8", fails: "3.33",
+        cap: "twin-reference — the same twins plus reference documentation. Docs claw back most of the drop; the agent works hardest here — most steps of any arm — reading its way into an unfamiliar surface." },
+      "twin-rich": { name: "TWIN-RICH", rate: "0.500", ci: "0.333–0.667", icc: "0", delta: "−0.167", deltaColor: AMBER, p: "p 1.000 · Holm 1.000 · CI −0.667–0.333",
+        steps: "11.2", fails: "1.50",
+        cap: "twin-rich — twins plus rich, example-laden docs. Same acceptance as reference docs at this scale, but the cleanest execution of any twin arm: fewest tool failures. Whether richness buys anything real is a Study-A question, not a pilot claim." }
+    };
+    const pa = PILOT[arm];
+    const bStd = armBtn("standard"), bNone = armBtn("twin-none"), bRef = armBtn("twin-reference"), bRich = armBtn("twin-rich");
+
+    return Object.assign(ex, {
+      // FIG 01
+      dcStep: d, dcSet: this.handler("dc"), dcPlay: () => this.play("dc", 7), dcPlayLabel: this.label("dc"),
+      dcCounter: d + "/7", dcCaption: dcCaptions[d], dcRows: dcRows,
+      dcCon: dcConsoles[d], dcConTitle: d === 0 ? "UPSTREAM — WHERE THE REPLAY STARTS" : "COMMIT " + d + " OF 7",
+
+      // FIG 03
+      drStep: r, drSet: this.handler("dr"), drPlay: () => this.play("dr", 3), drPlayLabel: this.label("dr"),
+      drCounter: r + "/3", drCaption: drCaptions[r], drChips: drChips, drCon: drConsoles[r],
+
+      // FIG 04
+      hzShowRep: () => this.setState({ hz: "rep" }),
+      hzShowMea: () => this.setState({ hz: "mea" }),
+      hzRepBg: isRep ? "#e9e7e2" : "transparent", hzRepFg: isRep ? "#0d0e10" : "#8b9098",
+      hzMeaBg: !isRep ? "#e9e7e2" : "transparent", hzMeaFg: !isRep ? "#0d0e10" : "#8b9098",
+      hzALabel: isRep ? "model A — as the table first read" : "native tool surface — the backend ships its own read/write/edit/bash",
+      hzBLabel: isRep ? "model B — as the table first read" : "registered surface only — squad's tools, nothing else",
+      hzVerdict: isRep ? "a 108× vendor gap?" : "two different programs",
+      hzVerdictColor: isRep ? AMBER : CYAN,
+      hzCaption: isRep
+        ? "as first read — a 108× efficiency gap between vendors: publishable, quotable, and wrong. A harness defect is always paid by the provider with less margin, and nothing in the table shows it."
+        : "as measured — the gap is the tool surface and a silent tool-round cap, not the models. harnessDigest() and the conformance contract exist so this difference is caught before anything is compared, not after it is published.",
+
+      // FIG 05
+      piSelStd: () => this.setState({ arm: "standard" }),
+      piSelNone: () => this.setState({ arm: "twin-none" }),
+      piSelRef: () => this.setState({ arm: "twin-reference" }),
+      piSelRich: () => this.setState({ arm: "twin-rich" }),
+      piStdBg: bStd.bg, piStdFg: bStd.fg,
+      piNoneBg: bNone.bg, piNoneFg: bNone.fg,
+      piRefBg: bRef.bg, piRefFg: bRef.fg,
+      piRichBg: bRich.bg, piRichFg: bRich.fg,
+      piArmName: pa.name, piRate: pa.rate, piCI: pa.ci, piICC: pa.icc,
+      piDelta: pa.delta, piDeltaColor: pa.deltaColor, piP: pa.p,
+      piSteps: pa.steps, piFails: pa.fails, piCaption: pa.cap
+    });
+  }
+}
+</script>
+</body>
+</html>
