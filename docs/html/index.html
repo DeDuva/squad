@@ -129,7 +129,7 @@ table.tbl{border-collapse:collapse;width:100%;font:400 14px/1.55 var(--sans)}
 <div class="kick" style="color:var(--cyan)">SQUAD · DEDUVA — AGENT TEAMS YOU CAN SWAP, MEASURE, AND PROVE</div>
 <h1 style="font:600 64px/1.05 var(--sans);letter-spacing:-.02em;margin:0 0 28px;max-width:16ch">One team. Any model.<br>Every run on the record.</h1>
 <p style="font-size:21px;line-height:1.55;color:var(--sub);margin:0;max-width:64ch;text-wrap:pretty">Squad — <a href="https://github.com/bradygaster/squad">upstream, by Brady Gaster and contributors</a><a class="ref" href="#ref-1">1</a> — is a team of AI agents that lives in your repository as files. This fork makes the team <em style="font-style:normal;color:var(--cyan)">portable</em>: swap Claude for Gemini, swap the <a href="#toolkit">harness</a>, run one agent or a swarm, run it air-gapped. Nothing about the team changes.</p>
-<p style="font-size:21px;line-height:1.55;color:var(--sub);margin:18px 0 0;max-width:64ch;text-wrap:pretty">Portability turned out to be the interesting part. Once you can swap any piece, you can <em style="font-style:normal;color:var(--amber)">measure</em> any piece — and a measurement is only worth publishing if anyone can check it. So every run here closes into a signed record on <a href="https://deduva.github.io/adp/">ADP</a>, verifiable by a third party with one call. This page is the story of how a fork became an instrument, and where the instrument led: <a href="#lab">squad-lab</a>, then <a href="#bench">duva-bench</a>.</p>
+<p style="font-size:21px;line-height:1.55;color:var(--sub);margin:18px 0 0;max-width:64ch;text-wrap:pretty">Portability wasn't a stylistic preference — the fork began in the kind of environment that gives you no other kind: air-gapped, regulated, code that stays on infrastructure you operate. It also turned out to be the interesting part. Once you can swap any piece, you can <em style="font-style:normal;color:var(--amber)">measure</em> any piece — and a measurement is only worth publishing if anyone can check it. So every run here closes into a signed record on <a href="https://deduva.github.io/adp/">ADP</a>, verifiable by a third party with one call. This page is the story of how a fork became an instrument, and where the instrument led: <a href="#lab">squad-lab</a>, then <a href="#bench">duva-bench</a>. The argument in plain text — who this is for, and what would prove it wrong — is <a href="https://github.com/DeDuva/squad/blob/dev/docs/WHY.md">docs/WHY.md</a>.</p>
 
 <div class="hero-stage">
 <span class="hlab" style="left:24px;top:18px;color:var(--amber)">ARMS — CLAUDE·GEMINI × NATIVE·AI-SDK × SOLO·SWARM</span>
@@ -253,6 +253,8 @@ table.tbl{border-collapse:collapse;width:100%;font:400 14px/1.55 var(--sans)}
 <div style="background:var(--panel);padding:18px 20px;color:var(--sub)">that files changed · who pushed · when · a commit message someone typed</div>
 <div style="background:var(--panel);padding:18px 20px;color:var(--sub)">what it was for · how it was verified against the state that shipped · which model, harness, and session produced it · signed, hash-chained, and <strong style="color:var(--fg);font-weight:500">checkable by anyone</strong></div>
 </div>
+
+<p class="b" style="margin-top:36px">The environments this fork came from make the gap concrete. Code that must stay on infrastructure you operate takes the self-managed release train: GitHub's public documentation describes quarterly feature releases for Enterprise Server, with new features generally reaching GitHub.com first, and assistive features like Copilot requiring a live connection to GitHub's cloud even from a self-managed install<a class="ref" href="#ref-11">11</a>. None of that is a knock on GitHub — it's the economics of shipping cloud software — but it means the teams under the strictest rules are structurally last in line for the agent era. A record of agent work shouldn't have to wait with them: ADP is forge-agnostic, lives wherever the work happens — a laptop, a CI runner, behind an air gap — and <span class="mono" style="font-size:15px;color:var(--fg)">/verify</span> is a property of the record, not of anyone's hosted service.</p>
 
 <p class="b" style="margin-top:36px">This fork treats ADP the way applications treat a database: <strong>the lab and the bench store nothing ADP can answer.</strong> Reports are reconstructed from the attested record, never from local state — if our numbers and the record ever disagreed, the record wins, and you can query it yourself. Here's the property that makes that trustworthy, shown as the test we actually run:</p>
 
@@ -442,6 +444,7 @@ table.tbl{border-collapse:collapse;width:100%;font:400 14px/1.55 var(--sans)}
 <a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/PLAN.md">packages/duva-bench/PLAN.md</a>
 <a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-lab/README.md">packages/squad-lab/README.md</a>
 <a href="https://github.com/DeDuva/squad/tree/dev/packages/duva-bench/studies/a-tool-familiarity-pilot">the pilot study — pre-registration, findings, report</a>
+<a href="https://github.com/DeDuva/squad/blob/dev/docs/WHY.md">docs/WHY.md — the argument in plain text</a>
 <span>MIT — © 2026 Brady Gaster and contributors (upstream)</span>
 </div>
 <div style="margin-top:28px;font:500 12px var(--mono);letter-spacing:.12em;color:var(--dim)">REFERENCES</div>
@@ -456,6 +459,7 @@ table.tbl{border-collapse:collapse;width:100%;font:400 14px/1.55 var(--sans)}
 <li id="ref-8">The vendor registry — aliases never pins, no cross-vendor fallback — <a href="https://github.com/DeDuva/squad/blob/dev/packages/squad-sdk/src/config/vendors.ts">squad-sdk/src/config/vendors.ts</a></li>
 <li id="ref-9">The pilot: pre-registration, findings, and machine-readable report (24 trials, $8.03, statistics with resamples and seed in the JSON) — <a href="https://github.com/DeDuva/squad/tree/dev/packages/duva-bench/studies/a-tool-familiarity-pilot">studies/a-tool-familiarity-pilot</a></li>
 <li id="ref-10">The statistics pin — <a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/requirements-stats.txt">requirements-stats.txt</a> and <a href="https://github.com/DeDuva/squad/blob/dev/packages/duva-bench/tools/paired_stats.py">tools/paired_stats.py</a></li>
+<li id="ref-11">GitHub's public documentation on Enterprise Server — release cadence and feature availability, and Copilot's GitHub Connect requirement — <a href="https://docs.github.com/en/enterprise-server@latest/admin/overview/about-github-enterprise-server">About GitHub Enterprise Server</a> · <a href="https://docs.github.com/en/enterprise-server@latest/admin/release-notes">release notes</a>. Statements here are limited to what those public pages say.</li>
 </ol>
 </footer>
 
@@ -518,7 +522,7 @@ class Component extends DCLogic {
         carry: "the team model — worth keeping exactly as designed" },
       { label: "the fork",
         title: "THE FORK — VENDOR-NEUTRAL, AIR-GAPPED",
-        body: "We cut the platform out and put one typed seam where the vendor used to be: Claude or Gemini, same team, and a swarm or a single agent, same team. Zero runtime dependencies, one bundled file — it runs behind an air gap. 6,880 tests pass on the decoupled tree.",
+        body: "Some environments forbid what upstream requires: no cloud platform in the loop, no telemetry, code on infrastructure you operate. We cut the platform out and put one typed seam where the vendor used to be: Claude or Gemini, same team, and a swarm or a single agent, same team. Zero runtime dependencies, one bundled file — it runs behind an air gap because it had to. 6,880 tests pass on the decoupled tree.",
         carry: "portability — every piece is now swappable" },
       { label: "on the record",
         title: "EVERY RUN BECOMES EVIDENCE — ADP",
