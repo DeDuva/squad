@@ -21,8 +21,6 @@
     "sync-templates": "node scripts/sync-templates.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run check:docs && npm run lint && npm test",
-    "check:docs": "node scripts/check-claude-md.mjs",
     "bench": "node scripts/run-benchmarks.mjs",
     "experiment:memory-value": "node scripts/measure-memory-value.mjs",
     "experiment:real-cli-ab": "node scripts/real-cli-ab.js",
@@ -35,7 +33,9 @@
     "docs:api": "node scripts/generate-api-docs.mjs",
     "docs:build": "npm run docs:api && cd docs && npm run build",
     "docs:dev": "cd docs && npm run dev",
-    "docs:preview": "cd docs && npm run preview"
+    "docs:preview": "cd docs && npm run preview",
+    "check": "npm run check:docs && npm run lint && npm test",
+    "check:docs": "node scripts/check-claude-md.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

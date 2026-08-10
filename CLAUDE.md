@@ -28,7 +28,9 @@ it used to be committed, carrying one contributor's PowerShell one-liners into t
 ## Layout
 
 npm workspaces monorepo, `packages/*`. Node **≥22.5.0** (`engines`) — `CONTRIBUTING.md`
-still says ≥20; believe `package.json`.
+still says ≥20; believe `package.json`. That mismatch is **upstream's**, not the fork's,
+and is deliberately left uncorrected here: upstream-owned files stay byte-identical so the
+fork's diff remains small and the next sync stays conflict-free. Fix it upstream, not here.
 
 | Package | Origin |
 |---|---|

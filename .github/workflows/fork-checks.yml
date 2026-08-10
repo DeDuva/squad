@@ -9,6 +9,13 @@ on:
     branches: [dev]
   pull_request:
 
+# Matches the convention every event-driven workflow here follows (see
+# test/ci-concurrency.test.cjs): one run per workflow per ref, superseded rather
+# than queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   claude-md:
     runs-on: ubuntu-latest
