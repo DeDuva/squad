@@ -4,7 +4,7 @@ Welcome to Squad development. This guide explains how to build, test, and contri
 
 ## Prerequisites
 
-- **Node.js** ≥20.0.0
+- **Node.js** ≥22.5.0 (as `engines` in `package.json` requires)
 - **npm** ≥10.0.0 (for workspace support)
 - **Git** with SSH agent (for package resolution)
 - **gh CLI** (for GitHub integration testing)

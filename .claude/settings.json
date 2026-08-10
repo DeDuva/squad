@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run check)",
+      "Bash(npm run check:docs)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:eslint)",
+      "Bash(npm test)",
+      "Bash(npm ls *)",
+      "Bash(npm -v)",
+      "Bash(node scripts/check-claude-md.mjs)",
+      "Bash(npm run -w @deduvafork/squad-lab typecheck)",
+      "Bash(npm run -w @deduvafork/duva-bench typecheck)",
+      "Bash(gh api *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh run view *)"
+    ]
+  }
+}

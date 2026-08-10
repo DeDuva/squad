@@ -17,6 +17,14 @@ file covers what is true of *the fork* and is not written down anywhere in the t
   never push to it.
 - All work lands through a PR. Commit messages and PR bodies carry no AI attribution.
 
+**Do not regenerate this file with `/init`.** A codebase scan would describe upstream's
+project, which is exactly what this file exists to correct. Edit it by hand;
+`npm run check:docs` fails if a path named here stops existing.
+
+`.claude/settings.json` is checked in and holds the shared permission allowlist.
+`.claude/settings.local.json` is for personal, machine-specific entries and is ignored —
+it used to be committed, carrying one contributor's PowerShell one-liners into the repo.
+
 ## Layout
 
 npm workspaces monorepo, `packages/*`. Node **≥22.5.0** (`engines`) — `CONTRIBUTING.md`
@@ -34,6 +42,7 @@ Fork-added ADP integration lives in `packages/squad-sdk/src/adp/` — `recorder.
 ## Commands
 
 ```bash
+npm run check     # the gate: check:docs + lint + test
 npm test          # vitest run
 npm run lint      # tsc --noEmit across squad-sdk and squad-cli
 npm run build     # squad-sdk then squad-cli (prebuild wipes dist/ and re-syncs templates)

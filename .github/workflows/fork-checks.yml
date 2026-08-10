@@ -1,0 +1,21 @@
+name: Fork checks
+
+# Checks that belong to this fork rather than to upstream. Kept in their own workflow so
+# the upstream squad-*.yml files stay byte-identical and the fork's diff stays small and
+# reviewable — the same reason the fork-added packages live beside upstream's rather than
+# inside them.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+
+jobs:
+  claude-md:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No install step: the check reads CLAUDE.md and asks git what is tracked.
+      - run: npm run check:docs
