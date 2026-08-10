@@ -19,28 +19,17 @@ Milestone reports for prior work: **`github.com/DeDuva/duva-lab-tpm`** (private)
 
 ---
 
-## Track status — 2026-08-08
+## Track status
 
-**Both tracks are meant to run in parallel. That is the design, not a schedule slip.** The pair is
-itself the experiment: bespoke infrastructure (this track) against in-distribution infrastructure
-(Harbor), on the same tasks, graders and statistics. Neither track is the "real" one.
-
-| Track | State |
-|---|---|
-| **squad** (this plan) | S0–S7 executed and merged; gates SG1 and SG2 passed. S7 ran a live 24-trial pilot, $8.03, every run verified. |
-| **Harbor** (`github.com/DeDuva/duva-bench`) | **Paused, deliberately.** Still at its bootstrap commit — README, licence, docs site, execution plan. No tasks, graders or runs. |
-
-**Why Harbor is paused:** its dependencies could not be configured from a remote session. That is
-an environment constraint, and the pause is a decision — **not neglect, and not a reversal of the
-substrate decision.** It is written down here because a bootstrap-only repository is otherwise
-indistinguishable from an abandoned one: a cross-project audit on 2026-08-08 read it as exactly
-that, which is the evidence that leaving it unrecorded was itself the defect.
-
-**What would resume it.** A later probe found `terminal-bench` installs cleanly on this machine
-and Docker runs and pulls images, so the dependency picture may be better than when the pause was
-taken. But Harbor also wraps real agent CLIs and only `claude` is present locally (`codex` and
-`aider` are absent), so the obstacle may have been elsewhere. The next step is **one timeboxed
-probe of a single Harbor trial**, reporting exactly where it fails — not a restart.
+> **Status lives in the fork's [`/ROADMAP.md`](../../ROADMAP.md)** — the repo's single
+> status ledger, updated in the same PR as any status change. This plan decides scope.
+>
+> Two facts a reader of older copies of this section needs: **both tracks are meant to
+> run in parallel — that is the design, not a schedule slip** (the pair is itself the
+> experiment: bespoke infrastructure here against in-distribution infrastructure on
+> Harbor, same tasks, graders and statistics); and the Harbor track's deliberate pause,
+> once recorded here, was **lifted 2026-08-08** — the timeboxed probe this section used
+> to call for was run in that repo, end to end, and nothing blocked.
 
 ---
 
