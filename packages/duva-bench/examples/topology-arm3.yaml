@@ -1,0 +1,73 @@
+# ADP M3-5 arm 3 — fan-out vs serial.
+#
+# Two arms differing only in `topology`: `single` runs the same ai-sdk loop
+# solo, `swarm` puts the default coordinator (planner/implementer/reviewer,
+# `src/arms/swarm.ts`'s `DEFAULT_SWARM_AGENTS`/`DEFAULT_SWARM_ROUTING`) in
+# front of it. Model, harness, and toolset are held identical on purpose — the
+# only axis that can explain a difference between these two arms is topology.
+# `harnessDigest` folds `agents`/`routing`, so the two arms are guaranteed
+# distinct digests despite sharing everything else in the spec.
+#
+# Feeds A16 (M3 readiness review, M3-5 arm 3) and closes out M3-5 alongside
+# arm 2. Paths are relative to this file so the digest stays machine-independent.
+title: M3-5 arm 3 — fan-out (swarm) vs serial (single) on two toy tasks
+
+#
+# A trial clones its seed, and a git repository cannot usefully nest inside
+# another one, so the seeds below are materialised first:
+#   node examples/prepare-seeds.mjs
+tasks:
+  - id: retry
+    goal: ../../squad-lab/examples/retry/goal.md
+    seed: .seeds/retry
+    grader: ../../squad-lab/examples/retry/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+  - id: semver
+    goal: ../../squad-lab/examples/semver/goal.md
+    seed: .seeds/semver
+    grader: ../../squad-lab/examples/semver/grader.mjs
+    graderSha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+arms:
+  - id: serial
+    harness: ai-sdk
+    model:
+      provider: anthropic
+      tier: fast
+    toolset:
+      name: default
+      docsGrade: reference
+    topology: single
+  - id: fanout
+    harness: ai-sdk
+    model:
+      provider: anthropic
+      tier: fast
+    toolset:
+      name: default
+      docsGrade: reference
+    topology: swarm
+
+budgetUsd: 15
+concurrency: 3
+
+preRegistration:
+  # Decided before anything runs. The report prints this back unchanged, or
+  # prints the amendment alongside the reading it replaced.
+  primaryMetric: acceptance
+  secondaryMetrics:
+    - tokensIn
+    - toolFailures
+    - steps
+  repetitions: 5
+  exclusionRules:
+    - id: provider-quota
+      description: >-
+        Exclude any trial whose run ends in a provider quota or rate-limit
+        error. m14 lost 8 of 10 runs on one model that way, and including them
+        inflated the pooled noise floor 14x.
+    - id: unverified-run
+      description: >-
+        Exclude any trial whose ADP /verify is not ok. An unverifiable run is
+        an ERROR, never a zero, and errors count against the majority.
+  amendments: []
