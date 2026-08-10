@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M3-5 arm 3 — fan-out (swarm) vs serial (single) on two toy tasks — duva-bench</title>
+<style>
+  :root { color-scheme: light dark; --fg:#111; --dim:#666; --line:#ddd; --bad:#b00020; --ok:#0a6; --bg:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e8e8e8; --dim:#999; --line:#333; --bg:#111; } }
+  body { font:15px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         max-width:60rem; margin:0 auto; padding:2rem 1.25rem; color:var(--fg); background:var(--bg); }
+  h1 { font-size:1.5rem; margin:0 0 .25rem; } h2 { font-size:1.1rem; margin:2.5rem 0 .5rem; }
+  h3 { font-size:.95rem; margin:1.5rem 0 .4rem; color:var(--dim); font-weight:600; }
+  code { font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .dim { color:var(--dim); } .none { color:var(--dim); font-style:italic; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); font-weight:600; }
+  table { border-collapse:collapse; width:100%; margin:.5rem 0 1rem; font-size:14px; }
+  th,td { text-align:left; padding:.35rem .6rem; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:600; }
+  tr.err td { opacity:.65; }
+  .wrap { overflow-x:auto; }
+  .banner { border-left:3px solid var(--bad); padding:.5rem .9rem; margin:1rem 0; }
+  .note { color:var(--dim); font-size:13px; }
+  dl { display:grid; grid-template-columns:max-content 1fr; gap:.15rem 1rem; margin:.5rem 0; }
+  dt { color:var(--dim); } dd { margin:0; }
+</style></head><body>
+
+<h1>M3-5 arm 3 — fan-out (swarm) vs serial (single) on two toy tasks</h1>
+<p class="dim"><code>cfebbb7dd2a3bf11b0f21cce1a0a8ffe247c012780350311e24e0bd6727de1f0</code><br>collected 2026-08-10T15:59:19.754Z</p>
+
+<h2>Pre-registration</h2>
+<p class="note">Unchanged since registration.</p>
+<dl>
+  <dt>primary metric</dt><dd>acceptance</dd>
+  <dt>repetitions</dt><dd>5</dd>
+  <dt>digest</dt><dd><code>4e0f25e44dfcfcb7</code></dd>
+</dl>
+
+<h2>Evidence</h2>
+<dl>
+  <dt>trials</dt><dd>20 recorded, 20 included</dd>
+  <dt>errors</dt><dd><span class="ok">none</span></dd>
+  <dt>missing</dt><dd>0</dd>
+</dl>
+
+
+<h2>Noise floor</h2>
+<p class="note">Read this before any contrast. A difference smaller than the within-cell spread
+is not a finding.</p>
+<table><thead><tr><th>axis</th><th>pooled sd</th><th>cells</th></tr></thead><tbody><tr><td>acceptance</td><td>0.036</td><td>4</td></tr><tr><td>api-shape</td><td>0.000</td><td>4</td></tr><tr><td>edge-cases</td><td>0.040</td><td>4</td></tr><tr><td>self-tests</td><td>0.224</td><td>4</td></tr></tbody></table>
+
+<h2>Per axis</h2>
+<h3>acceptance</h3><div class="wrap"><table><thead><tr><th>arm</th><th>task</th><th>n</th><th>mean</th><th>sd</th></tr></thead><tbody><tr><td>fanout</td><td>retry</td><td>5</td>
+        <td>0.970</td>
+        <td>0.027</td></tr>
+<tr><td>fanout</td><td>semver</td><td>5</td>
+        <td>0.974</td>
+        <td>0.058</td></tr>
+<tr><td>serial</td><td>retry</td><td>5</td>
+        <td>0.970</td>
+        <td>0.027</td></tr>
+<tr><td>serial</td><td>semver</td><td>5</td>
+        <td>0.993</td>
+        <td>0.017</td></tr></tbody></table></div><h3>api-shape</h3><div class="wrap"><table><thead><tr><th>arm</th><th>task</th><th>n</th><th>mean</th><th>sd</th></tr></thead><tbody><tr><td>fanout</td><td>retry</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr>
+<tr><td>fanout</td><td>semver</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr>
+<tr><td>serial</td><td>retry</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr>
+<tr><td>serial</td><td>semver</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr></tbody></table></div><h3>edge-cases</h3><div class="wrap"><table><thead><tr><th>arm</th><th>task</th><th>n</th><th>mean</th><th>sd</th></tr></thead><tbody><tr><td>fanout</td><td>retry</td><td>5</td>
+        <td>0.950</td>
+        <td>0.046</td></tr>
+<tr><td>fanout</td><td>semver</td><td>5</td>
+        <td>0.979</td>
+        <td>0.046</td></tr>
+<tr><td>serial</td><td>retry</td><td>5</td>
+        <td>0.950</td>
+        <td>0.046</td></tr>
+<tr><td>serial</td><td>semver</td><td>5</td>
+        <td>0.993</td>
+        <td>0.015</td></tr></tbody></table></div><h3>self-tests</h3><div class="wrap"><table><thead><tr><th>arm</th><th>task</th><th>n</th><th>mean</th><th>sd</th></tr></thead><tbody><tr><td>fanout</td><td>retry</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr>
+<tr><td>fanout</td><td>semver</td><td>5</td>
+        <td>0.800</td>
+        <td>0.447</td></tr>
+<tr><td>serial</td><td>retry</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr>
+<tr><td>serial</td><td>semver</td><td>5</td>
+        <td>1.000</td>
+        <td>0.000</td></tr></tbody></table></div>
+
+<h2>Statistics</h2>
+<h3>acceptance</h3><div class="wrap">
+    <table><thead><tr><th>arm</th><th>tasks</th><th>rate</th><th>95% CI</th><th>ICC</th></tr></thead>
+      <tbody><tr><td>fanout</td><td>2</td><td>0.600</td>
+         <td>0.400 – 0.800</td><td>0.107</td></tr>
+<tr><td>serial</td><td>2</td><td>0.600</td>
+         <td>0.400 – 0.800</td><td>0.107</td></tr></tbody></table>
+    <p class="note">Paired contrasts, resampled over tasks. Holm-corrected because every
+             extra contrast is another chance to find something.</p>
+           <table><thead><tr><th>contrast</th><th>difference</th><th>95% CI</th><th>p</th>
+             <th>p (Holm)</th><th>shared tasks</th></tr></thead><tbody><tr><td>serial → fanout</td><td>0.000</td>
+         <td>0.000 – 0.000</td><td>1.0000</td>
+         <td>1.0000</td><td>2</td></tr></tbody></table></div><h3>api-shape</h3><div class="wrap">
+    <table><thead><tr><th>arm</th><th>tasks</th><th>rate</th><th>95% CI</th><th>ICC</th></tr></thead>
+      <tbody><tr><td>fanout</td><td>2</td><td>1.000</td>
+         <td>1.000 – 1.000</td><td>0.000</td></tr>
+<tr><td>serial</td><td>2</td><td>1.000</td>
+         <td>1.000 – 1.000</td><td>0.000</td></tr></tbody></table>
+    <p class="note">Paired contrasts, resampled over tasks. Holm-corrected because every
+             extra contrast is another chance to find something.</p>
+           <table><thead><tr><th>contrast</th><th>difference</th><th>95% CI</th><th>p</th>
+             <th>p (Holm)</th><th>shared tasks</th></tr></thead><tbody><tr><td>serial → fanout</td><td>0.000</td>
+         <td>0.000 – 0.000</td><td>1.0000</td>
+         <td>1.0000</td><td>2</td></tr></tbody></table></div><h3>edge-cases</h3><div class="wrap">
+    <table><thead><tr><th>arm</th><th>tasks</th><th>rate</th><th>95% CI</th><th>ICC</th></tr></thead>
+      <tbody><tr><td>fanout</td><td>2</td><td>0.600</td>
+         <td>0.400 – 0.800</td><td>0.107</td></tr>
+<tr><td>serial</td><td>2</td><td>0.600</td>
+         <td>0.400 – 0.800</td><td>0.107</td></tr></tbody></table>
+    <p class="note">Paired contrasts, resampled over tasks. Holm-corrected because every
+             extra contrast is another chance to find something.</p>
+           <table><thead><tr><th>contrast</th><th>difference</th><th>95% CI</th><th>p</th>
+             <th>p (Holm)</th><th>shared tasks</th></tr></thead><tbody><tr><td>serial → fanout</td><td>0.000</td>
+         <td>0.000 – 0.000</td><td>1.0000</td>
+         <td>1.0000</td><td>2</td></tr></tbody></table></div><h3>self-tests</h3><div class="wrap">
+    <table><thead><tr><th>arm</th><th>tasks</th><th>rate</th><th>95% CI</th><th>ICC</th></tr></thead>
+      <tbody><tr><td>fanout</td><td>2</td><td>0.900</td>
+         <td>0.800 – 1.000</td><td>0.000</td></tr>
+<tr><td>serial</td><td>2</td><td>1.000</td>
+         <td>1.000 – 1.000</td><td>0.000</td></tr></tbody></table>
+    <p class="note">Paired contrasts, resampled over tasks. Holm-corrected because every
+             extra contrast is another chance to find something.</p>
+           <table><thead><tr><th>contrast</th><th>difference</th><th>95% CI</th><th>p</th>
+             <th>p (Holm)</th><th>shared tasks</th></tr></thead><tbody><tr><td>serial → fanout</td><td>-0.100</td>
+         <td>-0.200 – 0.000</td><td>1.0000</td>
+         <td>1.0000</td><td>2</td></tr></tbody></table></div>
+
+<h2>Cost</h2>
+<dl>
+  <dt>total</dt><dd>$20.6834</dd>
+  <dt>priced trials</dt><dd>20</dd>
+  <dt>unpriced trials</dt><dd>0</dd>
+</dl>
+
+<h2>Arms</h2>
+<div class="wrap"><table><thead><tr><th>arm</th><th>digest</th><th>harness</th><th>topology</th>
+  <th>model</th><th>toolset</th></tr></thead><tbody>
+<tr><td>serial</td><td><code class="dim">ea95d2fd47e6</code></td>
+      <td>ai-sdk</td><td>single</td>
+      <td>anthropic:fast</td>
+      <td>default/reference</td></tr><tr><td>fanout</td><td><code class="dim">241ac40cf3da</code></td>
+      <td>ai-sdk</td><td>swarm</td>
+      <td>anthropic:fast</td>
+      <td>default/reference</td></tr>
+</tbody></table></div>
+
+<h2>Trials</h2>
+<div class="wrap"><table><thead><tr><th>external_ref</th><th>status</th><th>verify</th>
+  <th>acceptance</th>
+  <th>halluc. rate</th><th>tools</th><th>steps</th><th>cost</th><th>trajectory</th></tr></thead>
+<tbody><tr class="">
+        <td><code>cfebbb7dd2a3:fanout:retry:r1</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>38</td><td>40</td>
+        <td>$0.4584</td>
+        <td><code class="dim">deeabeef5b3b</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:retry:r2</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>31</td><td>34</td>
+        <td>$0.4414</td>
+        <td><code class="dim">ca500a7c13aa</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:retry:r3</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>22</td><td>22</td>
+        <td>$0.1602</td>
+        <td><code class="dim">729cc14dbecf</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:retry:r4</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>24</td><td>27</td>
+        <td>$0.1933</td>
+        <td><code class="dim">43b5be8a542f</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:retry:r5</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>20</td><td>22</td>
+        <td>$0.1529</td>
+        <td><code class="dim">dc914ff7337f</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:semver:r1</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>42</td><td>43</td>
+        <td>$1.2032</td>
+        <td><code class="dim">6f096cf28b83</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:semver:r2</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>55</td><td>58</td>
+        <td>$1.8229</td>
+        <td><code class="dim">29b4d96650f2</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:semver:r3</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.870</td>
+        <td>0.000</td>
+        <td>64</td><td>66</td>
+        <td>$2.6400</td>
+        <td><code class="dim">83f487d328ee</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:semver:r4</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>57</td><td>60</td>
+        <td>$1.9458</td>
+        <td><code class="dim">5c676abcb61f</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:fanout:semver:r5</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>113</td><td>116</td>
+        <td>$7.2020</td>
+        <td><code class="dim">e9d28040df06</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:retry:r1</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>6</td><td>7</td>
+        <td>$0.0559</td>
+        <td><code class="dim">1e0cd2077b3f</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:retry:r2</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>8</td><td>9</td>
+        <td>$0.0937</td>
+        <td><code class="dim">1ac7786df479</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:retry:r3</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>10</td><td>11</td>
+        <td>$0.1428</td>
+        <td><code class="dim">07b7411e758a</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:retry:r4</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.950</td>
+        <td>0.000</td>
+        <td>11</td><td>12</td>
+        <td>$0.1177</td>
+        <td><code class="dim">934ef7cb1547</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:retry:r5</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>6</td><td>7</td>
+        <td>$0.0541</td>
+        <td><code class="dim">63e5efad8909</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:semver:r1</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>43</td><td>44</td>
+        <td>$1.8883</td>
+        <td><code class="dim">18e16864e1b7</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:semver:r2</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>0.963</td>
+        <td>0.000</td>
+        <td>32</td><td>33</td>
+        <td>$0.9136</td>
+        <td><code class="dim">0c2b9beeea17</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:semver:r3</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>12</td><td>13</td>
+        <td>$0.2445</td>
+        <td><code class="dim">db2f19dfed9a</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:semver:r4</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>10</td><td>11</td>
+        <td>$0.2116</td>
+        <td><code class="dim">3df8647b36ad</code></td></tr>
+<tr class="">
+        <td><code>cfebbb7dd2a3:serial:semver:r5</code></td>
+        <td>closed</td>
+        <td><span class="ok">ok</span></td>
+        <td>1.000</td>
+        <td>0.000</td>
+        <td>27</td><td>28</td>
+        <td>$0.7409</td>
+        <td><code class="dim">7549cad05f63</code></td></tr></tbody></table></div>
+
+</body></html>
