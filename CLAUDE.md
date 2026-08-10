@@ -70,7 +70,11 @@ patching around them here.
 
 ## Where the plans live
 
-- The squad-track bench plan: `packages/duva-bench/PLAN.md` (in-tree).
+- **`ROADMAP.md`** — the single status ledger for the fork and both research packages:
+  milestone states, gates, open decisions. A PR that changes milestone status updates
+  it in the same PR.
+- The squad-track bench plan: `packages/duva-bench/PLAN.md` (in-tree). It decides that
+  track's scope.
 - **Milestone reports and the cross-project plan moved off disk** to the private
   `github.com/DeDuva/duva-lab-tpm`. `~/dev/duva_squad/PLAN.md` and `~/dev/duva_squad/reports/`
   were deleted after the remote was verified byte-identical — don't go looking for them
