@@ -213,9 +213,17 @@ export function createAiSdkHarness(options: AiSdkHarnessOptions): SessionFactory
             steps += 1;
             const durationMs = Date.now() - stepStartedAt;
             stepStartedAt = Date.now();
-            const inputTokens = step.usage?.inputTokens ?? 0;
-            const outputTokens = step.usage?.outputTokens ?? 0;
-            const cachedInputTokens = step.usage?.cachedInputTokens ?? 0;
+            // AI SDK v7 moved the cache breakdown into `inputTokenDetails` and made
+            // `inputTokens` the *total* prompt count, cached reads included. TokenUsage
+            // documents inputTokens and cachedInputTokens as disjoint, and priceUsage
+            // adds them, so taking `inputTokens` here would bill every cache read twice.
+            // `noCacheTokens` is the disjoint figure v5's `inputTokens` used to carry.
+            const usage = step.usage;
+            const cachedInputTokens = usage?.inputTokenDetails?.cacheReadTokens ?? 0;
+            const inputTokens =
+              usage?.inputTokenDetails?.noCacheTokens ??
+              Math.max((usage?.inputTokens ?? 0) - cachedInputTokens, 0);
+            const outputTokens = usage?.outputTokens ?? 0;
             // Cache reads are billed at a fraction of the input rate and are
             // most of a long agent turn, so pricing them as ordinary input
             // would overstate the run several times over.

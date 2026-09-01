@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { MockLanguageModelV2 } from 'ai/test';
+import { MockLanguageModelV4 } from 'ai/test';
 
 import { EventBus, type SquadEvent } from '../packages/squad-sdk/src/runtime/event-bus.js';
 import { checkHarnessConformance, type ConformanceContext } from '../packages/squad-lab/src/conformance.ts';
@@ -27,15 +27,21 @@ import { createAiSdkHarness } from '../packages/squad-lab/src/harnesses/ai-sdk.t
  */
 function scriptedModel(rounds: number) {
   let step = 0;
-  return new MockLanguageModelV2({
+  return new MockLanguageModelV4({
     doGenerate: async ({ tools }) => {
       step += 1;
       const available = (tools ?? []) as { name: string }[];
-      const usage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
+      // LanguageModelV4 reports usage as two nested breakdowns rather than the
+      // flat V2 counters, and drops the top-level totalTokens. `noCache` is the
+      // figure the harness prices as input, kept disjoint from `cacheRead`.
+      const usage = {
+        inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+        outputTokens: { total: 5, text: 5, reasoning: 0 },
+      };
 
       if (step <= rounds && available.length > 0) {
         return {
-          finishReason: 'tool-calls' as const,
+          finishReason: { unified: 'tool-calls' as const, raw: 'tool_use' },
           usage,
           content: available.map((t, i) => ({
             type: 'tool-call' as const,
@@ -47,7 +53,7 @@ function scriptedModel(rounds: number) {
         };
       }
       return {
-        finishReason: 'stop' as const,
+        finishReason: { unified: 'stop' as const, raw: 'end_turn' },
         usage,
         content: [{ type: 'text' as const, text: 'done' }],
         warnings: [],
