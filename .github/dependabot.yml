@@ -28,6 +28,21 @@ updates:
       - dependency-name: "OpenTelemetry*"
         update-types:
           - "version-update:semver-major"
+      # GitHub.Copilot.SDK is held at whatever Microsoft.Agents.AI.GitHub.Copilot was
+      # built against, and is NOT independently upgradable — note this is a full stop,
+      # not a semver-major one, because the break arrives on a patch bump.
+      #
+      # SquadAgent.cs consumes CopilotClient through MAF. MAF 1.11.0-rc1 declares
+      # `GitHub.Copilot.SDK [1.0.0, )`, so restore happily accepts a newer SDK and the
+      # compiler then rejects it: `CS0012: The type 'CopilotClient' is defined in an
+      # assembly that is not referenced ... GitHub.Copilot.SDK, Version=1.0.0.0`. That
+      # is what 1.0.3 -> 1.0.11 did in #124, on all three target frameworks.
+      #
+      # Lift this together with MAF, not before: 1.19.0+ declares `[1.0.5, )` and is
+      # built against the newer SDK line. The direct PackageReference above is itself a
+      # workaround pending microsoft/agent-framework#6457, so both are likely to be
+      # resolved by the same upgrade.
+      - dependency-name: "GitHub.Copilot.SDK"
 
   - package-ecosystem: "nuget"
     directory: "/test/Squad.Agents.AI.Tests"
@@ -82,6 +97,18 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # TypeScript majors wait on typescript-eslint, which gates the whole lint step.
+      # Its newest release (8.69.0) still peer-requires `typescript >=4.8.4 <6.1.0`, so
+      # TS 7 has no supported toolchain to move to: npm resolves the conflict by nesting
+      # duplicate @typescript-eslint trees, and `npm run lint:eslint` then runs a parser
+      # against a compiler it does not claim to support. #33 and #26 are that upgrade.
+      #
+      # Minor and patch TypeScript updates are unaffected and still flow. Drop this once
+      # typescript-eslint widens the peer range past 7.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
 
   # npm — Docs site (Astro/Starlight), which does have its own lockfile.
   - package-ecosystem: "npm"
