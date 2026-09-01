@@ -58,7 +58,14 @@ updates:
         update-types:
           - "version-update:semver-major"
 
-  # npm — root workspace (vitest, typescript, shared tooling)
+  # npm — the root workspace, which covers every member of `workspaces: packages/*`.
+  #
+  # There is deliberately no entry for `/packages/squad-cli` or `/packages/squad-sdk`.
+  # Those are workspace members with no `package-lock.json` of their own, so a
+  # directory-scoped entry makes Dependabot edit the member's `package.json` and
+  # nothing else — leaving the manifest and the single root lockfile disagreeing, and
+  # `npm ci` refusing to install. This entry already updates every member manifest
+  # together with the root lockfile, which is the only combination that installs.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -76,43 +83,7 @@ updates:
           - "minor"
           - "patch"
 
-  # npm — Squad CLI package
-  - package-ecosystem: "npm"
-    directory: "/packages/squad-cli"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels: ["dependencies", "squad:belanna"]
-    commit-message:
-      prefix: "deps"
-    groups:
-      minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # npm — Squad SDK package
-  - package-ecosystem: "npm"
-    directory: "/packages/squad-sdk"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels: ["dependencies", "squad:belanna"]
-    commit-message:
-      prefix: "deps"
-    groups:
-      minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # npm — Docs site (Astro/Starlight)
+  # npm — Docs site (Astro/Starlight), which does have its own lockfile.
   - package-ecosystem: "npm"
     directory: "/docs"
     schedule:
