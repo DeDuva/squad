@@ -37,7 +37,7 @@
     "variance-report": "npx tsx scripts/variance-report.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.93",
+    "@ai-sdk/anthropic": "^4.0.45",
     "@ai-sdk/google": "^2.0.86",
     "@deduvafork/squad-sdk": "*",
     "@fastify/static": "^10.1.3",
