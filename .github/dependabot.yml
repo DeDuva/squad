@@ -12,15 +12,26 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
+      # GitHub.Copilot.SDK is listed in both Microsoft groups deliberately. It is not a
+      # Microsoft.* package, so without this it is proposed on its own — and on its own
+      # is the shape that breaks. SquadAgent.cs reaches CopilotClient through MAF, which
+      # re-exports it, so the two have to arrive together to compile.
+      #
+      # Grouping does not *force* them to move together; it groups whatever updates
+      # exist in a run. It is a strong nudge, not a guarantee, and a solo SDK bump can
+      # still appear. That is acceptable because the failure is loud: both .NET jobs go
+      # red on CS0012, as they did on #124.
       microsoft-ai-majors:
         patterns:
           - "Microsoft.Agents.AI*"
           - "Microsoft.Extensions.AI"
+          - "GitHub.Copilot.SDK"
         update-types:
           - "major"
       microsoft-packages:
         patterns:
           - "Microsoft.*"
+          - "GitHub.Copilot.SDK"
         update-types:
           - "minor"
           - "patch"
@@ -28,21 +39,6 @@ updates:
       - dependency-name: "OpenTelemetry*"
         update-types:
           - "version-update:semver-major"
-      # GitHub.Copilot.SDK is held at whatever Microsoft.Agents.AI.GitHub.Copilot was
-      # built against, and is NOT independently upgradable — note this is a full stop,
-      # not a semver-major one, because the break arrives on a patch bump.
-      #
-      # SquadAgent.cs consumes CopilotClient through MAF. MAF 1.11.0-rc1 declares
-      # `GitHub.Copilot.SDK [1.0.0, )`, so restore happily accepts a newer SDK and the
-      # compiler then rejects it: `CS0012: The type 'CopilotClient' is defined in an
-      # assembly that is not referenced ... GitHub.Copilot.SDK, Version=1.0.0.0`. That
-      # is what 1.0.3 -> 1.0.11 did in #124, on all three target frameworks.
-      #
-      # Lift this together with MAF, not before: 1.19.0+ declares `[1.0.5, )` and is
-      # built against the newer SDK line. The direct PackageReference above is itself a
-      # workaround pending microsoft/agent-framework#6457, so both are likely to be
-      # resolved by the same upgrade.
-      - dependency-name: "GitHub.Copilot.SDK"
 
   - package-ecosystem: "nuget"
     directory: "/test/Squad.Agents.AI.Tests"
