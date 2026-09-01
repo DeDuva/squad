@@ -247,6 +247,7 @@ Apply these rules:
    | Changed paths | Must have a `SUCCESS` from |
    |---|---|
    | `package.json`, `package-lock.json`, `packages/**` | `test` **and** `sdk-exports-validation` |
+   | `src/Squad.Agents.AI/**`, `test/Squad.Agents.AI.Tests/**` | `.NET ubuntu-latest` **and** `.NET windows-latest` |
    | `.github/workflows/**` | `claude-md`, plus the workflows' own syntax jobs |
    | `docs/**` | `docs-quality` |
 
@@ -327,9 +328,11 @@ job.** Check first:
 command -v dotnet || echo "no dotnet"
 ```
 
-If absent, do not attempt local validation. NuGet PRs are then eligible only on
-section 5's CI evidence, and a NuGet PR whose CI evidence is incomplete is
-`Human review` — say explicitly that local validation was unavailable.
+If absent, do not attempt local validation. NuGet PRs are then eligible on
+section 5's CI evidence alone — which for these paths means a `SUCCESS` from **both**
+`.NET ubuntu-latest` and `.NET windows-latest`, since the two have diverged before. A
+NuGet PR missing either is `Human review`. Whenever local validation was unavailable,
+say so in the report rather than letting the row read like a full pass.
 
 If present:
 
