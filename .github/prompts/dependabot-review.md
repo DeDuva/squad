@@ -70,6 +70,33 @@ malformed*. It does **not** prove the dependency update was tested. So
 section 5's positive-evidence table — not the required-checks list — is what
 establishes that a PR was actually validated. Do not substitute one for the other.
 
+### The runner is not a developer machine
+
+This document is written in `gh` commands because they are the clearest way to say
+what to fetch. **`gh` is not installed in the scheduled cloud runner.** Establish what
+you actually have before starting, and translate as needed:
+
+```bash
+command -v gh || echo "no gh"
+command -v dotnet || echo "no dotnet"
+node -v && npm -v
+```
+
+| If you have | Use it for |
+|---|---|
+| `gh` | everything, as written below |
+| GitHub MCP tools (`mcp__github__*`) | every **mutation** — comments, merges, auto-merge |
+| plain `curl` to `api.github.com` | bulk **read-only** queries, which are faster in one loop than one tool call per PR |
+
+Two limits of the `curl` path, both observed: it is unauthenticated, so it can read
+public data but cannot write; and the sandbox permits only **repository-scoped**
+endpoints — `repos/DeDuva/squad/...` works, `/advisories` returns *"sessions are bound
+to their configured repositories."* Section 7 says what to use for advisories instead.
+
+Node is currently **22.22.2 / npm 10.9.7** in that runner — older than this
+repository's own CI. Report the versions you found; do not assume they match the ones
+named anywhere in this document.
+
 ---
 
 ## 2. Safety rules
@@ -305,7 +332,8 @@ git diff --exit-code package-lock.json package.json
 A non-empty diff is a **validation failure**, not something to commit. Investigate
 and report why.
 
-npm 11 does not run dependencies' install scripts by default, and prints an
+**On npm 11 and later only** (the cloud runner has npm 10, where this does not
+apply): npm does not run dependencies' install scripts by default, and prints an
 `allow-scripts` warning naming the packages it skipped (`sharp`, `esbuild`). That
 warning is not itself a failure — but if a *build* then fails inside a package named
 in it, the cause is the ungated script, not the dependency upgrade. Re-run with the
@@ -369,6 +397,18 @@ Classify `SAFE_TO_MERGE` when **all** hold:
 - `npm run check` succeeded;
 - section 5's positive CI evidence is present;
 - `mergeable: MERGEABLE` and no failing or pending checks.
+
+Check release metadata through the PR body's own release notes and changelog links.
+The `/advisories` API is **not reachable** from the runner (see section 1), so for a
+security signal use the lockfile instead — it needs no network and no auth:
+
+```bash
+cd docs && npm audit --package-lock-only    # or the root, per the PR's directory
+```
+
+Read it in both directions: an advisory against the version the PR *introduces* blocks
+the merge, and an advisory against the version it *replaces* is a reason to prioritise
+an upgrade that is otherwise only `Needs refresh`.
 
 Before merging, check release metadata for an obvious warning: deprecation, a
 withdrawn or compromised release, a security advisory, or documented breaking
@@ -447,6 +487,10 @@ Prefer `--auto` whenever it is available. It hands the final gate back to GitHub
 which refuses the merge if a required check regresses between your evaluation and the
 merge itself — a direct `--squash` has no such second look.
 
+Auto-merge only accepts a PR whose checks are still pending. On a PR that is already
+green it refuses with *"already in clean status ... you can merge directly"* — that is
+the expected answer, not an error. Merge directly and carry on.
+
 Never fall back to `--admin`. If the merge is refused, report the refusal verbatim and
 classify `Ready for merge`; do not work around it.
 
@@ -458,6 +502,15 @@ After each merge, re-run discovery (section 3) before evaluating the next PR.
 
 Comment only when there is something for a human to act on. Do not narrate successful
 intermediate steps.
+
+**No AI attribution.** This repository's `CLAUDE.md` requires that comments and PR
+bodies carry no "Generated with", "Co-Authored-By: Claude", or similar trailer. The
+GitHub MCP comment tool **appends one automatically**, so posting is not the last
+step: read the comment back, and if a trailer was appended, edit it off
+(`mcp__github__update_issue_comment`, or a REST `PATCH` to
+`repos/DeDuva/squad/issues/comments/{id}`). If the edit re-appends it, stop retrying
+and record it in the final report as an unfixed deviation. Do not let this block the
+review.
 
 Every comment you post must begin with this marker line so runs are idempotent:
 
