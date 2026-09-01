@@ -68,6 +68,15 @@ Gaps that squad finds in ADP are **report-only evidence** for ADP's milestone le
 file them there; they do not change ADP's scope by themselves, and they are not fixed by
 patching around them here.
 
+## Dependency automation
+
+`.github/prompts/dependabot-review.md` is the prompt a weekly Claude routine runs to
+triage, validate, and merge Dependabot PRs. It encodes facts about *this* repository
+that are easy to get wrong — chiefly that `dev`'s two required checks (`claude-md`,
+`changes`) are the only unconditionally-running jobs here, so a green
+`mergeStateStatus` proves a PR is fresh, not that the update was tested. Re-verify its
+"Repository facts" table whenever branch protection or `.github/workflows/` changes.
+
 ## Where the plans live
 
 - **`ROADMAP.md`** — the single status ledger for the fork and both research packages:
