@@ -254,19 +254,19 @@
   },
   "optionalDependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.221.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.222.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.222.0",
     "@opentelemetry/resources": "^2.8.0",
-    "@opentelemetry/sdk-metrics": "^2.10.0",
-    "@opentelemetry/sdk-node": "^0.221.0",
-    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/sdk-metrics": "^2.11.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@opentelemetry/sdk-trace-node": "^2.8.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "sql.js": "^1.14.2",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.6.1",
     "@types/sql.js": "^1.4.10",
     "@types/ws": "^8.5.13",
     "typedoc": "~0.28.20",
@@ -290,8 +290,8 @@
     "directory": "packages/squad-sdk"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.251",
-    "zod": "^4.5.4"
+    "@anthropic-ai/claude-agent-sdk": "^0.3.276",
+    "zod": "^4.6.5"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/claude-agent-sdk": {
