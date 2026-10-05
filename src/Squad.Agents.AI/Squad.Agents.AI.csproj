@@ -33,7 +33,7 @@
       bin/.../runtimes/{rid}/native/ and ContentWithTargetPath propagates it to consumers.
       Once microsoft/agent-framework#6457 merges, this will no longer be required.
     -->
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.14" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.16" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
