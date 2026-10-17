@@ -41,6 +41,32 @@ fork's diff remains small and the next sync stays conflict-free. Fix it upstream
 Fork-added ADP integration lives in `packages/squad-sdk/src/adp/` — `recorder.ts` and
 `spool.ts` subscribe to squad's own events and record runs to ADP without blocking them.
 
+## Fork deviations from upstream
+
+Every place the fork deliberately differs from an upstream-owned file or upstream's
+repository setup. Keep this list complete — it is what the next upstream sync has to
+reconcile.
+
+- **`.github/workflows/squad-ci.yml`** — the `pull_request` trigger drops `edited` from
+  `types`. Upstream re-runs the whole CI on every PR title/body edit; nothing in the
+  workflow reads the title or body, so here that was pure Actions spend. One line; on
+  an upstream sync, keep the fork's line.
+- **`.github/dependabot.yml`** — rewritten for the fork: npm `/` and github-actions only,
+  monthly, at most 3 open PRs, minor+patch grouped and majors grouped separately. The
+  NuGet and `/docs` entries are gone — the fork ships neither. vitest majors are
+  ignored until squad-lab moves to vitest 5.
+- **Upstream-only workflows are disabled in GitHub, not edited** (2026-10-17). Their
+  files stay byte-identical so syncs stay conflict-free; the state lives in the repo's
+  Actions settings (`gh workflow list --all`). Disabled: every `squad-*.yml` except
+  `squad-ci.yml`, plus `sync-squad-labels.yml` — triage/labels/nudges/heartbeat,
+  impact/readiness/scope/repo-health, the npm/insider/NuGet publish and release/promote
+  pipelines, the Astro docs build and link check, preview validation, and the
+  `Squad.Agents.AI` .NET CI. **Active:** `fork-checks.yml` (provides required check
+  `claude-md`), `squad-ci.yml` (provides required check `changes`, plus `test`),
+  `pages.yml`, and GitHub's dynamic Dependabot Updates / Dependency Graph. A workflow
+  that a sync *adds* arrives enabled — disable it unless the fork needs it. Re-enable
+  one with `gh workflow enable <file> -R DeDuva/squad`.
+
 ## Commands
 
 ```bash
