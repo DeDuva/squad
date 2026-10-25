@@ -1,74 +1,9 @@
 version: 2
+
+# Fork-specific (DeDuva/squad). Upstream tracks NuGet and the /docs Astro site too; this
+# fork does not ship either, so it no longer pays for keeping them current. Monthly, a
+# cap of 3 open PRs, and grouping keep the fork's dependency churn to a few PRs a month.
 updates:
-  - package-ecosystem: "nuget"
-    directory: "/src/Squad.Agents.AI"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels: ["dependencies"]
-    commit-message:
-      prefix: "deps"
-    groups:
-      # GitHub.Copilot.SDK is listed in both Microsoft groups deliberately. It is not a
-      # Microsoft.* package, so without this it is proposed on its own — and on its own
-      # is the shape that breaks. SquadAgent.cs reaches CopilotClient through MAF, which
-      # re-exports it, so the two have to arrive together to compile.
-      #
-      # Grouping does not *force* them to move together; it groups whatever updates
-      # exist in a run. It is a strong nudge, not a guarantee, and a solo SDK bump can
-      # still appear. That is acceptable because the failure is loud: both .NET jobs go
-      # red on CS0012, as they did on #124.
-      microsoft-ai-majors:
-        patterns:
-          - "Microsoft.Agents.AI*"
-          - "Microsoft.Extensions.AI"
-          - "GitHub.Copilot.SDK"
-        update-types:
-          - "major"
-      microsoft-packages:
-        patterns:
-          - "Microsoft.*"
-          - "GitHub.Copilot.SDK"
-        update-types:
-          - "minor"
-          - "patch"
-    ignore:
-      - dependency-name: "OpenTelemetry*"
-        update-types:
-          - "version-update:semver-major"
-
-  - package-ecosystem: "nuget"
-    directory: "/test/Squad.Agents.AI.Tests"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels: ["dependencies"]
-    commit-message:
-      prefix: "deps"
-    groups:
-      microsoft-ai-majors:
-        patterns:
-          - "Microsoft.Agents.AI*"
-          - "Microsoft.Extensions.AI"
-        update-types:
-          - "major"
-      microsoft-packages:
-        patterns:
-          - "Microsoft.*"
-        update-types:
-          - "minor"
-          - "patch"
-    ignore:
-      - dependency-name: "OpenTelemetry*"
-        update-types:
-          - "version-update:semver-major"
-
   # npm — the root workspace, which covers every member of `workspaces: packages/*`.
   #
   # There is deliberately no entry for `/packages/squad-cli` or `/packages/squad-sdk`.
@@ -80,11 +15,10 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels: ["dependencies"]
     commit-message:
       prefix: "deps"
@@ -93,6 +27,9 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      majors:
+        update-types:
+          - "major"
     ignore:
       # TypeScript majors wait on typescript-eslint, which gates the whole lint step.
       # Its newest release (8.69.0) still peer-requires `typescript >=4.8.4 <6.1.0`, so
@@ -105,44 +42,30 @@ updates:
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
-
-  # npm — Docs site (Astro/Starlight), which does have its own lockfile.
-  - package-ecosystem: "npm"
-    directory: "/docs"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels: ["dependencies"]
-    commit-message:
-      prefix: "deps"
-    groups:
-      astro-minor-patch:
-        patterns:
-          - "@astrojs/*"
-          - "astro"
+      # vitest 5 fails `test` (#179, #177). Hold vitest majors until squad-lab moves to
+      # vitest 5; then drop these two entries.
+      - dependency-name: "vitest"
         update-types:
-          - "minor"
-          - "patch"
-      minor-patch:
+          - "version-update:semver-major"
+      - dependency-name: "@vitest/*"
         update-types:
-          - "minor"
-          - "patch"
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels: ["dependencies"]
     commit-message:
       prefix: "ci"
     groups:
-      github-actions:
-        patterns:
-          - "*"
+      minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      majors:
+        update-types:
+          - "major"
