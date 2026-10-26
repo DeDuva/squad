@@ -37,11 +37,11 @@
     "variance-report": "npx tsx scripts/variance-report.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.81",
-    "@ai-sdk/google": "^4.0.98",
+    "@ai-sdk/anthropic": "^4.0.87",
+    "@ai-sdk/google": "^4.0.104",
     "@deduvafork/squad-sdk": "*",
-    "@fastify/static": "^10.1.6",
-    "ai": "^7.0.142",
+    "@fastify/static": "^10.1.7",
+    "ai": "^7.0.150",
     "fastify": "^5.12.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -55,6 +55,6 @@
     "msw": "^3.0.3",
     "playwright": "^1.62.1",
     "typescript": "^6.0.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
