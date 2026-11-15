@@ -1,5 +1,12 @@
 # squad (DeDuva fork) — Roadmap
 
+> **Archived 2026-11-15.** The owner closed the fork. squad-lab stops at M14; M15
+> (duva-lab-tpm `reports/m15-next-scope-proposal.md`) is **closed, not deferred**.
+> Nothing runs: the weekly Dependabot review routine was deleted, and Actions and
+> Dependabot stop with the archive. To revive: unarchive the repo on GitHub, recreate
+> the review routine from `.github/prompts/dependabot-review.md` if it is wanted, and
+> start from that proposal.
+
 **This file is the repo's only status ledger.** A PR that completes, starts, pauses, or
 supersedes a milestone updates this file in the same PR. Scope authority for the bench
 track is [`packages/duva-bench/PLAN.md`](packages/duva-bench/PLAN.md) — this file says
@@ -36,7 +43,7 @@ audit live in the private `github.com/DeDuva/duva-lab-tpm`.
 | Item | Status | Evidence / detail |
 |---|---|---|
 | M0–M14 | complete | Fifteen milestone reports in duva-lab-tpm `reports/` — through the 80-run, ~$28 variance study (M14). ⚠️ M12's token figures are known wrong and annotated there |
-| Next scope (M15) | not started — awaiting a decision | squad-lab is **active, not complete** (author, 2026-08-08). duva-lab-tpm `reports/m15-next-scope-proposal.md` collects every forward ask, marks four as shipped, and puts three options with a recommendation. It is a proposal, not a plan of record |
+| Next scope (M15) | **closed 2026-11-15 — repo archived** | Not pursued: the owner closed the fork. Was: squad-lab **active, not complete** (author, 2026-08-08). duva-lab-tpm `reports/m15-next-scope-proposal.md` collects every forward ask, marks four as shipped, and puts three options with a recommendation. It is a proposal, not a plan of record |
 
 ### duva-bench, squad track (`packages/duva-bench`)
 
