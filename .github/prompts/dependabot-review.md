@@ -53,7 +53,7 @@ in the report rather than silently proceeding.
 | Squash merge | enabled | `gh api repos/DeDuva/squad --jq .allow_squash_merge` |
 | Node engines | `>=22.5.0` | `package.json` |
 | npm workspaces | `packages/*` only — `docs/` is a **separate** npm project | `package.json`, `docs/package.json` |
-| Ecosystems Dependabot updates | npm, nuget, github-actions | `.github/dependabot.yml` |
+| Ecosystems Dependabot updates | npm (`/` only), github-actions — monthly, max 3 open PRs. NuGet and `docs/` dropped 2026-10-17; the `.NET` and docs workflows are disabled, so their checks no longer run | `.github/dependabot.yml`, `gh workflow list --all` |
 
 One of these is load-bearing and easy to get wrong:
 

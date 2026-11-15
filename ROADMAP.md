@@ -28,6 +28,7 @@ audit live in the private `github.com/DeDuva/duva-lab-tpm`.
 | Item | Status | Evidence / detail |
 |---|---|---|
 | Replatform (model/harness-agnostic) | complete 2026-08-07 | The `replatform-0.11` line is spent; `dev` was made default at its tip. PRs #74–#89 carry the lab work |
+| Fork maintenance bill (portfolio ops T0.2 + T0.3) | complete 2026-10-17 | 19 upstream-only workflows disabled in GitHub (files untouched); squad-ci drops the `edited` trigger; Dependabot cut to npm `/` + github-actions, monthly, max 3 PRs. Deviations listed in `CLAUDE.md` § Fork deviations |
 | Upstream sync | paused | Decision **DEFER**, taken against a stated rubric (duva-lab-tpm `reports/m1-upstream-sync-decision.md`). Resume condition: the rubric's terms change |
 
 ### squad-lab (`packages/squad-lab`)
